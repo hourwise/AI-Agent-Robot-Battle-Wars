@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { mkdir } from "node:fs/promises";
+import { join } from "node:path";
 import type { ArenaAgent, OpponentSummary } from "../agents/arena-agent.js";
 import type { MachineBuildProposal } from "../validation/validation.types.js";
 import type { MatchResult } from "../simulator/types.js";
@@ -24,6 +26,10 @@ import {
   BULWARK_POLICY,
   getBulwarkOpponentSummary,
 } from "../agents/scripted/bulwark-agent.js";
+import { RandomSeedSource } from "../seed-source.js";
+import { JsonSeriesRepository } from "../persistence/series-repository.js";
+import { renderSeriesReport } from "../reports/series-report.js";
+import { buildComparativeReportModel } from "../reports/series-report.js";
 
 export interface SeriesLogger {
   info(message: string): void;
@@ -357,4 +363,123 @@ export async function runSeries(
   );
 
   return record;
+}
+
+function parseArgs(): {
+  targetWins: number;
+  maximumMatches: number;
+  verbose: boolean;
+} {
+  const args = process.argv.slice(2);
+  let targetWins = 3;
+  let maximumMatches = 5;
+  let verbose = false;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--target-wins" && args[i + 1]) {
+      targetWins = parseInt(args[i + 1]!, 10);
+      if (isNaN(targetWins) || targetWins < 1) {
+        console.error("Invalid --target-wins value");
+        process.exit(1);
+      }
+      i++;
+    } else if (args[i] === "--maximum-matches" && args[i + 1]) {
+      maximumMatches = parseInt(args[i + 1]!, 10);
+      if (isNaN(maximumMatches) || maximumMatches < 1) {
+        console.error("Invalid --maximum-matches value");
+        process.exit(1);
+      }
+      i++;
+    } else if (args[i] === "--verbose") {
+      verbose = true;
+    }
+  }
+
+  return { targetWins, maximumMatches, verbose };
+}
+
+async function main() {
+  const { targetWins, maximumMatches, verbose } = parseArgs();
+
+  const { loadDeepSeekConfig } = await import("../agents/deepseek/deepseek-config.js");
+  const { DeepSeekArenaAgent } = await import("../agents/deepseek/deepseek-agent.js");
+
+  let config;
+  try {
+    config = loadDeepSeekConfig();
+  } catch {
+    console.error(
+      "DeepSeek configuration not found. Set DEEPSEEK_API_KEY in .env or environment.",
+    );
+    process.exit(1);
+  }
+
+  const agent: ArenaAgent = new DeepSeekArenaAgent(config);
+  const seriesDir = join(process.cwd(), "data", "series");
+  await mkdir(seriesDir, { recursive: true });
+  const seriesRepository = new JsonSeriesRepository(seriesDir);
+  const seedSource = new RandomSeedSource();
+
+  const logger: SeriesLogger = {
+    info: (msg) => console.log(msg),
+    warn: (msg) => console.log(`WARN: ${msg}`),
+    error: (msg) => console.error(`ERROR: ${msg}`),
+  };
+
+  console.log("=".repeat(50));
+  console.log("FORGE ARENA — Best-of-Five Series");
+  console.log("=".repeat(50));
+  console.log(`Target wins: ${targetWins}`);
+  console.log(`Maximum matches: ${maximumMatches}`);
+  console.log("");
+
+  const record = await runSeries(
+    {
+      competitor: { id: "ai", displayName: "DeepSeek AI", provider: "deepseek" },
+      targetWins,
+      maximumMatches,
+    },
+    { agent, seriesRepository, seedSource, logger },
+  );
+
+  console.log("");
+  console.log("=".repeat(50));
+  console.log("SERIES COMPLETE");
+  console.log("=".repeat(50));
+  console.log(
+    `Score: AI ${record.score.aiWins} - ${record.score.bulwarkWins} Bulwark (${record.score.draws} draws)`,
+  );
+  console.log(`Winner: ${record.winner ?? "none (draw)"}`);
+  console.log(`Series ID: ${record.seriesId}`);
+
+  if (record.totalUsage.recordCount > 0) {
+    console.log("");
+    console.log("API Usage:");
+    console.log(`  Total input tokens: ${record.totalUsage.totalInputTokens}`);
+    console.log(`  Total output tokens: ${record.totalUsage.totalOutputTokens}`);
+    if (record.totalUsage.totalCostUsd !== null) {
+      console.log(`  Total cost: $${record.totalUsage.totalCostUsd.toFixed(4)}`);
+    }
+  }
+
+  if (record.entries.length > 0) {
+    const model = buildComparativeReportModel(record);
+    const report = renderSeriesReport(model);
+    if (verbose) {
+      console.log("");
+      console.log(report);
+    }
+  }
+
+  console.log(`\nSeries saved: ${seriesDir}/${record.seriesId}.json`);
+}
+
+if (
+  process.argv[1] &&
+  (process.argv[1].endsWith("run-series.ts") || process.argv[1].endsWith("run-series.js"))
+) {
+  main().catch((e) => {
+    console.error("Fatal error:", e instanceof Error ? e.message : String(e));
+    process.exit(1);
+  });
 }

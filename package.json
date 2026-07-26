@@ -17,6 +17,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "match": "tsx src/app/run-match.ts",
+    "series": "tsx src/app/run-series.ts",
+    "replay": "tsx src/app/replay-match.ts",
     "smoke:design": "tsx src/app/smoke-design.ts"
   },
   "keywords": [

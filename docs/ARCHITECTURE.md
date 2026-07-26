@@ -43,19 +43,49 @@ src/
   config/         Environment validation and configuration
   shared/         Shared utilities (text sanitisation)
   catalogue/      Versioned component catalogue
-  schemas/        Zod schemas (build, match record)
-  validation/     Build and decision validators
-  simulator/      Deterministic combat engine
+  schemas/        Zod schemas (build, policy, review, factual report, series, match record)
+  validation/     Build and semantic validators
+  simulator/      Deterministic combat engine (actions, damage, movement, victory, seeded random)
   events/         Event types and factory
   replay/         Text renderer and statistics
   replay/ascii/   Presentation-only ASCII rendering layer
-  persistence/    Match and series repositories
+  persistence/    Match and series repositories (atomic JSON)
   agents/         ArenaAgent interface and provider adapters
-  prompts/        Versioned prompt templates
-  app/            CLI entry points
+  agents/deepseek/  DeepSeek adapter (design, policy, review)
+  agents/scripted/  Deterministic scripted opponents (Bulwark)
+  prompts/        Versioned prompt templates (design, policy, review)
+  reports/        Deterministic factual reports, review formatting, design diffs, series reports
+  app/            CLI entry points (run-match, run-series, replay-match)
+  types/          Shared types (agent usage)
 ```
 
 Each layer depends only on layers below it. The simulator never imports agents, persistence or replay. Agents never import the simulator.
+
+### Agent usage tracking
+
+Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.
+
+### Cost calculation
+
+`agents/cost-calculator.ts` provides `estimateCost()` and `getPricingTier()` for token usage estimation. Used for display purposes; actual billing comes from the provider.
+
+### Fallback policy
+
+`agents/fallback-policy.ts` provides a legal default `ActionPolicy` used when the AI fails to produce a valid policy. The policy version is tracked for reproducibility.
+
+### Reports
+
+- `reports/factual-match-report.ts` — builds a deterministic `FactualMatchReport` from `MatchResult` without AI involvement (D18)
+- `reports/review-formatter.ts` — converts factual report data into prompt-safe text
+- `reports/design-diff.ts` — structured comparison of two build proposals
+- `reports/series-report.ts` — comparative report model across a series
+
+### Seed source
+
+`seed-source.ts` provides a `SeedSource` interface with two implementations:
+
+- `DeterministicSeedSource` — returns pre-seeded values (for tests)
+- `RandomSeedSource` — generates random seeds (for CLI)
 
 ### Shared utilities
 
