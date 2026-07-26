@@ -295,3 +295,141 @@ describe("populateHighlightStates", () => {
     expect(populated[0]!.stateAfter.fighterB.integrity).toBe(90);
   });
 });
+
+describe("cumulative state reconstruction (both fighters to center)", () => {
+  it("shows both fighters in centre after Round 1 movements", () => {
+    const input = makeInput();
+    // Fighter A advances from south_edge to center
+    // Fighter B advances from north_edge to center
+    input.events = [
+      makeEvent({
+        type: "movement_resolved",
+        round: 1,
+        sequence: 0,
+        actorId: "fighter_a",
+        data: { from: "south_edge", to: "center", facing: "north", action: "advance" },
+      }),
+      makeEvent({
+        type: "movement_resolved",
+        round: 1,
+        sequence: 1,
+        actorId: "fighter_b",
+        data: { from: "north_edge", to: "center", facing: "south", action: "advance" },
+      }),
+    ];
+
+    const round1State = getStateAfterEvents(input, input.events);
+    expect(round1State.fighterA.zone).toBe("center");
+    expect(round1State.fighterB.zone).toBe("center");
+  });
+
+  it("retains centre positions through later highlights (Round 4 and 6)", () => {
+    const input = makeInput();
+    // Round 1: both advance to center
+    // Rounds 2-6: various attack events, no further movement
+    input.events = [
+      makeEvent({
+        type: "movement_resolved",
+        round: 1,
+        sequence: 0,
+        actorId: "fighter_a",
+        data: { from: "south_edge", to: "center", facing: "north", action: "advance" },
+      }),
+      makeEvent({
+        type: "movement_resolved",
+        round: 1,
+        sequence: 1,
+        actorId: "fighter_b",
+        data: { from: "north_edge", to: "center", facing: "south", action: "advance" },
+      }),
+      makeEvent({
+        type: "attack_hit",
+        round: 2,
+        sequence: 2,
+        actorId: "fighter_a",
+        targetId: "fighter_b",
+        data: { weapon: "ram", hitZone: "front", effectiveDamage: 15, isCritical: false },
+      }),
+      makeEvent({
+        type: "integrity_damaged",
+        round: 2,
+        sequence: 3,
+        actorId: "fighter_a",
+        targetId: "fighter_b",
+        data: { damage: 15, remaining: 135 },
+      }),
+      makeEvent({
+        type: "attack_hit",
+        round: 4,
+        sequence: 4,
+        actorId: "fighter_b",
+        targetId: "fighter_a",
+        data: { weapon: "ram", hitZone: "front", effectiveDamage: 12, isCritical: false },
+      }),
+      makeEvent({
+        type: "integrity_damaged",
+        round: 4,
+        sequence: 5,
+        actorId: "fighter_b",
+        targetId: "fighter_a",
+        data: { damage: 12, remaining: 138 },
+      }),
+      makeEvent({
+        type: "attack_hit",
+        round: 6,
+        sequence: 6,
+        actorId: "fighter_a",
+        targetId: "fighter_b",
+        data: { weapon: "ram", hitZone: "front", effectiveDamage: 18, isCritical: true },
+      }),
+      makeEvent({
+        type: "integrity_damaged",
+        round: 6,
+        sequence: 7,
+        actorId: "fighter_a",
+        targetId: "fighter_b",
+        data: { damage: 18, remaining: 117 },
+      }),
+    ];
+
+    // Get state after Round 4 events (up to sequence 5)
+    const round4Events = input.events.filter((e) => e.sequence <= 5);
+    const round4State = getStateAfterEvents(input, round4Events);
+    expect(round4State.fighterA.zone).toBe("center");
+    expect(round4State.fighterB.zone).toBe("center");
+
+    // Get state after Round 6 events (up to sequence 7)
+    const round6Events = input.events.filter((e) => e.sequence <= 7);
+    const round6State = getStateAfterEvents(input, round6Events);
+    expect(round6State.fighterA.zone).toBe("center");
+    expect(round6State.fighterB.zone).toBe("center");
+  });
+
+  it("does not overwrite mid-round positions with opening positions", () => {
+    const input = makeInput();
+    input.events = [
+      makeEvent({
+        type: "movement_resolved",
+        round: 1,
+        sequence: 0,
+        actorId: "fighter_a",
+        data: { from: "south_edge", to: "center", facing: "north", action: "advance" },
+      }),
+      makeEvent({
+        type: "movement_resolved",
+        round: 1,
+        sequence: 1,
+        actorId: "fighter_b",
+        data: { from: "north_edge", to: "center", facing: "south", action: "advance" },
+      }),
+    ];
+
+    // getRoundEndState(1) must show both at center, not at edges
+    const state = getRoundEndState(input, 1);
+    expect(state!.fighterA.zone).toBe("center");
+    expect(state!.fighterB.zone).toBe("center");
+    // Specifically NOT the opening positions
+    expect(state!.fighterA.zone).not.toBe("south_edge");
+    expect(state!.fighterB.zone).not.toBe("north_edge");
+  });
+});

@@ -1,5 +1,6 @@
 export { sanitizeName } from "../../shared/text-sanitise.js";
 export { sanitizeTerminalText } from "../../shared/text-sanitise.js";
+export { resolveDisplayName } from "../../shared/text-sanitise.js";
 
 export const DEFAULT_MAX_WIDTH = 80;
 export const ARENA_WIDTH = 52;

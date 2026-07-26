@@ -43,3 +43,14 @@ export function sanitizeName(name: string, maxLength = 20): string {
   }
   return cleaned.length > 0 ? cleaned : "UNKNOWN";
 }
+
+export function resolveDisplayName(
+  fighterId: string,
+  nameA: string,
+  nameB: string,
+): string {
+  if (nameA === nameB) {
+    return fighterId === "fighter_a" ? `${nameA} [A]` : `${nameB} [B]`;
+  }
+  return fighterId === "fighter_a" ? nameA : nameB;
+}

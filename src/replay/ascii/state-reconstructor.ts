@@ -41,18 +41,24 @@ export function getStateAfterEvents(
 function applyEvent(state: CompetitionState, event: SimulationEvent): CompetitionState {
   switch (event.type) {
     case "movement_resolved": {
-      const data = event.data as { to: string; facing: string };
-      const fighterId = event.actorId;
+      const data = event.data as { to: string; facing: string; action?: string };
+      // For knockback events, the fighter whose zone changed is targetId (the one knocked back).
+      // For normal movement, it is actorId.
+      const isKnockback = data.action === "knockback";
+      const fighterId = isKnockback ? event.targetId : event.actorId;
+      const facing =
+        data.facing ??
+        (fighterId === "fighter_a" ? state.fighterA.facing : state.fighterB.facing);
       if (fighterId === "fighter_a") {
         return {
           ...state,
-          fighterA: { ...state.fighterA, zone: data.to, facing: data.facing },
+          fighterA: { ...state.fighterA, zone: data.to, facing },
         };
       }
       if (fighterId === "fighter_b") {
         return {
           ...state,
-          fighterB: { ...state.fighterB, zone: data.to, facing: data.facing },
+          fighterB: { ...state.fighterB, zone: data.to, facing },
         };
       }
       return state;
@@ -188,15 +194,25 @@ export function populateHighlightStates(
   input: AsciiReplayInput,
   moments: HighlightMoment[],
 ): HighlightMoment[] {
-  return moments.map((moment, index) => {
-    const previousState =
-      index > 0 ? moments[index - 1]!.stateAfter : getInitialState(input);
+  return moments.map((moment) => {
+    const lastEvent = moment.events[moment.events.length - 1];
+    if (!lastEvent) {
+      return { ...moment, stateAfter: getInitialState(input) };
+    }
 
-    const stateAfter = getStateAfterEvents(input, moment.events);
+    const eventsUpTo = input.events.filter((e) => e.sequence <= lastEvent.sequence);
 
-    return {
-      ...moment,
-      stateAfter: stateAfter ?? previousState,
-    };
+    const inputSequences = new Set(eventsUpTo.map((e) => e.sequence));
+    const missingMomentEvents = moment.events.filter(
+      (e) => !inputSequences.has(e.sequence),
+    );
+
+    const allEvents = [...eventsUpTo, ...missingMomentEvents].sort(
+      (a, b) => a.sequence - b.sequence,
+    );
+
+    const stateAfter = getStateAfterEvents(input, allEvents);
+
+    return { ...moment, stateAfter };
   });
 }

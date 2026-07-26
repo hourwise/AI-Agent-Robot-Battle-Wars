@@ -1,4 +1,10 @@
-import type { FighterState, ArmourState, ArenaZone } from "./types.js";
+import type {
+  FighterState,
+  ArmourState,
+  ArenaZone,
+  PrimaryTarget,
+  SecondaryTarget,
+} from "./types.js";
 import type { SeededRandom } from "./seeded-random.js";
 import {
   DAMAGE_VARIANCE,
@@ -33,6 +39,8 @@ export function calculateAttack(
   hitChance: number,
   movementMomentum: number,
   rng: SeededRandom,
+  primaryTarget?: PrimaryTarget,
+  secondaryTarget?: SecondaryTarget,
 ): AttackResult {
   const isOverturned = defender.conditions.includes("overturned");
   const adjustedHitChance = applyOverturnedEvasionPenalty(hitChance, isOverturned);
@@ -52,7 +60,14 @@ export function calculateAttack(
   }
 
   const weaponId = attacker.build.proposal.weaponId;
-  const hitZone = determineHitZone(attacker, defender, weaponId, rng);
+  const hitZone = determineHitZone(
+    attacker,
+    defender,
+    weaponId,
+    rng,
+    primaryTarget,
+    secondaryTarget,
+  );
 
   const baseDamage =
     weaponId === "grappler" ? GRAPPLER_BASE_DAMAGE : getWeaponBaseDamage(weaponId);
@@ -124,26 +139,42 @@ function getWeaponBaseDamage(weaponId: string): number {
   }
 }
 
-function determineHitZone(
+export function determineHitZone(
   attacker: FighterState,
   defender: FighterState,
   weaponId: string,
-  rng: SeededRandom,
+  _rng: SeededRandom,
+  primaryTarget?: PrimaryTarget,
+  secondaryTarget?: SecondaryTarget,
 ): keyof ArmourState {
-  const exposed = getExposedZones(attacker, defender);
-  const primary: keyof ArmourState = weaponId === "hammer" ? "top" : "front";
+  const exposed = getExposedZones(attacker, defender, weaponId);
+  const primary: keyof ArmourState =
+    primaryTarget ?? (weaponId === "hammer" ? "top" : "front");
+  const secondary: keyof ArmourState = secondaryTarget ?? "front";
 
   if (exposed.includes(primary)) return primary;
-  if (exposed.length > 0) return rng.pick(exposed);
+  if (exposed.includes(secondary)) return secondary;
+  // Per RULESET.md: if neither primary nor secondary is exposed, default to front.
   return "front";
 }
 
-function getExposedZones(
+export function getExposedZones(
   attacker: FighterState,
   defender: FighterState,
+  weaponId: string,
 ): Array<keyof ArmourState> {
   const facing = defender.facing;
-  const zones: Array<keyof ArmourState> = ["top"];
+  const zones: Array<keyof ArmourState> = [];
+
+  // Top armour is only exposed to overhead attacks (hammer).
+  if (weaponId === "hammer") {
+    zones.push("top");
+  }
+
+  if (attacker.zone === defender.zone) {
+    zones.push("front", "left", "right");
+    return zones;
+  }
 
   if (facing === "north" && isSouthOf(attacker.zone, defender.zone)) zones.push("front");
   if (facing === "south" && isNorthOf(attacker.zone, defender.zone)) zones.push("front");

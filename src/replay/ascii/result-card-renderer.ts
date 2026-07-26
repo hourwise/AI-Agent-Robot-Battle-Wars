@@ -2,6 +2,7 @@ import type { CompetitionResult, SimulationEvent } from "../../simulator/types.j
 import type { CompetitionState } from "./ascii.types.js";
 import {
   sanitizeName,
+  resolveDisplayName,
   RESULT_SEPARATOR,
   padCenter,
   ARENA_WIDTH,
@@ -73,8 +74,10 @@ function getFighterName(
   state: CompetitionState,
 ): string {
   if (!fighterId) return "Unknown";
-  const fighter = fighterId === "fighter_a" ? state.fighterA : state.fighterB;
-  return sanitizeName(fighter.build.proposal.machineName, 16);
+  const nameA = state.fighterA.build.proposal.machineName;
+  const nameB = state.fighterB.build.proposal.machineName;
+  const raw = resolveDisplayName(fighterId, nameA, nameB);
+  return sanitizeName(raw, 16);
 }
 
 function renderJudgeScores(
@@ -103,8 +106,22 @@ function renderJudgeScores(
   state: CompetitionState,
 ): string {
   const lines: string[] = [];
-  const nameA = sanitizeName(state.fighterA.build.proposal.machineName, 16);
-  const nameB = sanitizeName(state.fighterB.build.proposal.machineName, 16);
+  const nameA = sanitizeName(
+    resolveDisplayName(
+      "fighter_a",
+      state.fighterA.build.proposal.machineName,
+      state.fighterB.build.proposal.machineName,
+    ),
+    16,
+  );
+  const nameB = sanitizeName(
+    resolveDisplayName(
+      "fighter_b",
+      state.fighterA.build.proposal.machineName,
+      state.fighterB.build.proposal.machineName,
+    ),
+    16,
+  );
 
   lines.push(padCenter("JUDGES' SCORES", ARENA_WIDTH));
   lines.push("");

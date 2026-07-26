@@ -9,7 +9,7 @@ import { selectHighlights } from "./highlight-selector.js";
 import { populateHighlightStates, getInitialState } from "./state-reconstructor.js";
 import { renderMoment, renderOpeningFrame } from "./moment-renderer.js";
 import { renderResultCard } from "./result-card-renderer.js";
-import { SEPARATOR, padCenter, ARENA_WIDTH } from "./ascii-layout.js";
+import { SEPARATOR, padCenter, ARENA_WIDTH, resolveDisplayName } from "./ascii-layout.js";
 
 function adaptMatchResult(result: MatchResult): AsciiReplayInput {
   return {
@@ -56,9 +56,20 @@ function renderFighterCards(state: CompetitionState): string {
   lines.push(SEPARATOR);
   lines.push("");
 
-  lines.push(renderPortrait(state.fighterA.build, state.fighterA));
+  const nameA = resolveDisplayName(
+    "fighter_a",
+    state.fighterA.build.proposal.machineName,
+    state.fighterB.build.proposal.machineName,
+  );
+  const nameB = resolveDisplayName(
+    "fighter_b",
+    state.fighterA.build.proposal.machineName,
+    state.fighterB.build.proposal.machineName,
+  );
+
+  lines.push(renderPortrait(state.fighterA.build, state.fighterA, nameA));
   lines.push("");
-  lines.push(renderPortrait(state.fighterB.build, state.fighterB));
+  lines.push(renderPortrait(state.fighterB.build, state.fighterB, nameB));
   lines.push("");
 
   return lines.join("\n");

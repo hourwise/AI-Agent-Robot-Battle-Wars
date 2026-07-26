@@ -15,6 +15,7 @@ import {
   buildFactualReport,
   enrichMatchSummariesWithPolicy,
 } from "../reports/factual-match-report.js";
+import { resolveDisplayName } from "../shared/text-sanitise.js";
 import type { ValidatedBuild } from "../validation/validation.types.js";
 import type { ActionPolicy } from "../simulator/types.js";
 import type { AgentUsageRecord } from "../types/agent-usage.js";
@@ -160,8 +161,12 @@ async function main() {
   }
 
   console.log("");
-  console.log(`Fighter A: ${fighterA.build.proposal.machineName} (${fighterA.source})`);
-  console.log(`Fighter B: ${fighterB.build.proposal.machineName} (${fighterB.source})`);
+  const rawNameA = fighterA.build.proposal.machineName;
+  const rawNameB = fighterB.build.proposal.machineName;
+  const displayNameA = resolveDisplayName("fighter_a", rawNameA, rawNameB);
+  const displayNameB = resolveDisplayName("fighter_b", rawNameA, rawNameB);
+  console.log(`Fighter A: ${displayNameA} (${fighterA.source})`);
+  console.log(`Fighter B: ${displayNameB} (${fighterB.source})`);
   console.log("");
 
   console.log("Running match...");
@@ -176,10 +181,11 @@ async function main() {
   console.log(`Match completed in ${result.rounds} round(s).`);
   console.log(`Result: ${result.result.method}`);
   if (result.result.winner) {
-    const winnerName =
-      result.result.winner === "fighter_a"
-        ? fighterA.build.proposal.machineName
-        : fighterB.build.proposal.machineName;
+    const winnerName = resolveDisplayName(
+      result.result.winner,
+      fighterA.build.proposal.machineName,
+      fighterB.build.proposal.machineName,
+    );
     console.log(`Winner: ${winnerName}`);
   } else {
     console.log("Result: Draw");

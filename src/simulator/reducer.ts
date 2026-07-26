@@ -4,6 +4,7 @@ import type {
   SimulationEvent,
   ArenaZone,
   Condition,
+  ActionPolicy,
 } from "./types.js";
 import type { SeededRandom } from "./seeded-random.js";
 import { resolveMovement } from "./movement.js";
@@ -40,6 +41,8 @@ export function applyRound(
   rng: SeededRandom,
   round: number,
   timestampMs: number,
+  policyA?: ActionPolicy,
+  policyB?: ActionPolicy,
 ): RoundState {
   let a = { ...state.fighterA };
   let b = { ...state.fighterB };
@@ -117,10 +120,26 @@ export function applyRound(
     b.weaponCooldown <= 0;
 
   const attackResultA = attackA
-    ? calculateAttack(a, b, computeHitChance(a, b, rng), momentumA, rng)
+    ? calculateAttack(
+        a,
+        b,
+        computeHitChance(a, b, rng),
+        momentumA,
+        rng,
+        policyA?.primaryTarget,
+        policyA?.secondaryTarget,
+      )
     : null;
   const attackResultB = attackB
-    ? calculateAttack(b, a, computeHitChance(b, a, rng), momentumB, rng)
+    ? calculateAttack(
+        b,
+        a,
+        computeHitChance(b, a, rng),
+        momentumB,
+        rng,
+        policyB?.primaryTarget,
+        policyB?.secondaryTarget,
+      )
     : null;
 
   let damageAtoB = 0;
@@ -167,10 +186,12 @@ export function applyRound(
       if (attackResultA.knockback) {
         const newZone = getKnockbackZone(a.zone, b.zone);
         if (newZone && newZone !== b.zone) {
+          const originalZone = b.zone;
           b = { ...b, zone: newZone };
-          emit("movement_resolved", b.fighterId, undefined, {
-            from: attackResultA.hitZone,
+          emit("movement_resolved", a.fighterId, b.fighterId, {
+            from: originalZone,
             to: newZone,
+            facing: b.facing,
             action: "knockback",
           });
         }
@@ -231,10 +252,12 @@ export function applyRound(
       if (attackResultB.knockback) {
         const newZone = getKnockbackZone(b.zone, a.zone);
         if (newZone && newZone !== a.zone) {
+          const originalZone = a.zone;
           a = { ...a, zone: newZone };
-          emit("movement_resolved", a.fighterId, undefined, {
-            from: attackResultB.hitZone,
+          emit("movement_resolved", b.fighterId, a.fighterId, {
+            from: originalZone,
             to: newZone,
+            facing: a.facing,
             action: "knockback",
           });
         }

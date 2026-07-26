@@ -1,15 +1,11 @@
 import type { MatchResult, SimulationEvent } from "../simulator/types.js";
-import { sanitizeTerminalText } from "../shared/text-sanitise.js";
+import { sanitizeTerminalText, resolveDisplayName } from "../shared/text-sanitise.js";
 
 function getFighterName(fighterId: string | undefined, result: MatchResult): string {
   if (!fighterId) return "Unknown";
-  if (fighterId === "fighter_a") {
-    return sanitizeTerminalText(result.config.fighterA.build.proposal.machineName);
-  }
-  if (fighterId === "fighter_b") {
-    return sanitizeTerminalText(result.config.fighterB.build.proposal.machineName);
-  }
-  return fighterId;
+  const nameA = sanitizeTerminalText(result.config.fighterA.build.proposal.machineName);
+  const nameB = sanitizeTerminalText(result.config.fighterB.build.proposal.machineName);
+  return resolveDisplayName(fighterId, nameA, nameB);
 }
 
 function formatZone(zone: string): string {
@@ -27,7 +23,7 @@ function formatWeapon(weapon: string): string {
     .join(" ");
 }
 
-function describeEvent(event: SimulationEvent, result: MatchResult): string {
+export function describeEvent(event: SimulationEvent, result: MatchResult): string {
   const actor = getFighterName(event.actorId, result);
   const target = getFighterName(event.targetId, result);
 
@@ -41,8 +37,12 @@ function describeEvent(event: SimulationEvent, result: MatchResult): string {
     case "movement_resolved": {
       const action = event.data.action as string;
       const to = event.data.to as string;
+      const from = event.data.from as string;
       if (action === "knockback") {
         return `${actor} knocks ${target} back to ${formatZone(to)}.`;
+      }
+      if (from === to) {
+        return `${actor} turns while holding ${formatZone(to)}.`;
       }
       return `${actor} moves to ${formatZone(to)}.`;
     }
@@ -90,11 +90,15 @@ function describeEvent(event: SimulationEvent, result: MatchResult): string {
         fighterA: { integrity: number; heat: number };
         fighterB: { integrity: number; heat: number };
       };
-      const nameA = sanitizeTerminalText(
-        result.config.fighterA.build.proposal.machineName,
+      const nameA = resolveDisplayName(
+        "fighter_a",
+        sanitizeTerminalText(result.config.fighterA.build.proposal.machineName),
+        sanitizeTerminalText(result.config.fighterB.build.proposal.machineName),
       );
-      const nameB = sanitizeTerminalText(
-        result.config.fighterB.build.proposal.machineName,
+      const nameB = resolveDisplayName(
+        "fighter_b",
+        sanitizeTerminalText(result.config.fighterA.build.proposal.machineName),
+        sanitizeTerminalText(result.config.fighterB.build.proposal.machineName),
       );
       return `End of round ${event.round}. ${nameA}: ${data.fighterA.integrity} integrity, ${data.fighterA.heat} heat. ${nameB}: ${data.fighterB.integrity} integrity, ${data.fighterB.heat} heat.`;
     }
@@ -115,8 +119,16 @@ function describeEvent(event: SimulationEvent, result: MatchResult): string {
 export function renderTextReplay(result: MatchResult): string {
   const lines: string[] = [];
 
-  const nameA = sanitizeTerminalText(result.config.fighterA.build.proposal.machineName);
-  const nameB = sanitizeTerminalText(result.config.fighterB.build.proposal.machineName);
+  const nameA = resolveDisplayName(
+    "fighter_a",
+    sanitizeTerminalText(result.config.fighterA.build.proposal.machineName),
+    sanitizeTerminalText(result.config.fighterB.build.proposal.machineName),
+  );
+  const nameB = resolveDisplayName(
+    "fighter_b",
+    sanitizeTerminalText(result.config.fighterA.build.proposal.machineName),
+    sanitizeTerminalText(result.config.fighterB.build.proposal.machineName),
+  );
 
   lines.push("=".repeat(50));
   lines.push(`${nameA.toUpperCase()} vs ${nameB.toUpperCase()}`);

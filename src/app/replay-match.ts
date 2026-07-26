@@ -2,6 +2,8 @@ import { join } from "node:path";
 import { JsonMatchRepository } from "../persistence/json-match-repository.js";
 import { renderTextReplay } from "../replay/text-replay-renderer.js";
 import { renderAsciiReplay } from "../replay/ascii/ascii-replay-renderer.js";
+import { formatMatchStatistics, computeMatchStatistics } from "../replay/statistics.js";
+import { resolveDisplayName } from "../shared/text-sanitise.js";
 import type { MatchRecord } from "../schemas/match-record.schema.js";
 
 const DATA_DIR = join(process.cwd(), "data", "matches");
@@ -57,8 +59,10 @@ function printMatchInfo(record: MatchRecord): void {
   console.log(`Seed:        ${record.seed}`);
   console.log("");
 
-  const fighterAName = record.config.fighterA.build.proposal.machineName;
-  const fighterBName = record.config.fighterB.build.proposal.machineName;
+  const rawNameA = record.config.fighterA.build.proposal.machineName;
+  const rawNameB = record.config.fighterB.build.proposal.machineName;
+  const fighterAName = resolveDisplayName("fighter_a", rawNameA, rawNameB);
+  const fighterBName = resolveDisplayName("fighter_b", rawNameA, rawNameB);
   console.log(`Fighter A: ${fighterAName}`);
   console.log(`Fighter B: ${fighterBName}`);
   console.log("");
@@ -86,10 +90,9 @@ function printResult(record: MatchRecord): void {
   console.log("-".repeat(50));
 
   if (result.winner) {
-    const winnerName =
-      result.winner === "fighter_a"
-        ? record.config.fighterA.build.proposal.machineName
-        : record.config.fighterB.build.proposal.machineName;
+    const rawNameA = record.config.fighterA.build.proposal.machineName;
+    const rawNameB = record.config.fighterB.build.proposal.machineName;
+    const winnerName = resolveDisplayName(result.winner, rawNameA, rawNameB);
     console.log(`Winner: ${winnerName}`);
   } else {
     console.log("Winner: Draw");
@@ -126,28 +129,16 @@ async function main() {
   }
 
   if (stats) {
-    console.log("\n" + "=".repeat(50));
-    console.log("MATCH STATISTICS");
-    console.log("=".repeat(50) + "\n");
-
-    const events = record.events;
-    const attacks = events.filter(
-      (e) => e.type === "attack_hit" || e.type === "attack_missed",
-    );
-    const hits = events.filter((e) => e.type === "attack_hit");
-    const crits = events.filter(
-      (e) => e.type === "component_damaged" || e.type === "component_disabled",
-    );
-    const movements = events.filter((e) => e.type === "movement_resolved");
-
-    console.log(`Total attacks: ${attacks.length}`);
-    console.log(`Hits: ${hits.length}`);
-    console.log(
-      `Accuracy: ${attacks.length > 0 ? Math.round((hits.length / attacks.length) * 100) : 0}%`,
-    );
-    console.log(`Critical hits: ${crits.length}`);
-    console.log(`Movements: ${movements.length}`);
+    const matchResult = {
+      config: record.config,
+      initialState: record.initialState,
+      events: record.events,
+      result: record.result,
+      rounds: record.rounds,
+    } as import("../simulator/types.js").MatchResult;
+    const statistics = computeMatchStatistics(matchResult);
     console.log("");
+    console.log(formatMatchStatistics(statistics));
   }
 
   printResult(record);

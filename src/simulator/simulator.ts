@@ -99,6 +99,8 @@ export function runMatch(config: MatchConfig): MatchResult {
       rng,
       round,
       roundTs,
+      config.fighterA.policy,
+      config.fighterB.policy,
     );
 
     emit("round_ended", round, roundTs, undefined, undefined, {

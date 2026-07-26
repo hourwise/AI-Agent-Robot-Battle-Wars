@@ -48,11 +48,14 @@ export function extractPortraitData(build: ValidatedBuild): PortraitData {
 export function renderPortrait(
   build: ValidatedBuild,
   state?: FighterVisualState,
+  displayName?: string,
 ): string {
   const data = extractPortraitData(build);
   const lines: string[] = [];
 
-  const name = sanitizeName(data.machineName, 24);
+  const name = displayName
+    ? sanitizeName(displayName, 24)
+    : sanitizeName(data.machineName, 24);
   lines.push(padCenter(name.toUpperCase(), PORTRAIT_WIDTH));
   lines.push(
     padCenter(
@@ -103,9 +106,12 @@ export function renderPortrait(
 export function renderCompactPortrait(
   build: ValidatedBuild,
   state?: FighterVisualState,
+  displayName?: string,
 ): string {
   const data = extractPortraitData(build);
-  const name = sanitizeName(data.machineName, 16);
+  const name = displayName
+    ? sanitizeName(displayName, 16)
+    : sanitizeName(data.machineName, 16);
   const parts = [name.toUpperCase()];
 
   if (state) {

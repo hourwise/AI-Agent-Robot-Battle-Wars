@@ -1,5 +1,5 @@
 import type { MatchResult } from "../simulator/types.js";
-import { sanitizeTerminalText } from "../shared/text-sanitise.js";
+import { sanitizeTerminalText, resolveDisplayName } from "../shared/text-sanitise.js";
 
 export interface FighterStatistics {
   fighterId: string;
@@ -67,8 +67,14 @@ function lookupStats(
 }
 
 export function computeMatchStatistics(result: MatchResult): MatchStatistics {
-  const nameA = sanitizeTerminalText(result.config.fighterA.build.proposal.machineName);
-  const nameB = sanitizeTerminalText(result.config.fighterB.build.proposal.machineName);
+  const rawNameA = sanitizeTerminalText(
+    result.config.fighterA.build.proposal.machineName,
+  );
+  const rawNameB = sanitizeTerminalText(
+    result.config.fighterB.build.proposal.machineName,
+  );
+  const nameA = resolveDisplayName("fighter_a", rawNameA, rawNameB);
+  const nameB = resolveDisplayName("fighter_b", rawNameA, rawNameB);
 
   const statsA = createFighterStats(
     "fighter_a",

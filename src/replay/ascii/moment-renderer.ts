@@ -1,7 +1,13 @@
 import type { SimulationEvent } from "../../simulator/types.js";
 import type { HighlightMoment, CompetitionState } from "./ascii.types.js";
 import { renderArenaSnapshot } from "./arena-snapshot-renderer.js";
-import { sanitizeName, SEPARATOR, padCenter, ARENA_WIDTH } from "./ascii-layout.js";
+import {
+  sanitizeName,
+  resolveDisplayName,
+  SEPARATOR,
+  padCenter,
+  ARENA_WIDTH,
+} from "./ascii-layout.js";
 
 function describeEvent(event: SimulationEvent, state: CompetitionState): string {
   const actorName = getFighterName(event.actorId, state);
@@ -14,7 +20,7 @@ function describeEvent(event: SimulationEvent, state: CompetitionState): string 
       const damage = event.data.effectiveDamage as number;
       const isCritical = event.data.isCritical as boolean;
       const critText = isCritical ? " critically" : "";
-      return `${actorName} ${critText} strikes ${targetName}'s ${hitZone} armour with ${weapon} for ${damage} damage.`;
+      return `${actorName}${critText} strikes ${targetName}'s ${hitZone} armour with ${weapon} for ${damage} damage.`;
     }
 
     case "integrity_damaged": {
@@ -35,8 +41,12 @@ function describeEvent(event: SimulationEvent, state: CompetitionState): string 
     case "movement_resolved": {
       const action = event.data.action as string;
       const to = event.data.to as string;
+      const from = event.data.from as string;
       if (action === "knockback") {
         return `${targetName} is knocked back to ${formatZone(to)}.`;
+      }
+      if (from === to) {
+        return `${actorName} turns while holding ${formatZone(to)}.`;
       }
       return `${actorName} moves to ${formatZone(to)}.`;
     }
@@ -53,8 +63,10 @@ function describeEvent(event: SimulationEvent, state: CompetitionState): string 
 
 function getFighterName(fighterId: string | undefined, state: CompetitionState): string {
   if (!fighterId) return "Unknown";
-  const fighter = fighterId === "fighter_a" ? state.fighterA : state.fighterB;
-  return sanitizeName(fighter.build.proposal.machineName, 16);
+  const nameA = state.fighterA.build.proposal.machineName;
+  const nameB = state.fighterB.build.proposal.machineName;
+  const raw = resolveDisplayName(fighterId, nameA, nameB);
+  return sanitizeName(raw, 20);
 }
 
 function formatZone(zone: string): string {
@@ -111,12 +123,19 @@ export function renderOpeningFrame(state: CompetitionState, seed: number): strin
   lines.push(arena);
   lines.push("");
 
-  lines.push(
-    `${sanitizeName(state.fighterA.build.proposal.machineName, 16)} starts at south edge.`,
+  const nameA = resolveDisplayName(
+    "fighter_a",
+    state.fighterA.build.proposal.machineName,
+    state.fighterB.build.proposal.machineName,
   );
-  lines.push(
-    `${sanitizeName(state.fighterB.build.proposal.machineName, 16)} starts at north edge.`,
+  const nameB = resolveDisplayName(
+    "fighter_b",
+    state.fighterA.build.proposal.machineName,
+    state.fighterB.build.proposal.machineName,
   );
+
+  lines.push(`${sanitizeName(nameA, 16)} starts at south edge.`);
+  lines.push(`${sanitizeName(nameB, 16)} starts at north edge.`);
   lines.push(`Seed: ${seed}`);
   lines.push("");
 
