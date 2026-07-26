@@ -3,6 +3,7 @@ import type {
   AsciiReplayInput,
   CompetitionState,
   FighterVisualState,
+  HighlightMoment,
 } from "./ascii.types.js";
 
 function createFighterStateFromBuild(
@@ -208,16 +209,8 @@ function applyEvent(state: CompetitionState, event: SimulationEvent): Competitio
 
 export function populateHighlightStates(
   input: AsciiReplayInput,
-  moments: Array<{
-    round: number;
-    events: readonly SimulationEvent[];
-    stateAfter?: CompetitionState;
-  }>,
-): Array<{
-  round: number;
-  events: readonly SimulationEvent[];
-  stateAfter: CompetitionState;
-}> {
+  moments: HighlightMoment[],
+): HighlightMoment[] {
   return moments.map((moment, index) => {
     const previousState =
       index > 0 ? moments[index - 1]!.stateAfter : getInitialState(input);

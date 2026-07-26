@@ -67,12 +67,12 @@ export function renderPortrait(
     lines.push(padCenter(wl, PORTRAIT_WIDTH));
   }
 
-  const chassisLines = CHASSIS_TEMPLATES[data.chassisId] ?? CHASSIS_TEMPLATES.medium;
+  const chassisLines = CHASSIS_TEMPLATES[data.chassisId] ?? CHASSIS_TEMPLATES.medium!;
   for (const cl of chassisLines) {
     lines.push(padCenter(cl, PORTRAIT_WIDTH));
   }
 
-  const mobilityLines = MOBILITY_LINES[data.mobilityId] ?? MOBILITY_LINES.wheels;
+  const mobilityLines = MOBILITY_LINES[data.mobilityId] ?? MOBILITY_LINES.wheels!;
   for (const ml of mobilityLines) {
     lines.push(padCenter(ml, PORTRAIT_WIDTH));
   }

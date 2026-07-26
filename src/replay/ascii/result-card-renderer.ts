@@ -68,7 +68,10 @@ function getDecisiveEventDescription(
   }
 }
 
-function getFighterName(fighterId: string | undefined, state: CompetitionState): string {
+function getFighterName(
+  fighterId: string | null | undefined,
+  state: CompetitionState,
+): string {
   if (!fighterId) return "Unknown";
   const fighter = fighterId === "fighter_a" ? state.fighterA : state.fighterB;
   return sanitizeName(fighter.build.proposal.machineName, 16);

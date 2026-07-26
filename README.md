@@ -77,6 +77,7 @@ console.log(asciiReplay);
 ```
 
 The renderer produces:
+
 - Fighter profiles with chassis, mobility, weapon and utility details
 - Arena snapshots showing positions and facing
 - Selected battle moments (4-7 highlights per match)

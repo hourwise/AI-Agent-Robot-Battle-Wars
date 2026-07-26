@@ -25,8 +25,15 @@ export function runMatch(config: MatchConfig): MatchResult {
     "south",
   );
 
-  const events: SimulationEvent[] = [];
   let seq = 0;
+
+  let roundState: RoundState = {
+    fighterA: stateA,
+    fighterB: stateB,
+    events: [],
+    damageDealt: { a: 0, b: 0 },
+    roundsAttacked: { a: 0, b: 0 },
+  };
 
   const emit = (
     type: string,
@@ -46,7 +53,7 @@ export function runMatch(config: MatchConfig): MatchResult {
       targetId,
       data,
     };
-    events.push(event);
+    roundState.events.push(event);
     return event;
   };
 
@@ -59,14 +66,6 @@ export function runMatch(config: MatchConfig): MatchResult {
     fighterA: { id: stateA.fighterId, build: stateA.build.proposal },
     fighterB: { id: stateB.fighterId, build: stateB.build.proposal },
   });
-
-  let roundState: RoundState = {
-    fighterA: stateA,
-    fighterB: stateB,
-    events: [...events],
-    damageDealt: { a: 0, b: 0 },
-    roundsAttacked: { a: 0, b: 0 },
-  };
 
   let finalResult = null;
 
@@ -161,7 +160,7 @@ export function runMatch(config: MatchConfig): MatchResult {
     rounds:
       finalResult.method === "draw"
         ? MAX_ROUNDS
-        : events.filter((e) => e.type === "round_ended").length,
+        : roundState.events.filter((e) => e.type === "round_ended").length,
     initialState: { fighterA: stateA, fighterB: stateB },
   };
 }
