@@ -2,7 +2,9 @@
 
 A deterministic text-based robot combat arena where an AI agent designs, builds and fights a combat robot under equal constraints.
 
-**Status:** Prototype 0.1 — complete feature set.
+**Status:** Prototype 0.1 — validated. See [`docs/PROTOTYPE-0.1-VALIDATION.md`](docs/PROTOTYPE-0.1-VALIDATION.md).
+
+**Next:** Prototype 0.2 — planned. See [`docs/PROTOTYPE-0.2-EXPERIMENTAL-PLAN.md`](docs/PROTOTYPE-0.2-EXPERIMENTAL-PLAN.md).
 
 ## What works now
 
@@ -96,6 +98,17 @@ npm run smoke:design    # Live test of DeepSeek design generation
 - **Matches** are saved to `data/matches/<match-id>.json`
 - **Series** are saved to `data/series/<series-id>.json`
 - All saved data is gitignored
+
+## Documentation
+
+| Document                                                                             | Purpose                                               |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| [`docs/PROTOTYPE-0.1-VALIDATION.md`](docs/PROTOTYPE-0.1-VALIDATION.md)               | 0.1 validation results, canonical series, limitations |
+| [`docs/PROTOTYPE-0.2-EXPERIMENTAL-PLAN.md`](docs/PROTOTYPE-0.2-EXPERIMENTAL-PLAN.md) | 0.2 research questions, milestones, ADRs              |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                       | System architecture and design decisions              |
+| [`docs/RULESET.md`](docs/RULESET.md)                                                 | Game rules and combat mechanics                       |
+| [`docs/RELEASE-CHECKLIST.md`](docs/RELEASE-CHECKLIST.md)                             | Pre-release verification checklist                    |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md)                                             | Architecture Decision Records                         |
 
 ## Data directories
 
