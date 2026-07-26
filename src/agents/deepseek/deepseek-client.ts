@@ -115,9 +115,12 @@ export class DeepSeekClient {
     const body = {
       model: this.config.model,
       messages: params.messages,
-      temperature: params.temperature ?? 0.7,
-      max_tokens: params.maxTokens ?? 1024,
+      temperature: params.temperature ?? 0.2,
+      max_tokens: params.maxTokens ?? 2048,
       response_format: { type: "json_object" },
+      thinking: {
+        type: this.config.thinkingMode === "thinking" ? "enabled" : "disabled",
+      },
     };
 
     const start = performance.now();

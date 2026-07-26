@@ -8,6 +8,7 @@ const envSchema = z.object({
   DEEPSEEK_THINKING_MODE: z.enum(["thinking", "non-thinking"]).default("non-thinking"),
   DEEPSEEK_TIMEOUT_MS: z.coerce.number().int().positive().default(60000),
   DEEPSEEK_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
+  DEEPSEEK_MAX_RESPONSE_BYTES: z.coerce.number().int().positive().default(32768),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -28,4 +29,8 @@ export function loadEnv(): Env {
 
   cachedEnv = result.data;
   return cachedEnv;
+}
+
+export function resetEnvCacheForTests(): void {
+  cachedEnv = null;
 }

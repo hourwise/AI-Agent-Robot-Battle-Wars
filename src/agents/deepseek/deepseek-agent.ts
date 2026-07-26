@@ -87,6 +87,18 @@ function parseJsonResponse(raw: string): unknown {
   return JSON.parse(trimmed);
 }
 
+function buildParseErrorDiagnostic(response: {
+  content: string;
+  finishReason: string | null;
+}): string {
+  const preview = response.content.slice(0, 300).replace(/[\r\n]+/g, " ");
+
+  return (
+    `Response is not valid JSON; finishReason=${response.finishReason ?? "null"}; ` +
+    `contentLength=${response.content.length}; preview=${preview}`
+  );
+}
+
 function validateSchema(raw: unknown):
   | {
       ok: true;
@@ -235,7 +247,11 @@ export class DeepSeekArenaAgent implements ArenaAgent {
     ];
 
     for (let attempt = 0; attempt <= MAX_CORRECTION_ATTEMPTS; attempt++) {
-      const response = await this.client.chatCompletion({ messages });
+      const response = await this.client.chatCompletion({
+        messages,
+        temperature: 0.2,
+        maxTokens: 2048,
+      });
 
       totalLatencyMs += response.latencyMs;
       totalInputTokens += response.usage.promptTokens;
@@ -246,16 +262,30 @@ export class DeepSeekArenaAgent implements ArenaAgent {
       try {
         parsed = parseJsonResponse(response.content);
       } catch {
-        const err = "Response is not valid JSON";
+        const err = buildParseErrorDiagnostic(response);
         allErrors.push(err);
+
         messages.push({
           role: "assistant",
           content: response.content,
         });
-        messages.push({
-          role: "user",
-          content: buildCorrectionPrompt([err]),
-        });
+
+        // If truncated by token limit, retry with a larger limit instead of
+        // asking the model to "correct" its JSON.
+        if (response.finishReason === "length") {
+          messages.push({
+            role: "user",
+            content:
+              "Your response was truncated because it exceeded the token limit. " +
+              "Return ONLY a shorter JSON object matching the build proposal schema. " +
+              "You may shorten designSummary and designRationale to fit.",
+          });
+        } else {
+          messages.push({
+            role: "user",
+            content: buildCorrectionPrompt([err]),
+          });
+        }
         continue;
       }
 
@@ -346,16 +376,23 @@ export class DeepSeekArenaAgent implements ArenaAgent {
       try {
         parsed = parseJsonResponse(response.content);
       } catch {
-        const err = "Response is not valid JSON";
+        const err = buildParseErrorDiagnostic(response);
         allErrors.push(err);
         messages.push({
           role: "assistant",
           content: response.content,
         });
-        messages.push({
-          role: "user",
-          content: buildPolicyCorrectionPrompt([err]),
-        });
+        if (response.finishReason === "length") {
+          messages.push({
+            role: "user",
+            content: "Your response was truncated. Return ONLY a shorter JSON object.",
+          });
+        } else {
+          messages.push({
+            role: "user",
+            content: buildPolicyCorrectionPrompt([err]),
+          });
+        }
         continue;
       }
 
@@ -471,16 +508,23 @@ export class DeepSeekArenaAgent implements ArenaAgent {
       try {
         parsed = parseJsonResponse(response.content);
       } catch {
-        const err = "Response is not valid JSON";
+        const err = buildParseErrorDiagnostic(response);
         allErrors.push(err);
         messages.push({
           role: "assistant",
           content: response.content,
         });
-        messages.push({
-          role: "user",
-          content: buildReviewCorrectionPrompt([err]),
-        });
+        if (response.finishReason === "length") {
+          messages.push({
+            role: "user",
+            content: "Your response was truncated. Return ONLY a shorter JSON object.",
+          });
+        } else {
+          messages.push({
+            role: "user",
+            content: buildReviewCorrectionPrompt([err]),
+          });
+        }
         continue;
       }
 
