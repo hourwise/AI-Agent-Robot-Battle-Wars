@@ -1,4 +1,5 @@
 export const SIMULATOR_VERSION = "0.1.0" as const;
+export const RULESET_VERSION = "0.1.0" as const;
 export const MAX_ROUNDS = 20 as const;
 
 export const STARTING_ENERGY = 100 as const;

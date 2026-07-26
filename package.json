@@ -16,6 +16,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "match": "tsx src/app/run-match.ts",
     "smoke:design": "tsx src/app/smoke-design.ts"
   },
   "keywords": [

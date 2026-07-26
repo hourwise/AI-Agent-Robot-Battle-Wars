@@ -224,13 +224,9 @@ describe("DeepSeekArenaAgent", () => {
     await expect(timeoutAgent.designMachine({})).rejects.toThrow(ProviderTimeout);
   });
 
-  it("rejects policy and review methods", async () => {
-    await expect(
-      agent.choosePolicy({ build: fixture.choices[0]!.message.content as never }),
-    ).rejects.toThrow("Not implemented in Milestone 4");
-
+  it("rejects review method", async () => {
     await expect(agent.reviewMatch({ matchSummary: "test" })).rejects.toThrow(
-      "Not implemented in Milestone 4",
+      "Not implemented",
     );
   });
 
@@ -239,5 +235,109 @@ describe("DeepSeekArenaAgent", () => {
     expect(agent.displayName).toBe("DeepSeek AI");
     expect(agent.provider).toBe("deepseek");
     expect(agent.model).toBe("deepseek-v4-flash");
+  });
+
+  describe("choosePolicy", () => {
+    const validPolicyResponse = {
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              opening: "flank",
+              preferredRange: "close",
+              aggression: 70,
+              primaryTarget: "rear",
+              secondaryTarget: "left",
+              retreatThreshold: 30,
+              heatThreshold: 80,
+              fallback: "retreat",
+            }),
+          },
+        },
+      ],
+      usage: { prompt_tokens: 80, completion_tokens: 40, total_tokens: 120 },
+    };
+
+    const validBuild = {
+      machineName: "TestBot",
+      chassisId: "medium",
+      mobilityId: "legs",
+      weaponId: "flipper",
+      utilityId: "cooling",
+      armour: { front: 20, left: 15, right: 15, rear: 10, top: 5 },
+      designSummary: "Test bot",
+      designRationale: "For testing",
+    };
+
+    it("returns a valid ActionPolicy from a valid response", async () => {
+      mockFetchSuccess(validPolicyResponse.choices[0]!.message.content);
+
+      const result = await agent.choosePolicy({ build: validBuild });
+
+      expect(result.value.opening).toBe("flank");
+      expect(result.value.preferredRange).toBe("close");
+      expect(result.value.aggression).toBe(70);
+      expect(result.value.primaryTarget).toBe("rear");
+      expect(result.value.fallback).toBe("retreat");
+      expect(result.promptVersion).toBe("policy-v1");
+      expect(result.attempts).toBe(1);
+    });
+
+    it("includes token usage in result", async () => {
+      mockFetchSequence([{ body: validPolicyResponse }]);
+
+      const result = await agent.choosePolicy({ build: validBuild });
+
+      expect(result.inputTokens).toBe(80);
+      expect(result.outputTokens).toBe(40);
+    });
+
+    it("retries on invalid JSON then succeeds", async () => {
+      mockFetchSequence([
+        { body: { choices: [{ message: { content: "not json" } }], usage: {} } },
+        { body: validPolicyResponse },
+      ]);
+
+      const result = await agent.choosePolicy({ build: validBuild });
+
+      expect(result.value.opening).toBe("flank");
+      expect(result.attempts).toBe(2);
+    });
+
+    it("throws DesignFailedError when policy is consistently invalid", async () => {
+      mockFetchSuccess("not valid json at all");
+
+      await expect(agent.choosePolicy({ build: validBuild })).rejects.toThrow(
+        DesignFailedError,
+      );
+    });
+
+    it("rejects policy with aggression too high", async () => {
+      const badPolicy = {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                opening: "rush",
+                preferredRange: "close",
+                aggression: 95,
+                primaryTarget: "front",
+                secondaryTarget: "front",
+                retreatThreshold: 10,
+                heatThreshold: 90,
+                fallback: "desperate_attack",
+              }),
+            },
+          },
+        ],
+        usage: { prompt_tokens: 80, completion_tokens: 40, total_tokens: 120 },
+      };
+
+      mockFetchSuccess(badPolicy.choices[0]!.message.content);
+
+      await expect(agent.choosePolicy({ build: validBuild })).rejects.toThrow(
+        DesignFailedError,
+      );
+    });
   });
 });
