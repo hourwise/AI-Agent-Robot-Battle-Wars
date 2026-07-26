@@ -9,10 +9,12 @@ export interface DeepSeekResponse {
   readonly id: string;
   readonly content: string;
   readonly model: string;
+  readonly finishReason: string | null;
   readonly usage: {
     readonly promptTokens: number;
     readonly completionTokens: number;
     readonly totalTokens: number;
+    readonly cachedTokens: number;
   };
   readonly latencyMs: number;
 }
@@ -160,18 +162,25 @@ export class DeepSeekClient {
       const message = choice.message as Record<string, unknown> | undefined;
       const content = typeof message?.content === "string" ? message.content : "";
 
+      const finishReason =
+        typeof choice.finish_reason === "string" ? choice.finish_reason : null;
+
       const usage = (parsed.usage as Record<string, unknown>) ?? {};
       const promptTokens = (usage.prompt_tokens as number) ?? 0;
       const completionTokens = (usage.completion_tokens as number) ?? 0;
+      const details = usage.prompt_tokens_details as Record<string, unknown> | undefined;
+      const cachedTokens = (details?.cached_tokens as number) ?? 0;
 
       return {
         id: (parsed.id as string) ?? `ds-${Date.now()}`,
         content,
         model: (parsed.model as string) ?? this.config.model,
+        finishReason,
         usage: {
           promptTokens,
           completionTokens,
           totalTokens: promptTokens + completionTokens,
+          cachedTokens,
         },
         latencyMs,
       };

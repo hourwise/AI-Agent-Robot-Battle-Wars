@@ -269,24 +269,41 @@ describe("DeepSeekArenaAgent", () => {
       designRationale: "For testing",
     };
 
+    const mockOpponent = {
+      machineName: "OpponentBot",
+      chassisId: "heavy",
+      mobilityId: "tracks",
+      weaponId: "ram",
+      utilityId: "none",
+      armour: { front: 50, left: 10, right: 10, rear: 0, top: 0 },
+      knownWeaknesses: ["zero rear armour"],
+    };
+
     it("returns a valid ActionPolicy from a valid response", async () => {
       mockFetchSuccess(validPolicyResponse.choices[0]!.message.content);
 
-      const result = await agent.choosePolicy({ build: validBuild });
+      const result = await agent.choosePolicy({
+        build: validBuild,
+        opponent: mockOpponent,
+      });
 
       expect(result.value.opening).toBe("flank");
       expect(result.value.preferredRange).toBe("close");
       expect(result.value.aggression).toBe(70);
       expect(result.value.primaryTarget).toBe("rear");
       expect(result.value.fallback).toBe("retreat");
-      expect(result.promptVersion).toBe("policy-v1");
+      expect(result.promptVersion).toBe("policy-v2");
       expect(result.attempts).toBe(1);
+      expect(result.fallbackUsed).toBe(false);
     });
 
     it("includes token usage in result", async () => {
       mockFetchSequence([{ body: validPolicyResponse }]);
 
-      const result = await agent.choosePolicy({ build: validBuild });
+      const result = await agent.choosePolicy({
+        build: validBuild,
+        opponent: mockOpponent,
+      });
 
       expect(result.inputTokens).toBe(80);
       expect(result.outputTokens).toBe(40);
@@ -298,21 +315,30 @@ describe("DeepSeekArenaAgent", () => {
         { body: validPolicyResponse },
       ]);
 
-      const result = await agent.choosePolicy({ build: validBuild });
+      const result = await agent.choosePolicy({
+        build: validBuild,
+        opponent: mockOpponent,
+      });
 
       expect(result.value.opening).toBe("flank");
       expect(result.attempts).toBe(2);
     });
 
-    it("throws DesignFailedError when policy is consistently invalid", async () => {
+    it("returns fallback policy when correction attempts exhausted", async () => {
       mockFetchSuccess("not valid json at all");
 
-      await expect(agent.choosePolicy({ build: validBuild })).rejects.toThrow(
-        DesignFailedError,
-      );
+      const result = await agent.choosePolicy({
+        build: validBuild,
+        opponent: mockOpponent,
+      });
+
+      expect(result.fallbackUsed).toBe(true);
+      expect(result.value.opening).toBe("cautious");
+      expect(result.value.aggression).toBe(50);
+      expect(result.value.fallback).toBe("defend");
     });
 
-    it("rejects policy with aggression too high", async () => {
+    it("returns fallback policy with aggression too high", async () => {
       const badPolicy = {
         choices: [
           {
@@ -335,9 +361,58 @@ describe("DeepSeekArenaAgent", () => {
 
       mockFetchSuccess(badPolicy.choices[0]!.message.content);
 
-      await expect(agent.choosePolicy({ build: validBuild })).rejects.toThrow(
-        DesignFailedError,
-      );
+      const result = await agent.choosePolicy({
+        build: validBuild,
+        opponent: mockOpponent,
+      });
+
+      expect(result.fallbackUsed).toBe(true);
+      expect(result.value).toEqual({
+        opening: "cautious",
+        preferredRange: "medium",
+        aggression: 50,
+        primaryTarget: "front",
+        secondaryTarget: "front",
+        retreatThreshold: 30,
+        heatThreshold: 75,
+        fallback: "defend",
+      });
+    });
+
+    it("retains provider metadata when present", async () => {
+      mockFetchSequence([
+        {
+          body: {
+            id: "chatcmpl-test-123",
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    opening: "flank",
+                    preferredRange: "close",
+                    aggression: 70,
+                    primaryTarget: "rear",
+                    secondaryTarget: "left",
+                    retreatThreshold: 30,
+                    heatThreshold: 80,
+                    fallback: "retreat",
+                  }),
+                },
+                finish_reason: "stop",
+              },
+            ],
+            usage: { prompt_tokens: 80, completion_tokens: 40, total_tokens: 120 },
+          },
+        },
+      ]);
+
+      const result = await agent.choosePolicy({
+        build: validBuild,
+        opponent: mockOpponent,
+      });
+
+      expect(result.providerRequestId).toBe("chatcmpl-test-123");
+      expect(result.finishReason).toBe("stop");
     });
   });
 });

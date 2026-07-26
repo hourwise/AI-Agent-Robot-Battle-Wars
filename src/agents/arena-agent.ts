@@ -1,12 +1,31 @@
 import type { MachineBuildProposal } from "../validation/validation.types.js";
 import type { ActionPolicy } from "../simulator/types.js";
+import type { AgentUsageRecord } from "../types/agent-usage.js";
 
 export interface DesignRequest {
   readonly context?: string;
 }
 
+export interface OpponentSummary {
+  readonly machineName: string;
+  readonly chassisId: string;
+  readonly mobilityId: string;
+  readonly weaponId: string;
+  readonly utilityId: string;
+  readonly armour: {
+    readonly front: number;
+    readonly left: number;
+    readonly right: number;
+    readonly rear: number;
+    readonly top: number;
+  };
+  readonly knownWeaknesses: readonly string[];
+}
+
 export interface PolicyRequest {
   readonly build: MachineBuildProposal;
+  readonly opponent: OpponentSummary;
+  readonly priorMatchSummaries?: readonly string[];
   readonly context?: string;
 }
 
@@ -19,13 +38,17 @@ export interface AgentResult<T> {
   readonly value: T;
   readonly raw: unknown;
   readonly model: string;
+  readonly providerRequestId: string | null;
+  readonly finishReason: string | null;
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly cachedTokens: number;
   readonly costUsd: number | null;
+  readonly costIsEstimated: boolean;
   readonly latencyMs: number;
   readonly attempts: number;
   readonly promptVersion: string;
+  readonly fallbackUsed: boolean;
 }
 
 export interface ArenaAgent {
@@ -37,4 +60,9 @@ export interface ArenaAgent {
   designMachine(request: DesignRequest): Promise<AgentResult<MachineBuildProposal>>;
   choosePolicy(request: PolicyRequest): Promise<AgentResult<ActionPolicy>>;
   reviewMatch(request: ReviewRequest): Promise<AgentResult<unknown>>;
+
+  usageFromResult<T>(
+    result: AgentResult<T>,
+    phase: AgentUsageRecord["phase"],
+  ): AgentUsageRecord;
 }

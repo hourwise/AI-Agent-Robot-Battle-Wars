@@ -1,16 +1,6 @@
 import { z } from "zod";
 import { machineBuildProposalSchema } from "./build.schema.js";
-
-const actionPolicySchema = z.object({
-  opening: z.enum(["rush", "cautious", "flank", "hold"]),
-  preferredRange: z.enum(["close", "medium", "far"]),
-  aggression: z.number().nonnegative(),
-  primaryTarget: z.enum(["front", "rear", "left", "right", "top"]),
-  secondaryTarget: z.enum(["front", "rear", "left", "right", "top"]),
-  retreatThreshold: z.number().int().min(0),
-  heatThreshold: z.number().int().min(0).max(100),
-  fallback: z.enum(["retreat", "defend", "desperate_attack"]),
-});
+import { actionPolicySchema } from "./policy.schema.js";
 
 const validatedBuildSchema = z.object({
   proposal: machineBuildProposalSchema,
@@ -94,6 +84,34 @@ const matchConfigSchema = z.object({
   catalogueVersion: z.string(),
 });
 
+const agentUsageRecordSchema = z.object({
+  phase: z.enum(["design", "policy", "review", "rebuild"]),
+  agentId: z.string(),
+  provider: z.string(),
+  model: z.string(),
+  providerRequestId: z.string().nullable(),
+  promptVersion: z.string(),
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  cachedTokens: z.number().int().nonnegative(),
+  costUsd: z.number().nonnegative().nullable(),
+  costIsEstimated: z.boolean(),
+  pricingVersion: z.string().nullable(),
+  latencyMs: z.number().nonnegative(),
+  attempts: z.number().int().positive(),
+  fallbackUsed: z.boolean(),
+  errorCategory: z.enum([
+    "none",
+    "timeout",
+    "rate_limit",
+    "provider_error",
+    "invalid_json",
+    "schema_violation",
+    "semantic_violation",
+    "authentication",
+  ]),
+});
+
 export const MatchRecordSchema = z.object({
   schemaVersion: z.literal("1"),
   matchId: z.string().uuid(),
@@ -110,9 +128,11 @@ export const MatchRecordSchema = z.object({
   events: z.array(simulationEventSchema),
   result: competitionResultSchema,
   rounds: z.number().int().nonnegative(),
+  agentUsage: z.array(agentUsageRecordSchema).default([]),
 });
 
 export type MatchRecord = z.infer<typeof MatchRecordSchema>;
+export type AgentUsageRecordSchema = z.infer<typeof agentUsageRecordSchema>;
 
 export function validateMatchRecord(data: unknown):
   | {

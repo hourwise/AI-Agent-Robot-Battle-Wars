@@ -3,12 +3,18 @@ import { join } from "node:path";
 import { runMatch } from "../simulator/simulator.js";
 import { RULESET_VERSION } from "../simulator/constants.js";
 import { CATALOGUE_V1 } from "../catalogue/catalogue.v1.js";
-import { createBulwarkBuild, BULWARK_POLICY } from "../agents/scripted/bulwark-agent.js";
+import {
+  createBulwarkBuild,
+  BULWARK_POLICY,
+  getBulwarkOpponentSummary,
+} from "../agents/scripted/bulwark-agent.js";
 import { matchResultToRecord } from "../persistence/match-converter.js";
 import { JsonMatchRepository } from "../persistence/json-match-repository.js";
 import { renderTextReplay } from "../replay/text-replay-renderer.js";
 import type { ValidatedBuild } from "../validation/validation.types.js";
 import type { ActionPolicy } from "../simulator/types.js";
+import type { AgentUsageRecord } from "../types/agent-usage.js";
+import type { ArenaAgent } from "../agents/arena-agent.js";
 
 const DATA_DIR = join(process.cwd(), "data", "matches");
 
@@ -39,7 +45,9 @@ function parseArgs(): { seed: number; useAi: boolean } {
   return { seed, useAi };
 }
 
-async function loadAiFighter(): Promise<FighterConfig> {
+async function loadAiFighter(
+  opponentSummary: ReturnType<typeof getBulwarkOpponentSummary>,
+): Promise<{ config: FighterConfig; usage: AgentUsageRecord[] }> {
   const { loadDeepSeekConfig } = await import("../agents/deepseek/deepseek-config.js");
   const { DeepSeekArenaAgent } = await import("../agents/deepseek/deepseek-agent.js");
 
@@ -53,16 +61,21 @@ async function loadAiFighter(): Promise<FighterConfig> {
     process.exit(1);
   }
 
-  const agent = new DeepSeekArenaAgent(config);
+  const agent: ArenaAgent = new DeepSeekArenaAgent(config);
+  const usage: AgentUsageRecord[] = [];
 
   console.log("Requesting robot design from DeepSeek...");
   const designResult = await agent.designMachine({});
+  usage.push(agent.usageFromResult(designResult, "design"));
   console.log(
     `  Design: ${designResult.value.machineName} (${designResult.attempts} attempt(s))`,
   );
   console.log(
     `  Tokens: ${designResult.inputTokens} in / ${designResult.outputTokens} out`,
   );
+  if (designResult.fallbackUsed) {
+    console.log("  WARNING: Using fallback design");
+  }
 
   const { validateBuild } = await import("../validation/build-validator.js");
   const buildResult = validateBuild(designResult.value, CATALOGUE_V1);
@@ -74,18 +87,26 @@ async function loadAiFighter(): Promise<FighterConfig> {
   console.log("Requesting tactical policy from DeepSeek...");
   const policyResult = await agent.choosePolicy({
     build: designResult.value,
+    opponent: opponentSummary,
   });
+  usage.push(agent.usageFromResult(policyResult, "policy"));
   console.log(
     `  Policy: aggression ${policyResult.value.aggression}, opening ${policyResult.value.opening}`,
   );
   console.log(
     `  Tokens: ${policyResult.inputTokens} in / ${policyResult.outputTokens} out`,
   );
+  if (policyResult.fallbackUsed) {
+    console.log("  WARNING: Using fallback policy");
+  }
 
   return {
-    build: buildResult.build,
-    policy: policyResult.value,
-    source: "ai",
+    config: {
+      build: buildResult.build,
+      policy: policyResult.value,
+      source: "ai",
+    },
+    usage,
   };
 }
 
@@ -109,9 +130,13 @@ async function main() {
 
   let fighterA: FighterConfig;
   let fighterB: FighterConfig;
+  const agentUsage: AgentUsageRecord[] = [];
 
   if (useAi) {
-    fighterA = await loadAiFighter();
+    const opponentSummary = getBulwarkOpponentSummary();
+    const aiResult = await loadAiFighter(opponentSummary);
+    fighterA = aiResult.config;
+    agentUsage.push(...aiResult.usage);
     fighterB = loadBulwarkFighter();
   } else {
     fighterA = loadBulwarkFighter();
@@ -150,7 +175,7 @@ async function main() {
 
   await mkdir(DATA_DIR, { recursive: true });
   const repository = new JsonMatchRepository(DATA_DIR);
-  const record = matchResultToRecord(result);
+  const record = matchResultToRecord(result, agentUsage);
 
   try {
     await repository.saveMatch(record);

@@ -7,6 +7,7 @@ import type {
 } from "../arena-agent.js";
 import type { MachineBuildProposal } from "../../validation/validation.types.js";
 import type { ActionPolicy } from "../../simulator/types.js";
+import type { AgentUsageRecord } from "../../types/agent-usage.js";
 import type { DeepSeekConfig } from "./deepseek-config.js";
 import {
   DeepSeekClient,
@@ -19,6 +20,8 @@ import { machineBuildProposalSchema } from "../../schemas/build.schema.js";
 import { actionPolicySchema } from "../../schemas/policy.schema.js";
 import { validateBuild } from "../../validation/build-validator.js";
 import { CATALOGUE_V1 } from "../../catalogue/catalogue.v1.js";
+import { estimateCost } from "../cost-calculator.js";
+import { FALLBACK_POLICY, FALLBACK_POLICY_VERSION } from "../fallback-policy.js";
 import {
   DESIGN_PROMPT_VERSION,
   buildDesignSystemPrompt,
@@ -152,6 +155,30 @@ export class DeepSeekArenaAgent implements ArenaAgent {
     this.client = new DeepSeekClient(config);
   }
 
+  usageFromResult<T>(
+    result: AgentResult<T>,
+    phase: AgentUsageRecord["phase"],
+  ): AgentUsageRecord {
+    return {
+      phase,
+      agentId: this.id,
+      provider: this.provider,
+      model: result.model,
+      providerRequestId: result.providerRequestId,
+      promptVersion: result.promptVersion,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      cachedTokens: result.cachedTokens,
+      costUsd: result.costUsd,
+      costIsEstimated: result.costIsEstimated,
+      pricingVersion: result.costUsd !== null ? "2025-01" : null,
+      latencyMs: result.latencyMs,
+      attempts: result.attempts,
+      fallbackUsed: result.fallbackUsed,
+      errorCategory: "none",
+    };
+  }
+
   async designMachine(
     _request: DesignRequest,
   ): Promise<AgentResult<MachineBuildProposal>> {
@@ -159,6 +186,7 @@ export class DeepSeekArenaAgent implements ArenaAgent {
     let totalLatencyMs = 0;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCachedTokens = 0;
 
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       { role: "system", content: buildDesignSystemPrompt() },
@@ -171,6 +199,7 @@ export class DeepSeekArenaAgent implements ArenaAgent {
       totalLatencyMs += response.latencyMs;
       totalInputTokens += response.usage.promptTokens;
       totalOutputTokens += response.usage.completionTokens;
+      totalCachedTokens += response.usage.cachedTokens;
 
       let parsed: unknown;
       try {
@@ -217,17 +246,28 @@ export class DeepSeekArenaAgent implements ArenaAgent {
         continue;
       }
 
+      const cost = estimateCost(
+        this.model,
+        totalInputTokens,
+        totalCachedTokens,
+        totalOutputTokens,
+      );
+
       return {
         value: schemaResult.proposal,
         raw: response.content,
         model: response.model,
+        providerRequestId: response.id,
+        finishReason: response.finishReason,
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
-        cachedTokens: 0,
-        costUsd: null,
+        cachedTokens: totalCachedTokens,
+        costUsd: cost.costUsd,
+        costIsEstimated: cost.isEstimated,
         latencyMs: totalLatencyMs,
         attempts: attempt + 1,
         promptVersion: DESIGN_PROMPT_VERSION,
+        fallbackUsed: false,
       };
     }
 
@@ -239,10 +279,18 @@ export class DeepSeekArenaAgent implements ArenaAgent {
     let totalLatencyMs = 0;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
+    let totalCachedTokens = 0;
 
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       { role: "system", content: buildPolicySystemPrompt() },
-      { role: "user", content: buildPolicyUserPrompt(request.build) },
+      {
+        role: "user",
+        content: buildPolicyUserPrompt(
+          request.build,
+          request.opponent,
+          request.priorMatchSummaries ?? [],
+        ),
+      },
     ];
 
     for (let attempt = 0; attempt <= MAX_CORRECTION_ATTEMPTS; attempt++) {
@@ -251,6 +299,7 @@ export class DeepSeekArenaAgent implements ArenaAgent {
       totalLatencyMs += response.latencyMs;
       totalInputTokens += response.usage.promptTokens;
       totalOutputTokens += response.usage.completionTokens;
+      totalCachedTokens += response.usage.cachedTokens;
 
       let parsed: unknown;
       try {
@@ -297,25 +346,68 @@ export class DeepSeekArenaAgent implements ArenaAgent {
         continue;
       }
 
+      const cost = estimateCost(
+        this.model,
+        totalInputTokens,
+        totalCachedTokens,
+        totalOutputTokens,
+      );
+
       return {
         value: schemaResult.policy,
         raw: response.content,
         model: response.model,
+        providerRequestId: response.id,
+        finishReason: response.finishReason,
         inputTokens: totalInputTokens,
         outputTokens: totalOutputTokens,
-        cachedTokens: 0,
-        costUsd: null,
+        cachedTokens: totalCachedTokens,
+        costUsd: cost.costUsd,
+        costIsEstimated: cost.isEstimated,
         latencyMs: totalLatencyMs,
         attempts: attempt + 1,
         promptVersion: POLICY_PROMPT_VERSION,
+        fallbackUsed: false,
       };
     }
 
-    throw new DesignFailedError(allErrors);
+    return this.fallbackPolicyResult(
+      totalLatencyMs,
+      totalInputTokens,
+      totalOutputTokens,
+      totalCachedTokens,
+    );
+  }
+
+  private fallbackPolicyResult(
+    latencyMs: number,
+    inputTokens: number,
+    outputTokens: number,
+    cachedTokens: number,
+  ): AgentResult<ActionPolicy> {
+    return {
+      value: FALLBACK_POLICY,
+      raw: {
+        fallback: true,
+        reason: "Policy generation failed after bounded correction",
+      },
+      model: this.model,
+      providerRequestId: null,
+      finishReason: "fallback",
+      inputTokens,
+      outputTokens,
+      cachedTokens,
+      costUsd: null,
+      costIsEstimated: false,
+      latencyMs,
+      attempts: MAX_CORRECTION_ATTEMPTS + 1,
+      promptVersion: FALLBACK_POLICY_VERSION,
+      fallbackUsed: true,
+    };
   }
 
   async reviewMatch(_request: ReviewRequest): Promise<AgentResult<unknown>> {
-    throw new Error("Not implemented in Milestone 4");
+    throw new Error("Not implemented in Milestone 6");
   }
 }
 

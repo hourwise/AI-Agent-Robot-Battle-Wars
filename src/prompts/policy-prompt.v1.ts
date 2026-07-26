@@ -1,6 +1,7 @@
 import type { MachineBuildProposal } from "../validation/validation.types.js";
+import type { OpponentSummary } from "../agents/arena-agent.js";
 
-export const POLICY_PROMPT_VERSION = "policy-v1";
+export const POLICY_PROMPT_VERSION = "policy-v2";
 
 function formatBuild(proposal: MachineBuildProposal): string {
   const lines: string[] = [];
@@ -16,15 +17,29 @@ function formatBuild(proposal: MachineBuildProposal): string {
   return lines.join("\n");
 }
 
-function formatOpponent(): string {
+function formatOpponent(opponent: OpponentSummary): string {
   const lines: string[] = [];
-  lines.push("Opponent: The Bulwark");
-  lines.push("Chassis: heavy (150 integrity)");
-  lines.push("Mobility: tracks (speed 5, traction 9, turning 5)");
-  lines.push("Weapon: ram (scales with speed, low base damage)");
-  lines.push("Utility: reinforced_drive (reduced mobility damage)");
-  lines.push("Armour: front 60, left 15, right 15, rear 0, top 0");
-  lines.push("Known weakness: zero rear armour, slow turning");
+  lines.push(`Opponent: ${opponent.machineName}`);
+  lines.push(`Chassis: ${opponent.chassisId}`);
+  lines.push(`Mobility: ${opponent.mobilityId}`);
+  lines.push(`Weapon: ${opponent.weaponId}`);
+  lines.push(`Utility: ${opponent.utilityId}`);
+  lines.push(
+    `Armour: front ${opponent.armour.front}, left ${opponent.armour.left}, right ${opponent.armour.right}, rear ${opponent.armour.rear}, top ${opponent.armour.top}`,
+  );
+  if (opponent.knownWeaknesses.length > 0) {
+    lines.push(`Known weaknesses: ${opponent.knownWeaknesses.join("; ")}`);
+  }
+  return lines.join("\n");
+}
+
+function formatPriorMatches(summaries: readonly string[]): string {
+  if (summaries.length === 0) return "";
+  const lines: string[] = [];
+  lines.push("Prior match results:");
+  for (const s of summaries) {
+    lines.push(`  - ${s}`);
+  }
   return lines.join("\n");
 }
 
@@ -77,22 +92,36 @@ export function buildPolicySystemPrompt(): string {
   ].join("\n");
 }
 
-export function buildPolicyUserPrompt(proposal: MachineBuildProposal): string {
-  return [
+export function buildPolicyUserPrompt(
+  proposal: MachineBuildProposal,
+  opponent: OpponentSummary,
+  priorMatchSummaries: readonly string[] = [],
+): string {
+  const sections: string[] = [
     "Choose a tactical policy for your robot:",
     "",
     formatBuild(proposal),
     "",
-    formatOpponent(),
+    formatOpponent(opponent),
+  ];
+
+  const prior = formatPriorMatches(priorMatchSummaries);
+  if (prior) {
+    sections.push("", prior);
+  }
+
+  sections.push(
     "",
     "Select a policy that:",
-    "- Exploits the opponent's rear weakness",
+    `- Exploits the opponent's weaknesses`,
     "- Matches your robot's capabilities",
     "- Manages heat across 20 rounds",
     "- Has a clear retreat plan if things go wrong",
     "",
     "Return ONLY a JSON object matching the policy schema.",
-  ].join("\n");
+  );
+
+  return sections.join("\n");
 }
 
 export function buildPolicyCorrectionPrompt(errors: readonly string[]): string {

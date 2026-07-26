@@ -1,5 +1,6 @@
 import type { ValidatedBuild } from "../../validation/validation.types.js";
 import type { ActionPolicy } from "../../simulator/types.js";
+import type { OpponentSummary } from "../arena-agent.js";
 import { CATALOGUE_V1 } from "../../catalogue/catalogue.v1.js";
 import { validateBuild } from "../../validation/build-validator.js";
 
@@ -40,4 +41,20 @@ export function createBulwarkBuild(): ValidatedBuild {
     );
   }
   return result.build;
+}
+
+export function getBulwarkOpponentSummary(): OpponentSummary {
+  return {
+    machineName: BULWARK_BUILD_PROPOSAL.machineName,
+    chassisId: BULWARK_BUILD_PROPOSAL.chassisId,
+    mobilityId: BULWARK_BUILD_PROPOSAL.mobilityId,
+    weaponId: BULWARK_BUILD_PROPOSAL.weaponId,
+    utilityId: BULWARK_BUILD_PROPOSAL.utilityId,
+    armour: { ...BULWARK_BUILD_PROPOSAL.armour },
+    knownWeaknesses: [
+      "zero rear armour",
+      "slow turning (tracks, turning 5)",
+      "predictable forward-only aggression",
+    ],
+  };
 }

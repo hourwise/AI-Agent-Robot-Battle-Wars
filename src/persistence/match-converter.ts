@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { MatchResult } from "../simulator/types.js";
 import type { MatchRecord } from "../schemas/match-record.schema.js";
+import type { AgentUsageRecord } from "../types/agent-usage.js";
 import { SIMULATOR_VERSION } from "../simulator/constants.js";
 
-export function matchResultToRecord(result: MatchResult): MatchRecord {
+export function matchResultToRecord(
+  result: MatchResult,
+  agentUsage: readonly AgentUsageRecord[] = [],
+): MatchRecord {
   return {
     schemaVersion: "1",
     matchId: randomUUID(),
@@ -32,5 +36,6 @@ export function matchResultToRecord(result: MatchResult): MatchRecord {
     events: result.events,
     result: result.result,
     rounds: result.rounds,
+    agentUsage: [...agentUsage],
   };
 }
