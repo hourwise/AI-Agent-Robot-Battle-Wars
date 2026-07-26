@@ -63,27 +63,36 @@ function formatEventData(event: SimulationEvent): string {
   const target = event.targetId;
 
   switch (event.type) {
-    case "attack": {
-      const weapon = String(data.weaponId ?? "unknown");
-      const hit = Boolean(data.hit);
-      const damage = Number(data.damage ?? 0);
-      if (hit) {
-        return `${actor} hits ${target ?? "unknown"} with ${weapon} for ${damage} damage`;
-      }
+    case "attack_hit": {
+      const weapon = String(data.weapon ?? "unknown");
+      const damage = Number(data.effectiveDamage ?? 0);
+      const isCritical = Boolean(data.isCritical);
+      const critText = isCritical ? " critically" : "";
+      return `${actor}${critText} hits ${target ?? "unknown"} with ${weapon} for ${damage} damage`;
+    }
+    case "attack_missed": {
+      const weapon = String(data.weapon ?? "unknown");
       return `${actor} misses ${target ?? "unknown"} with ${weapon}`;
     }
-    case "defend":
-      return `${actor} defends`;
-    case "movement":
-      return `${actor} moves from ${String(data.fromZone ?? "unknown")} to ${String(data.toZone ?? "unknown")}`;
-    case "component_damage":
-      return `${actor}'s ${String(data.component ?? "unknown")} is damaged`;
-    case "overturn":
-      return `${actor} is overturned`;
-    case "recovery":
-      return `${actor} recovers from ${String(data.condition ?? "unknown")}`;
-    case "judge_score":
-      return `Judge scores recorded`;
+    case "attack_attempted": {
+      const weapon = String(data.weapon ?? "unknown");
+      return `${actor} attacks with ${weapon}`;
+    }
+    case "movement_resolved": {
+      const to = String(data.to ?? "unknown");
+      return `${actor} moves to ${to}`;
+    }
+    case "component_disabled": {
+      const component = String(data.component ?? "unknown");
+      return `${target ?? actor}'s ${component} is disabled`;
+    }
+    case "robot_overturned":
+      return `${target ?? actor} is overturned`;
+    case "integrity_damaged": {
+      const damage = Number(data.damage ?? 0);
+      const remaining = Number(data.remaining ?? 0);
+      return `${target ?? actor} takes ${damage} integrity damage (${remaining} remaining)`;
+    }
     default:
       return `${event.type} by ${actor}`;
   }
@@ -91,7 +100,7 @@ function formatEventData(event: SimulationEvent): string {
 
 function findFirstHit(events: readonly SimulationEvent[]): MatchMoment | undefined {
   for (const event of events) {
-    if (event.type === "attack" && Boolean(event.data.hit)) {
+    if (event.type === "attack_hit") {
       return extractMoment(event);
     }
   }
@@ -101,11 +110,8 @@ function findFirstHit(events: readonly SimulationEvent[]): MatchMoment | undefin
 function findCriticalHits(events: readonly SimulationEvent[]): MatchMoment[] {
   const moments: MatchMoment[] = [];
   for (const event of events) {
-    if (event.type === "attack" && Boolean(event.data.hit)) {
-      const damage = Number(event.data.damage ?? 0);
-      if (damage >= 15) {
-        moments.push(extractMoment(event));
-      }
+    if (event.type === "attack_hit" && Boolean(event.data.isCritical)) {
+      moments.push(extractMoment(event));
     }
   }
   return moments;
@@ -114,7 +120,7 @@ function findCriticalHits(events: readonly SimulationEvent[]): MatchMoment[] {
 function findComponentFailures(events: readonly SimulationEvent[]): MatchMoment[] {
   const moments: MatchMoment[] = [];
   for (const event of events) {
-    if (event.type === "component_damage") {
+    if (event.type === "component_disabled") {
       moments.push(extractMoment(event));
     }
   }
@@ -124,11 +130,53 @@ function findComponentFailures(events: readonly SimulationEvent[]): MatchMoment[
 function findOverturns(events: readonly SimulationEvent[]): MatchMoment[] {
   const moments: MatchMoment[] = [];
   for (const event of events) {
-    if (event.type === "overturn") {
+    if (event.type === "robot_overturned") {
       moments.push(extractMoment(event));
     }
   }
   return moments;
+}
+
+function computeFinalState(
+  initialState: FighterState,
+  events: readonly SimulationEvent[],
+  fighterId: string,
+): FighterState {
+  const state = { ...initialState, conditions: [...initialState.conditions] };
+
+  for (const event of events) {
+    // integrity_damaged: targetId is the damaged fighter
+    if (event.type === "integrity_damaged" && event.targetId === fighterId) {
+      state.integrity = Number(event.data.remaining ?? state.integrity);
+    }
+
+    // component_disabled: targetId is the affected fighter
+    if (event.type === "component_disabled" && event.targetId === fighterId) {
+      const component = String(event.data.component ?? "");
+      if (component === "mobility") state.components.mobilityDisabled = true;
+      if (component === "weapon") state.components.weaponDisabled = true;
+      if (component === "utility") state.components.utilityDisabled = true;
+    }
+
+    // robot_overturned: targetId is the overturned fighter
+    if (event.type === "robot_overturned" && event.targetId === fighterId) {
+      if (!state.conditions.includes("overturned")) {
+        state.conditions.push("overturned" as (typeof state.conditions)[number]);
+      }
+    }
+
+    // movement_resolved: for knockback, targetId moves; for normal, actorId moves
+    if (event.type === "movement_resolved") {
+      const action = String(event.data.action ?? "");
+      const movedFighterId = action === "knockback" ? event.targetId : event.actorId;
+      if (movedFighterId === fighterId) {
+        state.zone = String(event.data.to ?? state.zone) as typeof state.zone;
+        state.facing = String(event.data.facing ?? state.facing) as typeof state.facing;
+      }
+    }
+  }
+
+  return state;
 }
 
 export function buildFactualReport(result: MatchResult): FactualMatchReport {
@@ -149,75 +197,13 @@ export function buildFactualReport(result: MatchResult): FactualMatchReport {
     overturns: findOverturns(events),
     finalStates: {
       fighterA: buildFighterStateSummary(
-        events.reduce(
-          (state, event) => applyEvent(state, event, "fighter_a"),
-          initialState.fighterA,
-        ),
+        computeFinalState(initialState.fighterA, events, "fighter_a"),
       ),
       fighterB: buildFighterStateSummary(
-        events.reduce(
-          (state, event) => applyEvent(state, event, "fighter_b"),
-          initialState.fighterB,
-        ),
+        computeFinalState(initialState.fighterB, events, "fighter_b"),
       ),
     },
   };
-}
-
-function applyEvent(
-  state: FighterState,
-  event: SimulationEvent,
-  fighterId: string,
-): FighterState {
-  if (event.actorId !== fighterId && event.targetId !== fighterId) {
-    return state;
-  }
-
-  const next = { ...state };
-
-  if (
-    event.type === "attack" &&
-    event.targetId === fighterId &&
-    Boolean(event.data.hit)
-  ) {
-    const damage = Number(event.data.damage ?? 0);
-    next.integrity = Math.max(0, next.integrity - damage);
-  }
-
-  if (event.type === "defend" && event.actorId === fighterId) {
-    next.energy = Math.max(0, next.energy - 15);
-    next.heat = Math.max(0, next.heat - 10);
-  }
-
-  if (event.type === "movement" && event.actorId === fighterId) {
-    next.zone = String(event.data.toZone ?? next.zone) as typeof next.zone;
-    next.facing = String(event.data.facing ?? next.facing) as typeof next.facing;
-    next.energy = Math.max(0, next.energy - Number(event.data.energyCost ?? 0));
-  }
-
-  if (event.type === "component_damage" && event.actorId === fighterId) {
-    const component = String(event.data.component ?? "");
-    if (component === "mobility") {
-      next.components = { ...next.components, mobilityDisabled: true };
-    } else if (component === "weapon") {
-      next.components = { ...next.components, weaponDisabled: true };
-    } else if (component === "utility") {
-      next.components = { ...next.components, utilityDisabled: true };
-    }
-  }
-
-  if (event.type === "overturn" && event.actorId === fighterId) {
-    if (!next.conditions.includes("overturned")) {
-      next.conditions = [...next.conditions, "overturned"];
-    }
-  }
-
-  if (event.type === "recovery" && event.actorId === fighterId) {
-    const condition = String(event.data.condition ?? "");
-    next.conditions = next.conditions.filter((c) => c !== condition);
-  }
-
-  return next;
 }
 
 export function enrichMatchSummariesWithPolicy(

@@ -192,6 +192,78 @@ function validateReviewSemantic(review: MatchReview): string[] {
     errors.push("suggestedChanges: too many (> 5)");
   }
 
+  // Validate catalogue IDs in suggested changes
+  const validWeapons = CATALOGUE_V1.weapons.map((w) => w.id);
+  const validUtilities = CATALOGUE_V1.utilities.map((u) => u.id);
+  const validChassis = CATALOGUE_V1.chassis.map((c) => c.id);
+  const validMobility = CATALOGUE_V1.mobility.map((m) => m.id);
+
+  for (const change of review.suggestedChanges) {
+    if (
+      change.replacementWeaponId &&
+      !validWeapons.includes(change.replacementWeaponId)
+    ) {
+      errors.push(
+        `"${change.replacementWeaponId}" is not a valid weaponId. Valid: ${validWeapons.join(", ")}`,
+      );
+    }
+    if (
+      change.replacementUtilityId &&
+      !validUtilities.includes(change.replacementUtilityId)
+    ) {
+      errors.push(
+        `"${change.replacementUtilityId}" is not a valid utilityId. Valid: ${validUtilities.join(", ")}`,
+      );
+    }
+    if (
+      change.replacementChassisId &&
+      !validChassis.includes(change.replacementChassisId)
+    ) {
+      errors.push(
+        `"${change.replacementChassisId}" is not a valid chassisId. Valid: ${validChassis.join(", ")}`,
+      );
+    }
+    if (
+      change.replacementMobilityId &&
+      !validMobility.includes(change.replacementMobilityId)
+    ) {
+      errors.push(
+        `"${change.replacementMobilityId}" is not a valid mobilityId. Valid: ${validMobility.join(", ")}`,
+      );
+    }
+  }
+
+  return errors;
+}
+
+function validateReviewAgainstFacts(
+  review: MatchReview,
+  report: FactualMatchReport,
+): string[] {
+  const errors: string[] = [];
+
+  const outcome = review.observedOutcome;
+  if (!outcome) {
+    errors.push("observedOutcome is required for factual grounding");
+    return errors;
+  }
+
+  if (outcome.winnerId !== report.winner) {
+    errors.push(
+      `observedOutcome.winnerId is "${outcome.winnerId}" but match winner is "${report.winner}"`,
+    );
+  }
+  if (outcome.method !== report.resultMethod) {
+    errors.push(
+      `observedOutcome.method is "${outcome.method}" but match result is "${report.resultMethod}"`,
+    );
+  }
+  if (outcome.rounds !== report.rounds) {
+    errors.push(
+      `observedOutcome.rounds is ${outcome.rounds} but match lasted ${report.rounds} rounds`,
+    );
+  }
+
   return errors;
 }
 
@@ -552,6 +624,23 @@ export class DeepSeekArenaAgent implements ArenaAgent {
         messages.push({
           role: "user",
           content: buildReviewCorrectionPrompt(semanticErrors),
+        });
+        continue;
+      }
+
+      const factualErrors = validateReviewAgainstFacts(
+        schemaResult.review,
+        request.factualReport,
+      );
+      if (factualErrors.length > 0) {
+        allErrors.push(...factualErrors);
+        messages.push({
+          role: "assistant",
+          content: response.content,
+        });
+        messages.push({
+          role: "user",
+          content: buildReviewCorrectionPrompt(factualErrors),
         });
         continue;
       }

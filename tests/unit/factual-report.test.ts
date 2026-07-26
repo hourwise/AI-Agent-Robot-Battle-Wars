@@ -46,7 +46,7 @@ describe("factual report builder", () => {
 
   it("captures first hit when attacks occurred", () => {
     const report = buildFactualReport(result);
-    if (result.events.some((e) => e.type === "attack" && Boolean(e.data.hit))) {
+    if (result.events.some((e) => e.type === "attack_hit")) {
       expect(report.firstHit).toBeDefined();
       expect(report.firstHit!.round).toBeGreaterThanOrEqual(1);
     }
@@ -123,5 +123,70 @@ describe("enrichMatchSummariesWithPolicy", () => {
     expect(enriched.seed).toBe(report.seed);
     expect(enriched.rounds).toBe(report.rounds);
     expect(enriched.criticalHits).toEqual(report.criticalHits);
+  });
+});
+
+// Regression: match f0f00065 (seed 12345, Rear-Hunter vs The Bulwark)
+describe("factual report regression — Rear-Hunter vs Bulwark (seed 12345)", () => {
+  it("reports correct winner, method, rounds, and final integrity", () => {
+    // Simulate the exact config from the saved match
+    const rearHunterBuild = {
+      machineName: "Rear-Hunter",
+      chassisId: "medium" as const,
+      mobilityId: "wheels" as const,
+      weaponId: "horizontal_spinner" as const,
+      utilityId: "cooling" as const,
+      armour: { front: 30, left: 20, right: 20, rear: 10, top: 10 },
+      designSummary: "test",
+      designRationale: "test",
+    };
+    const buildResult = {
+      proposal: rearHunterBuild,
+      totalCost: 86,
+      armourCost: 9,
+      totalArmourPoints: 90,
+      catalogueVersion: "1",
+    };
+    const validated = { ok: true as const, build: buildResult, errors: [] };
+
+    if (!validated.ok) throw new Error("Invalid build");
+
+    const result = runMatch({
+      seed: 12345,
+      fighterA: {
+        build: validated.build,
+        policy: {
+          opening: "flank" as const,
+          preferredRange: "close" as const,
+          aggression: 80,
+          primaryTarget: "rear" as const,
+          secondaryTarget: "left" as const,
+          retreatThreshold: 30,
+          heatThreshold: 70,
+          fallback: "retreat" as const,
+        },
+      },
+      fighterB: {
+        build: createBulwarkBuild(),
+        policy: BULWARK_POLICY,
+      },
+      rulesetVersion: "0.1.0",
+      catalogueVersion: CATALOGUE_V1.version,
+    });
+
+    const report = buildFactualReport(result);
+
+    // Authoritative facts from the saved match
+    expect(report.winner).toBe("fighter_b");
+    expect(report.resultMethod).toBe("immobilisation");
+    expect(report.rounds).toBe(6);
+    expect(report.finalStates.fighterA.integrity).toBe(80);
+    expect(report.finalStates.fighterA.mobilityDisabled).toBe(true);
+    expect(report.finalStates.fighterB.integrity).toBe(150);
+    expect(report.finalStates.fighterB.mobilityDisabled).toBe(false);
+
+    // Schema validation
+    const validation = validateFactualMatchReport(report);
+    expect(validation.ok).toBe(true);
   });
 });

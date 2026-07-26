@@ -250,6 +250,15 @@ describe("DeepSeekArenaAgent", () => {
         },
       ],
       confidence: "high",
+      observedOutcome: {
+        winnerId: "fighter_a",
+        method: "destruction",
+        rounds: 12,
+        ownFinalIntegrity: 80,
+        opponentFinalIntegrity: 0,
+        ownDisabledComponents: [],
+        opponentDisabledComponents: [],
+      },
     };
 
     mockFetchSuccess(mockReview);
