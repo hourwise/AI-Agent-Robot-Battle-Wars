@@ -13,6 +13,9 @@ export function matchResultToRecord(result: MatchResult): MatchRecord {
     simulatorVersion: SIMULATOR_VERSION,
     seed: result.config.seed,
     config: {
+      seed: result.config.seed,
+      rulesetVersion: result.config.rulesetVersion,
+      catalogueVersion: result.config.catalogueVersion,
       fighterA: {
         build: result.config.fighterA.build,
         policy: result.config.fighterA.policy,

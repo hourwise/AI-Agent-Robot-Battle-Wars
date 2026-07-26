@@ -2,47 +2,8 @@ import type { SimulationEvent } from "../../simulator/types.js";
 import type {
   AsciiReplayInput,
   CompetitionState,
-  FighterVisualState,
   HighlightMoment,
 } from "./ascii.types.js";
-
-function createFighterStateFromBuild(
-  fighterId: string,
-  build: CompetitionState["fighterA"]["build"],
-  zone: string,
-  facing: string,
-): FighterVisualState {
-  const chassisIntegrity =
-    build.proposal.chassisId === "heavy"
-      ? 150
-      : build.proposal.chassisId === "medium"
-        ? 100
-        : 60;
-
-  return {
-    fighterId,
-    build,
-    integrity: chassisIntegrity,
-    maxIntegrity: chassisIntegrity,
-    energy: 100,
-    heat: 0,
-    zone,
-    facing,
-    conditions: [],
-    components: {
-      mobilityDisabled: false,
-      weaponDisabled: false,
-      utilityDisabled: false,
-    },
-    armour: {
-      front: build.proposal.armour.front,
-      left: build.proposal.armour.left,
-      right: build.proposal.armour.right,
-      rear: build.proposal.armour.rear,
-      top: build.proposal.armour.top,
-    },
-  };
-}
 
 export function getInitialState(input: AsciiReplayInput): CompetitionState {
   return input.initialState;
@@ -52,110 +13,72 @@ export function getRoundEndState(
   input: AsciiReplayInput,
   round: number,
 ): CompetitionState | null {
-  for (let i = input.events.length - 1; i >= 0; i--) {
-    const event = input.events[i]!;
-    if (event.type === "round_ended" && event.round === round) {
-      const data = event.data as {
-        fighterA: {
-          integrity: number;
-          energy: number;
-          heat: number;
-          zone: string;
-          conditions: string[];
-        };
-        fighterB: {
-          integrity: number;
-          energy: number;
-          heat: number;
-          zone: string;
-          conditions: string[];
-        };
-      };
+  let state = getInitialState(input);
 
-      return {
-        fighterA: createFighterStateFromBuild(
-          "fighter_a",
-          input.initialState.fighterA.build,
-          data.fighterA.zone,
-          input.initialState.fighterA.facing,
-        ),
-        fighterB: createFighterStateFromBuild(
-          "fighter_b",
-          input.initialState.fighterB.build,
-          data.fighterB.zone,
-          input.initialState.fighterB.facing,
-        ),
-      };
-    }
+  for (const event of input.events) {
+    if (event.round === undefined || event.round > round) break;
+    if (event.type === "round_started" && event.round === round) continue;
+
+    state = applyEvent(state, event);
   }
-  return null;
+
+  return state;
 }
 
 export function getStateAfterEvents(
   input: AsciiReplayInput,
   events: readonly SimulationEvent[],
 ): CompetitionState {
-  if (events.length === 0) {
-    return getInitialState(input);
-  }
-
-  const lastEvent = events[events.length - 1]!;
-  const roundEndState = getRoundEndState(input, lastEvent.round);
-
-  if (roundEndState) {
-    return applyEventsToState(roundEndState, events);
-  }
-
-  return applyEventsToState(getInitialState(input), events);
-}
-
-function applyEventsToState(
-  state: CompetitionState,
-  events: readonly SimulationEvent[],
-): CompetitionState {
-  let result = { ...state };
+  let state = getInitialState(input);
 
   for (const event of events) {
-    result = applyEvent(result, event);
+    state = applyEvent(state, event);
   }
 
-  return result;
+  return state;
 }
 
 function applyEvent(state: CompetitionState, event: SimulationEvent): CompetitionState {
-  const actorIsA = event.actorId === "fighter_a";
-
   switch (event.type) {
     case "movement_resolved": {
       const data = event.data as { to: string; facing: string };
-      if (actorIsA) {
+      const fighterId = event.actorId;
+      if (fighterId === "fighter_a") {
         return {
           ...state,
           fighterA: { ...state.fighterA, zone: data.to, facing: data.facing },
         };
       }
-      return {
-        ...state,
-        fighterB: { ...state.fighterB, zone: data.to, facing: data.facing },
-      };
+      if (fighterId === "fighter_b") {
+        return {
+          ...state,
+          fighterB: { ...state.fighterB, zone: data.to, facing: data.facing },
+        };
+      }
+      return state;
     }
 
     case "integrity_damaged": {
       const data = event.data as { remaining: number };
-      if (actorIsA) {
+      const targetId = event.targetId;
+      if (targetId === "fighter_a") {
         return {
           ...state,
           fighterA: { ...state.fighterA, integrity: data.remaining },
         };
       }
-      return {
-        ...state,
-        fighterB: { ...state.fighterB, integrity: data.remaining },
-      };
+      if (targetId === "fighter_b") {
+        return {
+          ...state,
+          fighterB: { ...state.fighterB, integrity: data.remaining },
+        };
+      }
+      return state;
     }
 
     case "robot_overturned": {
-      if (actorIsA) {
+      const targetId = event.targetId;
+      if (targetId === "fighter_a") {
         return {
           ...state,
           fighterA: {
@@ -164,19 +87,25 @@ function applyEvent(state: CompetitionState, event: SimulationEvent): Competitio
           },
         };
       }
-      return {
-        ...state,
-        fighterB: {
-          ...state.fighterB,
-          conditions: [...state.fighterB.conditions, "overturned"],
-        },
-      };
+      if (targetId === "fighter_b") {
+        return {
+          ...state,
+          fighterB: {
+            ...state.fighterB,
+            conditions: [...state.fighterB.conditions, "overturned"],
+          },
+        };
+      }
+      return state;
     }
 
     case "component_disabled": {
       const data = event.data as { component: string };
-      const target = actorIsA ? "fighterB" : "fighterA";
-      const fighter = state[target];
+      const targetId = event.targetId;
+      if (targetId !== "fighter_a" && targetId !== "fighter_b") return state;
+
+      const key = targetId === "fighter_a" ? "fighterA" : "fighterB";
+      const fighter = state[key];
       const newComponents = { ...fighter.components };
 
       if (data.component === "mobility") {
@@ -194,12 +123,60 @@ function applyEvent(state: CompetitionState, event: SimulationEvent): Competitio
 
       return {
         ...state,
-        [target]: {
+        [key]: {
           ...fighter,
           components: newComponents,
           conditions: newConditions,
         },
       };
+    }
+
+    case "robot_overheated": {
+      const actorId = event.actorId;
+      if (actorId === "fighter_a") {
+        return {
+          ...state,
+          fighterA: {
+            ...state.fighterA,
+            conditions: [...state.fighterA.conditions, "overheated"],
+          },
+        };
+      }
+      if (actorId === "fighter_b") {
+        return {
+          ...state,
+          fighterB: {
+            ...state.fighterB,
+            conditions: [...state.fighterB.conditions, "overheated"],
+          },
+        };
+      }
+      return state;
+    }
+
+    case "robot_recovered": {
+      const actorId = event.actorId;
+      if (actorId === "fighter_a") {
+        return {
+          ...state,
+          fighterA: {
+            ...state.fighterA,
+            conditions: state.fighterA.conditions.filter((c) => c !== "overheated"),
+            heat: (event.data.heatAfterRecovery as number) ?? state.fighterA.heat,
+          },
+        };
+      }
+      if (actorId === "fighter_b") {
+        return {
+          ...state,
+          fighterB: {
+            ...state.fighterB,
+            conditions: state.fighterB.conditions.filter((c) => c !== "overheated"),
+            heat: (event.data.heatAfterRecovery as number) ?? state.fighterB.heat,
+          },
+        };
+      }
+      return state;
     }
 
     default:

@@ -1,4 +1,5 @@
 import type { MatchResult } from "../simulator/types.js";
+import { sanitizeTerminalText } from "../shared/text-sanitise.js";
 
 export interface FighterStatistics {
   fighterId: string;
@@ -9,10 +10,13 @@ export interface FighterStatistics {
   damageInflicted: number;
   damageReceived: number;
   criticalHits: number;
-  componentDisables: number;
+  componentDisablesInflicted: number;
+  componentDisablesSuffered: number;
   movements: number;
-  knockbacks: number;
-  overturns: number;
+  knockbacksInflicted: number;
+  knockbacksSuffered: number;
+  overturnsInflicted: number;
+  overturnsSuffered: number;
   finalIntegrity: number;
   maxIntegrity: number;
 }
@@ -40,18 +44,31 @@ function createFighterStats(
     damageInflicted: 0,
     damageReceived: 0,
     criticalHits: 0,
-    componentDisables: 0,
+    componentDisablesInflicted: 0,
+    componentDisablesSuffered: 0,
     movements: 0,
-    knockbacks: 0,
-    overturns: 0,
+    knockbacksInflicted: 0,
+    knockbacksSuffered: 0,
+    overturnsInflicted: 0,
+    overturnsSuffered: 0,
     finalIntegrity: 0,
     maxIntegrity,
   };
 }
 
+function lookupStats(
+  fighterId: string | undefined,
+  statsA: FighterStatistics,
+  statsB: FighterStatistics,
+): FighterStatistics | null {
+  if (fighterId === "fighter_a") return statsA;
+  if (fighterId === "fighter_b") return statsB;
+  return null;
+}
+
 export function computeMatchStatistics(result: MatchResult): MatchStatistics {
-  const nameA = result.config.fighterA.build.proposal.machineName;
-  const nameB = result.config.fighterB.build.proposal.machineName;
+  const nameA = sanitizeTerminalText(result.config.fighterA.build.proposal.machineName);
+  const nameB = sanitizeTerminalText(result.config.fighterB.build.proposal.machineName);
 
   const statsA = createFighterStats(
     "fighter_a",
@@ -68,58 +85,67 @@ export function computeMatchStatistics(result: MatchResult): MatchStatistics {
   let lastHit: MatchStatistics["lastHit"] = null;
 
   for (const event of result.events) {
-    const stats = event.actorId === "fighter_a" ? statsA : statsB;
-    const target =
-      event.targetId === "fighter_a"
-        ? statsA
-        : event.targetId === "fighter_b"
-          ? statsB
-          : null;
+    const actor = lookupStats(event.actorId, statsA, statsB);
+    const target = lookupStats(event.targetId, statsA, statsB);
 
     switch (event.type) {
       case "attack_attempted":
-        stats.attacksAttempted++;
+        if (actor) {
+          actor.attacksAttempted++;
+        }
         break;
 
       case "attack_hit":
-        stats.attacksHit++;
-        if (target) {
-          const damage = event.data.effectiveDamage as number;
-          target.damageReceived += damage;
-          stats.damageInflicted += damage;
+        if (actor) {
+          actor.attacksHit++;
+          if (event.data.isCritical) {
+            actor.criticalHits++;
+          }
+          if (target) {
+            const damage = event.data.effectiveDamage as number;
+            actor.damageInflicted += damage;
+            target.damageReceived += damage;
+          }
+          if (!firstBlood) {
+            firstBlood = { round: event.round, attacker: actor.name };
+          }
+          lastHit = { round: event.round, attacker: actor.name };
         }
-        if (event.data.isCritical) {
-          stats.criticalHits++;
-        }
-        if (!firstBlood) {
-          firstBlood = { round: event.round, attacker: stats.name };
-        }
-        lastHit = { round: event.round, attacker: stats.name };
         break;
 
       case "attack_missed":
-        stats.attacksMissed++;
+        if (actor) {
+          actor.attacksMissed++;
+        }
         break;
 
       case "component_disabled":
+        if (actor) {
+          actor.componentDisablesInflicted++;
+        }
         if (target) {
-          target.componentDisables++;
+          target.componentDisablesSuffered++;
         }
         break;
 
       case "movement_resolved":
-        stats.movements++;
-        if (event.data.action === "knockback") {
-          stats.knockbacks++;
-          if (target) {
-            target.knockbacks++;
+        if (actor) {
+          actor.movements++;
+          if (event.data.action === "knockback") {
+            actor.knockbacksInflicted++;
           }
+        }
+        if (target && event.data.action === "knockback") {
+          target.knockbacksSuffered++;
         }
         break;
 
       case "robot_overturned":
+        if (actor) {
+          actor.overturnsInflicted++;
+        }
         if (target) {
-          target.overturns++;
+          target.overturnsSuffered++;
         }
         break;
     }
@@ -160,37 +186,25 @@ export function formatMatchStatistics(stats: MatchStatistics): string {
   lines.push(`Total Events: ${stats.totalEvents}`);
   lines.push("");
 
-  lines.push(`${stats.fighterA.name}:`);
-  lines.push(
-    `  Attacks: ${stats.fighterA.attacksHit}/${stats.fighterA.attacksAttempted} hit`,
-  );
-  lines.push(`  Damage Inflicted: ${stats.fighterA.damageInflicted}`);
-  lines.push(`  Damage Received: ${stats.fighterA.damageReceived}`);
-  lines.push(`  Critical Hits: ${stats.fighterA.criticalHits}`);
-  lines.push(`  Component Disables: ${stats.fighterA.componentDisables}`);
-  lines.push(`  Movements: ${stats.fighterA.movements}`);
-  lines.push(`  Knockbacks: ${stats.fighterA.knockbacks}`);
-  lines.push(`  Overturns: ${stats.fighterA.overturns}`);
-  lines.push(
-    `  Final Integrity: ${stats.fighterA.finalIntegrity}/${stats.fighterA.maxIntegrity}`,
-  );
-  lines.push("");
-
-  lines.push(`${stats.fighterB.name}:`);
-  lines.push(
-    `  Attacks: ${stats.fighterB.attacksHit}/${stats.fighterB.attacksAttempted} hit`,
-  );
-  lines.push(`  Damage Inflicted: ${stats.fighterB.damageInflicted}`);
-  lines.push(`  Damage Received: ${stats.fighterB.damageReceived}`);
-  lines.push(`  Critical Hits: ${stats.fighterB.criticalHits}`);
-  lines.push(`  Component Disables: ${stats.fighterB.componentDisables}`);
-  lines.push(`  Movements: ${stats.fighterB.movements}`);
-  lines.push(`  Knockbacks: ${stats.fighterB.knockbacks}`);
-  lines.push(`  Overturns: ${stats.fighterB.overturns}`);
-  lines.push(
-    `  Final Integrity: ${stats.fighterB.finalIntegrity}/${stats.fighterB.maxIntegrity}`,
-  );
-  lines.push("");
+  for (const fighter of [stats.fighterA, stats.fighterB]) {
+    lines.push(`${fighter.name}:`);
+    lines.push(`  Attacks: ${fighter.attacksHit}/${fighter.attacksAttempted} hit`);
+    lines.push(`  Damage Inflicted: ${fighter.damageInflicted}`);
+    lines.push(`  Damage Received: ${fighter.damageReceived}`);
+    lines.push(`  Critical Hits: ${fighter.criticalHits}`);
+    lines.push(
+      `  Component Disables: ${fighter.componentDisablesInflicted} inflicted, ${fighter.componentDisablesSuffered} suffered`,
+    );
+    lines.push(`  Movements: ${fighter.movements}`);
+    lines.push(
+      `  Knockbacks: ${fighter.knockbacksInflicted} inflicted, ${fighter.knockbacksSuffered} suffered`,
+    );
+    lines.push(
+      `  Overturns: ${fighter.overturnsInflicted} inflicted, ${fighter.overturnsSuffered} suffered`,
+    );
+    lines.push(`  Final Integrity: ${fighter.finalIntegrity}/${fighter.maxIntegrity}`);
+    lines.push("");
+  }
 
   if (stats.firstBlood) {
     lines.push(

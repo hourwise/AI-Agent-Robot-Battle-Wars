@@ -41,8 +41,9 @@ API keys are read from environment variables. `.env` is gitignored. Provider cal
 ```
 src/
   config/         Environment validation and configuration
-  domain/         Core types (Competitor, MachineBuild, Competition, etc.)
+  shared/         Shared utilities (text sanitisation)
   catalogue/      Versioned component catalogue
+  schemas/        Zod schemas (build, match record)
   validation/     Build and decision validators
   simulator/      Deterministic combat engine
   events/         Event types and factory
@@ -55,6 +56,21 @@ src/
 ```
 
 Each layer depends only on layers below it. The simulator never imports agents, persistence or replay. Agents never import the simulator.
+
+### Shared utilities
+
+The `shared/` directory contains cross-cutting utilities used by multiple modules. Currently:
+
+- `text-sanitise.ts`: Terminal-safe text sanitisation (ANSI removal, control character filtering, name truncation). Used by ASCII replay, text replay, and statistics to prevent terminal injection.
+
+### Persistence patterns
+
+The JSON match repository uses:
+
+- **Atomic writes**: Write to a temp file, then rename to final path. Prevents corruption on crash.
+- **UUID validation**: Match IDs are validated as UUIDs before filesystem access.
+- **Existing-ID rejection**: `saveMatch` throws if a match with the same ID already exists.
+- **Corrupt entry tracking**: `listCorruptEntries()` reports files that failed validation.
 
 ### Presentation-only rendering boundary
 

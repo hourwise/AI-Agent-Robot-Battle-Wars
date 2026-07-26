@@ -19,6 +19,12 @@ import {
   OVERHEAT_RECOVERY_AMOUNT,
   BASE_HIT_CHANCE,
 } from "./constants.js";
+import { CATALOGUE_V1 } from "../catalogue/catalogue.v1.js";
+
+function getWeaponCooldown(weaponId: string): number {
+  const weapon = CATALOGUE_V1.weapons.find((w) => w.id === weaponId);
+  return weapon?.cooldown ?? 0;
+}
 
 export interface RoundState {
   fighterA: FighterState;
@@ -59,6 +65,21 @@ export function applyRound(
     events.push(event);
     return event;
   };
+
+  if (a.conditions.includes("overheated")) {
+    a = { ...a, conditions: a.conditions.filter((c) => c !== "overheated") };
+    a = { ...a, heat: Math.max(0, a.heat - OVERHEAT_RECOVERY_AMOUNT) };
+    emit("robot_recovered", a.fighterId, undefined, {
+      heatAfterRecovery: a.heat,
+    });
+  }
+  if (b.conditions.includes("overheated")) {
+    b = { ...b, conditions: b.conditions.filter((c) => c !== "overheated") };
+    b = { ...b, heat: Math.max(0, b.heat - OVERHEAT_RECOVERY_AMOUNT) };
+    emit("robot_recovered", b.fighterId, undefined, {
+      heatAfterRecovery: b.heat,
+    });
+  }
 
   const resolvedA = resolveMovement(a, actions.fighterA.movement);
   const resolvedB = resolveMovement(b, actions.fighterB.movement);
@@ -106,7 +127,12 @@ export function applyRound(
   let damageBtoA = 0;
 
   if (attackResultA) {
-    a = { ...a, energy: a.energy - ATTACK_ENERGY_COST, heat: a.heat + ATTACK_HEAT_GAIN };
+    a = {
+      ...a,
+      energy: a.energy - ATTACK_ENERGY_COST,
+      heat: a.heat + ATTACK_HEAT_GAIN,
+      weaponCooldown: getWeaponCooldown(a.build.proposal.weaponId),
+    };
     emit("attack_attempted", a.fighterId, b.fighterId, {
       weapon: a.build.proposal.weaponId,
       momentum: momentumA,
@@ -165,7 +191,12 @@ export function applyRound(
   }
 
   if (attackResultB) {
-    b = { ...b, energy: b.energy - ATTACK_ENERGY_COST, heat: b.heat + ATTACK_HEAT_GAIN };
+    b = {
+      ...b,
+      energy: b.energy - ATTACK_ENERGY_COST,
+      heat: b.heat + ATTACK_HEAT_GAIN,
+      weaponCooldown: getWeaponCooldown(b.build.proposal.weaponId),
+    };
     emit("attack_attempted", b.fighterId, a.fighterId, {
       weapon: b.build.proposal.weaponId,
       momentum: momentumB,
@@ -226,17 +257,21 @@ export function applyRound(
   a = applyHeatAndEnergy(a);
   b = applyHeatAndEnergy(b);
 
+  if (
+    a.conditions.includes("overheated") &&
+    !state.fighterA.conditions.includes("overheated")
+  ) {
+    emit("robot_overheated", a.fighterId, undefined, { heat: a.heat });
+  }
+  if (
+    b.conditions.includes("overheated") &&
+    !state.fighterB.conditions.includes("overheated")
+  ) {
+    emit("robot_overheated", b.fighterId, undefined, { heat: b.heat });
+  }
+
   a = { ...a, weaponCooldown: Math.max(0, a.weaponCooldown - 1) };
   b = { ...b, weaponCooldown: Math.max(0, b.weaponCooldown - 1) };
-
-  if (a.conditions.includes("overheated")) {
-    a = { ...a, conditions: a.conditions.filter((c) => c !== "overheated") };
-    a = { ...a, heat: Math.max(0, a.heat - OVERHEAT_RECOVERY_AMOUNT) };
-  }
-  if (b.conditions.includes("overheated")) {
-    b = { ...b, conditions: b.conditions.filter((c) => c !== "overheated") };
-    b = { ...b, heat: Math.max(0, b.heat - OVERHEAT_RECOVERY_AMOUNT) };
-  }
 
   const newDamageDealt = {
     a: state.damageDealt.a + damageAtoB,

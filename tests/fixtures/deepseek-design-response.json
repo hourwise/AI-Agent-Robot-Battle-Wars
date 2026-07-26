@@ -1,0 +1,21 @@
+{
+  "id": "chatcmpl-mock-001",
+  "object": "chat.completion",
+  "created": 1700000000,
+  "model": "deepseek-v4-flash",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"machineName\": \"Cirque du Fragile\",\n  \"chassisId\": \"medium\",\n  \"mobilityId\": \"legs\",\n  \"weaponId\": \"flipper\",\n  \"utilityId\": \"cooling\",\n  \"armour\": {\n    \"front\": 20,\n    \"left\": 15,\n    \"right\": 15,\n    \"rear\": 10,\n    \"top\": 0\n  },\n  \"designSummary\": \"A mobile flipper build designed to outmanoeuvre The Bulwark and overturn it from the rear.\",\n  \"designRationale\": \"Legs provide balanced speed and traction for circling. Flipper exploits overturned condition against a heavy, slow opponent. Cooling manages heat from repeated flips. Front armour absorbs ram damage while flanking.\"\n}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 450,
+    "completion_tokens": 180,
+    "total_tokens": 630
+  }
+}

@@ -16,6 +16,9 @@ function makeValidRecord(): MatchRecord {
     simulatorVersion: "0.1.0",
     seed: 42,
     config: {
+      seed: 42,
+      rulesetVersion: "1",
+      catalogueVersion: "1",
       fighterA: {
         build: {
           proposal: {

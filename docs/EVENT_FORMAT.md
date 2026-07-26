@@ -30,6 +30,8 @@ interface SimulationEvent {
 | `integrity_damaged`   | Fighter lost integrity                    | attacker | defender |
 | `component_disabled`  | A component was destroyed by critical hit | attacker | defender |
 | `robot_overturned`    | Fighter was flipped or overturned         | attacker | defender |
+| `robot_overheated`    | Fighter exceeded heat threshold           | fighter  | —        |
+| `robot_recovered`     | Fighter recovered from overheating        | fighter  | —        |
 | `policy_triggered`    | Derived action from policy                | fighter  | —        |
 | `round_ended`         | Round summary with both fighter states    | —        | —        |
 | `competition_ended`   | Match result                              | —        | —        |

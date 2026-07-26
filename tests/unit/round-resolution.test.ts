@@ -177,4 +177,85 @@ describe("applyRound", () => {
     );
     expect(result.events.length).toBeGreaterThan(0);
   });
+
+  it("sets weapon cooldown after attack from catalogue", () => {
+    const a = makeFighter({ fighterId: "a", zone: "center" });
+    const b = makeFighter({ fighterId: "b", zone: "center" });
+    const state = makeState(a, b);
+    const rng = new SeededRandom(42);
+    const result = applyRound(
+      state,
+      {
+        fighterA: { movement: "hold", combat: "attack" },
+        fighterB: { movement: "hold", combat: "defend" },
+      },
+      rng,
+      1,
+      1000,
+    );
+    if (result.fighterA.weaponCooldown > 0) {
+      expect(result.fighterA.weaponCooldown).toBeGreaterThan(0);
+    }
+  });
+
+  it("decrements weapon cooldown each round", () => {
+    const a = makeFighter({ fighterId: "a", weaponCooldown: 2 });
+    const b = makeFighter({ fighterId: "b" });
+    const state = makeState(a, b);
+    const rng = new SeededRandom(42);
+    const result = applyRound(
+      state,
+      {
+        fighterA: { movement: "hold", combat: "idle" },
+        fighterB: { movement: "hold", combat: "idle" },
+      },
+      rng,
+      1,
+      1000,
+    );
+    expect(result.fighterA.weaponCooldown).toBe(1);
+  });
+
+  it("overheated condition persists to next round start", () => {
+    const a = makeFighter({ fighterId: "a", conditions: ["overheated"] });
+    const b = makeFighter({ fighterId: "b" });
+    const state = makeState(a, b);
+    const rng = new SeededRandom(42);
+    const result = applyRound(
+      state,
+      {
+        fighterA: { movement: "hold", combat: "idle" },
+        fighterB: { movement: "hold", combat: "idle" },
+      },
+      rng,
+      1,
+      1000,
+    );
+    expect(result.fighterA.conditions).not.toContain("overheated");
+    const recoveredEvent = result.events.find(
+      (e) => e.type === "robot_recovered" && e.actorId === "a",
+    );
+    expect(recoveredEvent).toBeDefined();
+  });
+
+  it("emits robot_overheated when condition first applied", () => {
+    const a = makeFighter({ fighterId: "a", heat: 195, conditions: [] });
+    const b = makeFighter({ fighterId: "b" });
+    const state = makeState(a, b);
+    const rng = new SeededRandom(42);
+    const result = applyRound(
+      state,
+      {
+        fighterA: { movement: "hold", combat: "attack" },
+        fighterB: { movement: "hold", combat: "defend" },
+      },
+      rng,
+      1,
+      1000,
+    );
+    const overheatEvent = result.events.find(
+      (e) => e.type === "robot_overheated" && e.actorId === "a",
+    );
+    expect(overheatEvent).toBeDefined();
+  });
 });

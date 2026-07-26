@@ -15,6 +15,9 @@ function makeValidRecord(matchId: string): MatchRecord {
     simulatorVersion: "0.1.0",
     seed: 42,
     config: {
+      seed: 42,
+      rulesetVersion: "1",
+      catalogueVersion: "1",
       fighterA: {
         build: {
           proposal: {
@@ -193,8 +196,41 @@ describe("JsonMatchRepository", () => {
     const record = makeValidRecord("550e8400-e29b-41d4-a716-446655440000");
     await repo.saveMatch(record);
     const modified = { ...record, seed: 100 };
-    await repo.saveMatch(modified);
+    await expect(repo.saveMatch(modified)).rejects.toThrow("already exists");
     const retrieved = await repo.getMatch(record.matchId);
-    expect(retrieved!.seed).toBe(100);
+    expect(retrieved!.seed).toBe(42);
+  });
+
+  it("rejects non-UUID match IDs", async () => {
+    const record = makeValidRecord("not-a-valid-uuid");
+    await expect(repo.saveMatch(record)).rejects.toThrow("Invalid match ID");
+  });
+
+  it("returns null for non-UUID getMatch", async () => {
+    const result = await repo.getMatch("not-a-uuid");
+    expect(result).toBeNull();
+  });
+
+  it("tracks corrupt entries", async () => {
+    const validRecord = makeValidRecord("550e8400-e29b-41d4-a716-446655440001");
+    await repo.saveMatch(validRecord);
+
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(join(tempDir, "corrupt.json"), "{invalid json}", "utf-8");
+    await writeFile(join(tempDir, "bad-uuid.json"), "not json", "utf-8");
+
+    const matches = await repo.listMatches();
+    expect(matches.length).toBe(1);
+
+    const corrupt = await repo.listCorruptEntries();
+    expect(corrupt.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("skips temp files during listing", async () => {
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(join(tempDir, "test.tmp.123.json"), "{}", "utf-8");
+
+    const matches = await repo.listMatches();
+    expect(matches.length).toBe(0);
   });
 });
