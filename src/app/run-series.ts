@@ -1,16 +1,22 @@
 import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import type { ArenaAgent, OpponentSummary } from "../agents/arena-agent.js";
+import type {
+  ArenaAgent,
+  OpponentSummary,
+  RebuildContext,
+} from "../agents/arena-agent.js";
 import type { MachineBuildProposal } from "../validation/validation.types.js";
-import type { MatchResult } from "../simulator/types.js";
 import type { AgentUsageRecord } from "../types/agent-usage.js";
 import type {
   SeriesRecord,
   SeriesMatchEntry,
   AgentUsageRecordEntry,
 } from "../schemas/series.schema.js";
+import type { FactualMatchReport } from "../schemas/factual-report.schema.js";
+import type { MatchReview } from "../schemas/review.schema.js";
 import type { SeriesRepository } from "../persistence/series-repository.js";
+import type { MatchRepository } from "../persistence/json-match-repository.js";
 import type { SeedSource } from "../seed-source.js";
 import { runMatch } from "../simulator/simulator.js";
 import { CATALOGUE_V1 } from "../catalogue/catalogue.v1.js";
@@ -21,6 +27,7 @@ import {
   enrichMatchSummariesWithPolicy,
 } from "../reports/factual-match-report.js";
 import { buildUsageSummary } from "../schemas/series.schema.js";
+import { matchResultToRecord } from "../persistence/match-converter.js";
 import {
   createBulwarkBuild,
   BULWARK_POLICY,
@@ -28,6 +35,7 @@ import {
 } from "../agents/scripted/bulwark-agent.js";
 import { RandomSeedSource } from "../seed-source.js";
 import { JsonSeriesRepository } from "../persistence/series-repository.js";
+import { JsonMatchRepository } from "../persistence/json-match-repository.js";
 import { renderSeriesReport } from "../reports/series-report.js";
 import { buildComparativeReportModel } from "../reports/series-report.js";
 
@@ -46,8 +54,43 @@ export interface RunSeriesRequest {
 export interface RunSeriesDependencies {
   agent: ArenaAgent;
   seriesRepository: SeriesRepository;
+  matchRepository: MatchRepository;
   seedSource: SeedSource;
   logger: SeriesLogger;
+}
+
+export interface SeriesValidationError {
+  field: string;
+  message: string;
+}
+
+export function validateSeriesOptions(
+  targetWins: number,
+  maximumMatches: number,
+): SeriesValidationError[] {
+  const errors: SeriesValidationError[] = [];
+
+  if (!Number.isInteger(targetWins) || targetWins < 1) {
+    errors.push({ field: "targetWins", message: "targetWins must be an integer >= 1" });
+  }
+
+  if (!Number.isInteger(maximumMatches) || maximumMatches < 1) {
+    errors.push({
+      field: "maximumMatches",
+      message: "maximumMatches must be an integer >= 1",
+    });
+  }
+
+  if (Number.isInteger(targetWins) && Number.isInteger(maximumMatches)) {
+    if (targetWins > maximumMatches) {
+      errors.push({
+        field: "targetWins",
+        message: `targetWins (${targetWins}) cannot exceed maximumMatches (${maximumMatches}) — no one can reach ${targetWins} wins before the cap`,
+      });
+    }
+  }
+
+  return errors;
 }
 
 function buildOpponentSummary(): OpponentSummary {
@@ -65,17 +108,6 @@ function validateLegalBuild(proposal: MachineBuildProposal):
     return { ok: true, build: result.build };
   }
   return { ok: false, errors: result.errors.map((e) => `${e.field}: ${e.message}`) };
-}
-
-function createMatchRecordSummary(result: MatchResult) {
-  return {
-    matchId: randomUUID(),
-    createdAt: new Date().toISOString(),
-    seed: result.config.seed,
-    rounds: result.rounds,
-    winner: result.result.winner,
-    resultMethod: result.result.method,
-  };
 }
 
 function usageToEntry(record: AgentUsageRecord): AgentUsageRecordEntry {
@@ -107,13 +139,49 @@ function collectAllUsage(entries: readonly SeriesMatchEntry[]): AgentUsageRecord
   return all;
 }
 
+interface ParticipantMapping {
+  fighter_a: string;
+  fighter_b: string;
+}
+
+function buildParticipantMapping(competitorId: string): ParticipantMapping {
+  return {
+    fighter_a: competitorId,
+    fighter_b: "bulwark",
+  };
+}
+
+function resolveWinner(
+  simulatorWinner: string | null,
+  mapping: ParticipantMapping,
+): "ai" | "bulwark" | null {
+  if (simulatorWinner === null) return null;
+  const participantId =
+    simulatorWinner === "fighter_a"
+      ? mapping.fighter_a
+      : simulatorWinner === "fighter_b"
+        ? mapping.fighter_b
+        : null;
+  if (participantId === "ai") return "ai";
+  if (participantId === "bulwark") return "bulwark";
+  return null;
+}
+
 export async function runSeries(
   request: RunSeriesRequest,
   deps: RunSeriesDependencies,
 ): Promise<SeriesRecord> {
-  const { agent, seriesRepository, seedSource, logger } = deps;
+  const { agent, seriesRepository, matchRepository, seedSource, logger } = deps;
   const maximumMatches = request.maximumMatches ?? 5;
   const targetWins = request.targetWins ?? 3;
+
+  const validationErrors = validateSeriesOptions(targetWins, maximumMatches);
+  if (validationErrors.length > 0) {
+    const msg = validationErrors.map((e) => `${e.field}: ${e.message}`).join("; ");
+    throw new Error(`Invalid series options: ${msg}`);
+  }
+
+  const participantMapping = buildParticipantMapping(request.competitor.id);
 
   const seriesId = randomUUID();
   const now = new Date().toISOString();
@@ -144,18 +212,27 @@ export async function runSeries(
   logger.info(`Series ${seriesId} created`);
 
   let currentDesign: MachineBuildProposal | null = null;
-  const priorMatchSummaries: string[] = [];
+  let lastFactualReport: FactualMatchReport | null = null;
+  let lastReview: MatchReview | null = null;
+  let lastMatchNumber = 0;
 
   for (let matchNumber = 1; matchNumber <= maximumMatches; matchNumber++) {
     const seed = seedSource.nextSeed();
     logger.info(`--- Match ${matchNumber} of ${maximumMatches} (seed: ${seed}) ---`);
 
-    const designRequest = {
-      ...(currentDesign ? { priorBuild: currentDesign } : {}),
-      ...(priorMatchSummaries.length > 0
-        ? { context: `Previous matches: ${priorMatchSummaries.join("; ")}` }
-        : {}),
-    };
+    const designRequest: import("../agents/arena-agent.js").DesignRequest = {};
+
+    if (currentDesign) {
+      (designRequest as { priorBuild: MachineBuildProposal }).priorBuild = currentDesign;
+    }
+
+    if (lastMatchNumber > 0 && lastFactualReport && lastReview) {
+      (designRequest as { reviewContext: RebuildContext }).reviewContext = {
+        matchNumber: lastMatchNumber,
+        factualReport: lastFactualReport,
+        review: lastReview,
+      };
+    }
 
     let designResult;
     try {
@@ -194,7 +271,6 @@ export async function runSeries(
     const policyResult = await agent.choosePolicy({
       build: currentDesign,
       opponent,
-      priorMatchSummaries,
     });
 
     const policyUsage = agent.usageFromResult(policyResult, "policy");
@@ -219,17 +295,22 @@ export async function runSeries(
       BULWARK_POLICY,
     );
 
-    const matchSummary = createMatchRecordSummary(matchResult);
+    const resolvedWinner = resolveWinner(matchResult.result.winner, participantMapping);
+    const resultMethod = matchResult.result.method;
+
     logger.info(
-      `Result: ${matchSummary.winner ?? "Draw"} by ${matchSummary.resultMethod} in ${matchSummary.rounds} rounds`,
+      `Result: ${resolvedWinner ?? "Draw"} by ${resultMethod} in ${matchResult.rounds} rounds`,
     );
 
+    let review: MatchReview | null = null;
     let reviewFailure: { category: string; message: string } | undefined;
+    const reviewUsageRecords: AgentUsageRecordEntry[] = [];
 
     try {
       const reviewResult = await agent.reviewMatch({ factualReport: enrichedReport });
-      const review = reviewResult.value;
+      review = reviewResult.value;
       const reviewUsage = agent.usageFromResult(reviewResult, "review");
+      reviewUsageRecords.push(usageToEntry(reviewUsage));
 
       if (reviewResult.fallbackUsed) {
         reviewFailure = {
@@ -239,66 +320,73 @@ export async function runSeries(
       }
 
       logger.info(`Review: ${review.summary}`);
-
-      const allUsage: AgentUsageRecordEntry[] = [
-        usageToEntry(designUsage),
-        usageToEntry(policyUsage),
-        usageToEntry(reviewUsage),
-      ];
-
-      const entry: SeriesMatchEntry = {
-        matchNumber,
-        seed,
-        match: matchSummary,
-        factualReport: enrichedReport,
-        review,
-        reviewFailure,
-        designBeforeMatch: currentDesign,
-        policyBeforeMatch: currentPolicy,
-        usage: allUsage,
-      };
-
-      record = {
-        ...record,
-        entries: [...record.entries, entry],
-        totalUsage: buildUsageSummary(collectAllUsage([...record.entries, entry])),
-        updatedAt: new Date().toISOString(),
-      };
     } catch (e) {
       reviewFailure = {
         category: "error",
         message: e instanceof Error ? e.message : String(e),
       };
       logger.warn(`Review failed: ${reviewFailure.message}`);
-
-      const allUsage: AgentUsageRecordEntry[] = [
-        usageToEntry(designUsage),
-        usageToEntry(policyUsage),
-      ];
-
-      const entry: SeriesMatchEntry = {
-        matchNumber,
-        seed,
-        match: matchSummary,
-        factualReport: enrichedReport,
-        review: null,
-        reviewFailure,
-        designBeforeMatch: currentDesign,
-        policyBeforeMatch: currentPolicy,
-        usage: allUsage,
-      };
-
-      record = {
-        ...record,
-        entries: [...record.entries, entry],
-        totalUsage: buildUsageSummary(collectAllUsage([...record.entries, entry])),
-        updatedAt: new Date().toISOString(),
-      };
     }
 
-    if (matchSummary.winner === request.competitor.id) {
+    const allUsage: AgentUsageRecordEntry[] = [
+      usageToEntry(designUsage),
+      usageToEntry(policyUsage),
+      ...reviewUsageRecords,
+    ];
+
+    const matchRecord = matchResultToRecord(matchResult, [
+      designUsage,
+      policyUsage,
+      ...reviewUsageRecords.map((u) => ({
+        ...u,
+        phase: u.phase as AgentUsageRecord["phase"],
+      })),
+    ]);
+
+    try {
+      await matchRepository.saveMatch(matchRecord);
+      logger.info(`Match saved: ${matchRecord.matchId}`);
+    } catch (e) {
+      logger.error(`Failed to save match: ${e instanceof Error ? e.message : String(e)}`);
+      record = {
+        ...record,
+        status: "aborted",
+        updatedAt: new Date().toISOString(),
+      };
+      await seriesRepository.saveSeries(record);
+      return record;
+    }
+
+    const entry: SeriesMatchEntry = {
+      matchNumber,
+      seed,
+      matchId: matchRecord.matchId,
+      match: {
+        matchId: matchRecord.matchId,
+        createdAt: matchRecord.createdAt,
+        seed,
+        rounds: matchResult.rounds,
+        winner: matchResult.result.winner,
+        resultMethod,
+      },
+      factualReport: enrichedReport,
+      review,
+      reviewFailure,
+      designBeforeMatch: currentDesign,
+      policyBeforeMatch: currentPolicy,
+      usage: allUsage,
+    };
+
+    record = {
+      ...record,
+      entries: [...record.entries, entry],
+      totalUsage: buildUsageSummary(collectAllUsage([...record.entries, entry])),
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (resolvedWinner === "ai") {
       record = { ...record, score: { ...record.score, aiWins: record.score.aiWins + 1 } };
-    } else if (matchSummary.winner !== null) {
+    } else if (resolvedWinner === "bulwark") {
       record = {
         ...record,
         score: { ...record.score, bulwarkWins: record.score.bulwarkWins + 1 },
@@ -307,9 +395,9 @@ export async function runSeries(
       record = { ...record, score: { ...record.score, draws: record.score.draws + 1 } };
     }
 
-    priorMatchSummaries.push(
-      `${matchSummary.winner ?? "Draw"} by ${matchSummary.resultMethod} in ${matchSummary.rounds} rounds (seed ${seed})`,
-    );
+    lastFactualReport = enrichedReport;
+    lastReview = review;
+    lastMatchNumber = matchNumber;
 
     const aiWins = record.score.aiWins;
     const bulwarkWins = record.score.bulwarkWins;
@@ -378,17 +466,9 @@ function parseArgs(): {
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--target-wins" && args[i + 1]) {
       targetWins = parseInt(args[i + 1]!, 10);
-      if (isNaN(targetWins) || targetWins < 1) {
-        console.error("Invalid --target-wins value");
-        process.exit(1);
-      }
       i++;
     } else if (args[i] === "--maximum-matches" && args[i + 1]) {
       maximumMatches = parseInt(args[i + 1]!, 10);
-      if (isNaN(maximumMatches) || maximumMatches < 1) {
-        console.error("Invalid --maximum-matches value");
-        process.exit(1);
-      }
       i++;
     } else if (args[i] === "--verbose") {
       verbose = true;
@@ -400,6 +480,15 @@ function parseArgs(): {
 
 async function main() {
   const { targetWins, maximumMatches, verbose } = parseArgs();
+
+  const validationErrors = validateSeriesOptions(targetWins, maximumMatches);
+  if (validationErrors.length > 0) {
+    console.error("Invalid series options:");
+    for (const e of validationErrors) {
+      console.error(`  ${e.field}: ${e.message}`);
+    }
+    process.exit(1);
+  }
 
   const { loadDeepSeekConfig } = await import("../agents/deepseek/deepseek-config.js");
   const { DeepSeekArenaAgent } = await import("../agents/deepseek/deepseek-agent.js");
@@ -416,8 +505,11 @@ async function main() {
 
   const agent: ArenaAgent = new DeepSeekArenaAgent(config);
   const seriesDir = join(process.cwd(), "data", "series");
+  const matchesDir = join(process.cwd(), "data", "matches");
   await mkdir(seriesDir, { recursive: true });
+  await mkdir(matchesDir, { recursive: true });
   const seriesRepository = new JsonSeriesRepository(seriesDir);
+  const matchRepository = new JsonMatchRepository(matchesDir);
   const seedSource = new RandomSeedSource();
 
   const logger: SeriesLogger = {
@@ -439,12 +531,18 @@ async function main() {
       targetWins,
       maximumMatches,
     },
-    { agent, seriesRepository, seedSource, logger },
+    { agent, seriesRepository, matchRepository, seedSource, logger },
   );
 
   console.log("");
   console.log("=".repeat(50));
-  console.log("SERIES COMPLETE");
+
+  if (record.status === "aborted") {
+    console.log("SERIES ABORTED");
+  } else {
+    console.log("SERIES COMPLETE");
+  }
+
   console.log("=".repeat(50));
   console.log(
     `Score: AI ${record.score.aiWins} - ${record.score.bulwarkWins} Bulwark (${record.score.draws} draws)`,
@@ -472,6 +570,10 @@ async function main() {
   }
 
   console.log(`\nSeries saved: ${seriesDir}/${record.seriesId}.json`);
+
+  if (record.status === "aborted") {
+    process.exit(1);
+  }
 }
 
 if (

@@ -131,7 +131,9 @@ async function main() {
     console.log("=".repeat(50) + "\n");
 
     const events = record.events;
-    const attacks = events.filter((e) => e.type === "attack_hit" || e.type === "attack_missed");
+    const attacks = events.filter(
+      (e) => e.type === "attack_hit" || e.type === "attack_missed",
+    );
     const hits = events.filter((e) => e.type === "attack_hit");
     const crits = events.filter(
       (e) => e.type === "component_damaged" || e.type === "component_disabled",

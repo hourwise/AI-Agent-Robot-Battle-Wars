@@ -64,6 +64,7 @@ const reviewFailureSchema = z.object({
 export const seriesMatchEntrySchema = z.object({
   matchNumber: z.number().int().positive(),
   seed: z.number().int().nonnegative(),
+  matchId: z.string().uuid().optional(),
   match: matchRecordSummarySchema,
   factualReport: FactualMatchReportSchema,
   review: MatchReviewSchema.nullable(),
