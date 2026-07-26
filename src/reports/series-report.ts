@@ -19,6 +19,10 @@ export interface PerformanceEntry {
   rounds: number;
   integrityRemaining: number;
   maxIntegrity: number;
+  aiIntegrity: number;
+  aiMaxIntegrity: number;
+  bulwarkIntegrity: number;
+  bulwarkMaxIntegrity: number;
 }
 
 export interface CostSummary {
@@ -83,14 +87,15 @@ export function buildComparativeReportModel(
 
 function buildPerformanceEntry(
   entry: SeriesMatchEntry,
-  aiCompetitorId: string,
+  _aiCompetitorId: string,
 ): PerformanceEntry {
-  const isAiFighter = entry.match.winner === aiCompetitorId;
+  // Canonical mapping: fighter_a is always the AI competitor, fighter_b is Bulwark.
+  const winner = entry.match.winner;
 
   let result: "win" | "loss" | "draw";
-  if (entry.match.winner === null) {
+  if (winner === null) {
     result = "draw";
-  } else if (isAiFighter) {
+  } else if (winner === "fighter_a") {
     result = "win";
   } else {
     result = "loss";
@@ -98,7 +103,10 @@ function buildPerformanceEntry(
 
   const finalA = entry.factualReport.finalStates.fighterA;
   const finalB = entry.factualReport.finalStates.fighterB;
-  const aiFinal = entry.match.winner === aiCompetitorId ? finalA : finalB;
+  const aiIntegrity = finalA.integrity;
+  const aiMaxIntegrity = finalA.maxIntegrity;
+  const bulwarkIntegrity = finalB.integrity;
+  const bulwarkMaxIntegrity = finalB.maxIntegrity;
 
   return {
     matchNumber: entry.matchNumber,
@@ -106,8 +114,12 @@ function buildPerformanceEntry(
     result,
     method: entry.match.resultMethod,
     rounds: entry.match.rounds,
-    integrityRemaining: aiFinal.integrity,
-    maxIntegrity: aiFinal.maxIntegrity,
+    integrityRemaining: aiIntegrity,
+    maxIntegrity: aiMaxIntegrity,
+    aiIntegrity,
+    aiMaxIntegrity,
+    bulwarkIntegrity,
+    bulwarkMaxIntegrity,
   };
 }
 
@@ -166,7 +178,7 @@ export function renderSeriesReport(model: ComparativeReportModel): string {
   for (const perf of model.performanceHistory) {
     const icon = perf.result === "win" ? "W" : perf.result === "loss" ? "L" : "D";
     lines.push(
-      `  Match ${perf.matchNumber}: [${icon}] ${perf.method} (R${perf.rounds}) — integrity ${perf.integrityRemaining}/${perf.maxIntegrity}`,
+      `  Match ${perf.matchNumber}: [${icon}] ${perf.method} (R${perf.rounds}) — AI integrity ${perf.aiIntegrity}/${perf.aiMaxIntegrity} | Bulwark integrity ${perf.bulwarkIntegrity}/${perf.bulwarkMaxIntegrity}`,
     );
   }
   lines.push("");

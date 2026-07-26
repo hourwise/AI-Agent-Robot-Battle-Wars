@@ -144,9 +144,10 @@ interface ParticipantMapping {
   fighter_b: string;
 }
 
-function buildParticipantMapping(competitorId: string): ParticipantMapping {
+function buildParticipantMapping(_competitorId: string): ParticipantMapping {
+  // Canonical roles: fighter_a is always the AI competitor, fighter_b is Bulwark.
   return {
-    fighter_a: competitorId,
+    fighter_a: "ai",
     fighter_b: "bulwark",
   };
 }
@@ -156,14 +157,8 @@ function resolveWinner(
   mapping: ParticipantMapping,
 ): "ai" | "bulwark" | null {
   if (simulatorWinner === null) return null;
-  const participantId =
-    simulatorWinner === "fighter_a"
-      ? mapping.fighter_a
-      : simulatorWinner === "fighter_b"
-        ? mapping.fighter_b
-        : null;
-  if (participantId === "ai") return "ai";
-  if (participantId === "bulwark") return "bulwark";
+  if (simulatorWinner === "fighter_a") return mapping.fighter_a as "ai";
+  if (simulatorWinner === "fighter_b") return mapping.fighter_b as "bulwark";
   return null;
 }
 
