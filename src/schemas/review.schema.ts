@@ -19,8 +19,8 @@ const observedOutcomeSchema = z.object({
   rounds: z.number().int().nonnegative(),
   ownFinalIntegrity: z.number().int().nonnegative(),
   opponentFinalIntegrity: z.number().int().nonnegative(),
-  ownDisabledComponents: z.array(z.string()),
-  opponentDisabledComponents: z.array(z.string()),
+  ownDisabledComponents: z.array(z.enum(["mobility", "weapon", "utility"])),
+  opponentDisabledComponents: z.array(z.enum(["mobility", "weapon", "utility"])),
 });
 
 const suggestedChangeSchema = z.object({
@@ -67,7 +67,7 @@ export const MatchReviewSchema = z.object({
   strategyAssessment: strategyAssessmentSchema,
   suggestedChanges: z.array(suggestedChangeSchema),
   confidence: z.enum(["low", "medium", "high"]),
-  observedOutcome: observedOutcomeSchema.optional(),
+  observedOutcome: observedOutcomeSchema,
 });
 
 export type KeyMomentReview = z.infer<typeof keyMomentReviewSchema>;

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   DeepSeekArenaAgent,
   DesignFailedError,
+  validateReviewAgainstFacts,
 } from "../../src/agents/deepseek/deepseek-agent.js";
 import type { DeepSeekConfig } from "../../src/agents/deepseek/deepseek-config.js";
 import fixture from "../fixtures/deepseek-design-response.json";
@@ -624,5 +625,249 @@ describe("DeepSeekArenaAgent", () => {
       expect(result.providerRequestId).toBe("chatcmpl-test-123");
       expect(result.finishReason).toBe("stop");
     });
+  });
+});
+
+// --- Review validation regression tests (Rear-Hunter vs Bulwark, seed 12345) ---
+
+import type { MatchReview, ObservedOutcome } from "../../src/schemas/review.schema.js";
+import type { FactualMatchReport } from "../../src/schemas/factual-report.schema.js";
+
+function makeRearHunterFactualReport(
+  overrides: Partial<FactualMatchReport> = {},
+): FactualMatchReport {
+  return {
+    schemaVersion: "1",
+    matchId: "f0f00065",
+    seed: 12345,
+    rounds: 6,
+    winner: "fighter_b",
+    resultMethod: "immobilisation",
+    fighterA: {
+      fighterId: "fighter_a",
+      machineName: "Rear-Hunter",
+      chassisId: "medium",
+      mobilityId: "wheels",
+      weaponId: "horizontal_spinner",
+      utilityId: "cooling",
+      armour: { front: 30, left: 20, right: 20, rear: 10, top: 10 },
+      totalCost: 86,
+      opening: "flank",
+      preferredRange: "close",
+      aggression: 80,
+      primaryTarget: "rear",
+      secondaryTarget: "left",
+    },
+    fighterB: {
+      fighterId: "fighter_b",
+      machineName: "The Bulwark",
+      chassisId: "heavy",
+      mobilityId: "tracks",
+      weaponId: "ram",
+      utilityId: "reinforced_drive",
+      armour: { front: 60, left: 15, right: 15, rear: 0, top: 0 },
+      totalCost: 94,
+      opening: "rush",
+      preferredRange: "close",
+      aggression: 85,
+      primaryTarget: "front",
+      secondaryTarget: "front",
+    },
+    firstHit: undefined,
+    criticalHits: [],
+    componentFailures: [],
+    overturns: [],
+    finalStates: {
+      fighterA: {
+        fighterId: "fighter_a",
+        machineName: "Rear-Hunter",
+        integrity: 80,
+        maxIntegrity: 100,
+        energy: 30,
+        heat: 40,
+        zone: "center",
+        facing: "east",
+        weaponCooldown: 0,
+        utilityCooldown: 0,
+        mobilityDisabled: true,
+        weaponDisabled: false,
+        utilityDisabled: false,
+        conditions: [],
+      },
+      fighterB: {
+        fighterId: "fighter_b",
+        machineName: "The Bulwark",
+        integrity: 150,
+        maxIntegrity: 150,
+        energy: 50,
+        heat: 30,
+        zone: "center",
+        facing: "west",
+        weaponCooldown: 0,
+        utilityCooldown: 0,
+        mobilityDisabled: false,
+        weaponDisabled: false,
+        utilityDisabled: false,
+        conditions: [],
+      },
+    },
+    ...overrides,
+  };
+}
+
+function makeValidOutcome(overrides: Partial<ObservedOutcome> = {}): ObservedOutcome {
+  return {
+    winnerId: "fighter_b",
+    method: "immobilisation",
+    rounds: 6,
+    ownFinalIntegrity: 80,
+    opponentFinalIntegrity: 150,
+    ownDisabledComponents: ["mobility"],
+    opponentDisabledComponents: [],
+    ...overrides,
+  };
+}
+
+function makeReview(outcome: ObservedOutcome): MatchReview {
+  return {
+    schemaVersion: "1",
+    summary: "Test review",
+    keyMoments: [
+      {
+        round: 5,
+        eventType: "component_disabled",
+        description: "Rear-Hunter mobility disabled",
+      },
+    ],
+    strategyAssessment: {
+      effectiveChoices: [],
+      ineffectiveChoices: [],
+      policyAssessment: "test",
+      designAssessment: "test",
+    },
+    suggestedChanges: [],
+    confidence: "medium",
+    observedOutcome: outcome,
+  };
+}
+
+describe("validateReviewAgainstFacts", () => {
+  it("accepts exact authoritative outcome", () => {
+    const report = makeRearHunterFactualReport();
+    const review = makeReview(makeValidOutcome());
+    const errors = validateReviewAgainstFacts(review, report);
+    expect(errors).toHaveLength(0);
+  });
+
+  it("rejects incorrect own final integrity", () => {
+    const report = makeRearHunterFactualReport();
+    const review = makeReview(makeValidOutcome({ ownFinalIntegrity: 100 }));
+    const errors = validateReviewAgainstFacts(review, report);
+    expect(errors).toContainEqual(
+      expect.stringContaining("ownFinalIntegrity is 100 but fighter_a ended at 80"),
+    );
+  });
+
+  it("rejects incorrect opponent final integrity", () => {
+    const report = makeRearHunterFactualReport();
+    const review = makeReview(makeValidOutcome({ opponentFinalIntegrity: 100 }));
+    const errors = validateReviewAgainstFacts(review, report);
+    expect(errors).toContainEqual(
+      expect.stringContaining("opponentFinalIntegrity is 100 but fighter_b ended at 150"),
+    );
+  });
+
+  it("rejects missing mobility disable", () => {
+    const report = makeRearHunterFactualReport();
+    const review = makeReview(makeValidOutcome({ ownDisabledComponents: [] }));
+    const errors = validateReviewAgainstFacts(review, report);
+    expect(errors).toContainEqual(
+      expect.stringContaining("ownDisabledComponents is [] but fighter_a had [mobility]"),
+    );
+  });
+
+  it("rejects extra disabled component", () => {
+    const report = makeRearHunterFactualReport();
+    const review = makeReview(
+      makeValidOutcome({ ownDisabledComponents: ["mobility", "weapon"] }),
+    );
+    const errors = validateReviewAgainstFacts(review, report);
+    expect(errors).toContainEqual(
+      expect.stringContaining(
+        "ownDisabledComponents is [mobility, weapon] but fighter_a had [mobility]",
+      ),
+    );
+  });
+
+  it("rejects reversed own/opponent state (own shows opponent's integrity)", () => {
+    const report = makeRearHunterFactualReport();
+    // Swapped: own shows Bulwark integrity, opponent shows Rear-Hunter integrity
+    const review = makeReview(
+      makeValidOutcome({
+        ownFinalIntegrity: 150,
+        opponentFinalIntegrity: 80,
+        ownDisabledComponents: [],
+        opponentDisabledComponents: ["mobility"],
+      }),
+    );
+    const errors = validateReviewAgainstFacts(review, report);
+    expect(errors.length).toBeGreaterThanOrEqual(4);
+    expect(errors).toContainEqual(
+      expect.stringContaining("ownFinalIntegrity is 150 but fighter_a ended at 80"),
+    );
+    expect(errors).toContainEqual(
+      expect.stringContaining("opponentFinalIntegrity is 80 but fighter_b ended at 150"),
+    );
+  });
+
+  it("rejects incorrect winner", () => {
+    const report = makeRearHunterFactualReport();
+    const review = makeReview(makeValidOutcome({ winnerId: "fighter_a" }));
+    const errors = validateReviewAgainstFacts(review, report);
+    expect(errors).toContainEqual(
+      expect.stringContaining(`winnerId is "fighter_a" but match winner is "fighter_b"`),
+    );
+  });
+
+  it("rejects incorrect method", () => {
+    const report = makeRearHunterFactualReport();
+    const review = makeReview(makeValidOutcome({ method: "destruction" }));
+    const errors = validateReviewAgainstFacts(review, report);
+    expect(errors).toContainEqual(
+      expect.stringContaining(
+        `method is "destruction" but match result is "immobilisation"`,
+      ),
+    );
+  });
+
+  it("rejects incorrect rounds", () => {
+    const report = makeRearHunterFactualReport();
+    const review = makeReview(makeValidOutcome({ rounds: 10 }));
+    const errors = validateReviewAgainstFacts(review, report);
+    expect(errors).toContainEqual(
+      expect.stringContaining("rounds is 10 but match lasted 6 rounds"),
+    );
+  });
+
+  it("accepts disabled components in any order (normalised set comparison)", () => {
+    const report = makeRearHunterFactualReport({
+      finalStates: {
+        ...makeRearHunterFactualReport().finalStates,
+        fighterA: {
+          ...makeRearHunterFactualReport().finalStates.fighterA,
+          mobilityDisabled: true,
+          weaponDisabled: true,
+        },
+      },
+    });
+    // Model returns them in reverse canonical order — should still match
+    const review = makeReview(
+      makeValidOutcome({
+        ownFinalIntegrity: 80,
+        ownDisabledComponents: ["weapon", "mobility"],
+      }),
+    );
+    const errors = validateReviewAgainstFacts(review, report);
+    expect(errors).toHaveLength(0);
   });
 });

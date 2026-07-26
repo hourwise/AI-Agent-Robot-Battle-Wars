@@ -190,3 +190,44 @@ describe("factual report regression — Rear-Hunter vs Bulwark (seed 12345)", ()
     expect(validation.ok).toBe(true);
   });
 });
+
+describe("buildFactualReport immutability", () => {
+  it("does not mutate MatchResult.initialState", () => {
+    const buildResult = {
+      proposal: {
+        machineName: "Test",
+        chassisId: "medium" as const,
+        mobilityId: "wheels" as const,
+        weaponId: "ram" as const,
+        utilityId: "none" as const,
+        armour: { front: 10, left: 5, right: 5, rear: 0, top: 0 },
+        designSummary: "test",
+        designRationale: "test",
+      },
+      totalCost: 52,
+      armourCost: 2,
+      totalArmourPoints: 20,
+      catalogueVersion: "1",
+    };
+
+    const result = runMatch({
+      seed: 42,
+      fighterA: { build: buildResult, policy: BULWARK_POLICY },
+      fighterB: { build: createBulwarkBuild(), policy: BULWARK_POLICY },
+      rulesetVersion: "0.1.0",
+      catalogueVersion: CATALOGUE_V1.version,
+    });
+
+    // Snapshot initial state before building report
+    const initialIntegrityA = result.initialState.fighterA.integrity;
+    const initialComponentsA = { ...result.initialState.fighterA.components };
+    const initialConditionsA = [...result.initialState.fighterA.conditions];
+
+    buildFactualReport(result);
+
+    // Verify initialState was not mutated
+    expect(result.initialState.fighterA.integrity).toBe(initialIntegrityA);
+    expect(result.initialState.fighterA.components).toEqual(initialComponentsA);
+    expect(result.initialState.fighterA.conditions).toEqual(initialConditionsA);
+  });
+});

@@ -27,6 +27,15 @@ const validReview = {
     },
   ],
   confidence: "high" as const,
+  observedOutcome: {
+    winnerId: "fighter_a",
+    method: "destruction",
+    rounds: 12,
+    ownFinalIntegrity: 80,
+    opponentFinalIntegrity: 0,
+    ownDisabledComponents: [] as string[],
+    opponentDisabledComponents: ["mobility"] as string[],
+  },
 };
 
 describe("review schema", () => {
@@ -48,6 +57,15 @@ describe("review schema", () => {
       },
       suggestedChanges: [],
       confidence: "low",
+      observedOutcome: {
+        winnerId: null,
+        method: "draw",
+        rounds: 20,
+        ownFinalIntegrity: 100,
+        opponentFinalIntegrity: 100,
+        ownDisabledComponents: [],
+        opponentDisabledComponents: [],
+      },
     });
     expect(result.success).toBe(true);
   });
@@ -76,6 +94,23 @@ describe("review schema", () => {
           priority: "high",
         },
       ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects missing observedOutcome", () => {
+    const { observedOutcome: _, ...withoutOutcome } = validReview;
+    const result = MatchReviewSchema.safeParse(withoutOutcome);
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid disabled component name", () => {
+    const result = MatchReviewSchema.safeParse({
+      ...validReview,
+      observedOutcome: {
+        ...validReview.observedOutcome,
+        ownDisabledComponents: ["engine"],
+      },
     });
     expect(result.success).toBe(false);
   });

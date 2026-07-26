@@ -236,18 +236,15 @@ function validateReviewSemantic(review: MatchReview): string[] {
   return errors;
 }
 
-function validateReviewAgainstFacts(
+export function validateReviewAgainstFacts(
   review: MatchReview,
   report: FactualMatchReport,
 ): string[] {
   const errors: string[] = [];
 
   const outcome = review.observedOutcome;
-  if (!outcome) {
-    errors.push("observedOutcome is required for factual grounding");
-    return errors;
-  }
 
+  // Winner, method, rounds
   if (outcome.winnerId !== report.winner) {
     errors.push(
       `observedOutcome.winnerId is "${outcome.winnerId}" but match winner is "${report.winner}"`,
@@ -264,7 +261,63 @@ function validateReviewAgainstFacts(
     );
   }
 
+  // AI competitor is fighter_a, opponent is fighter_b (AI vs Bulwark mode)
+  const ownState = report.finalStates.fighterA;
+  const oppState = report.finalStates.fighterB;
+
+  // Own (fighter_a) final integrity
+  if (outcome.ownFinalIntegrity !== ownState.integrity) {
+    errors.push(
+      `observedOutcome.ownFinalIntegrity is ${outcome.ownFinalIntegrity} but fighter_a ended at ${ownState.integrity}`,
+    );
+  }
+
+  // Opponent (fighter_b) final integrity
+  if (outcome.opponentFinalIntegrity !== oppState.integrity) {
+    errors.push(
+      `observedOutcome.opponentFinalIntegrity is ${outcome.opponentFinalIntegrity} but fighter_b ended at ${oppState.integrity}`,
+    );
+  }
+
+  // Disabled components — compare as normalised sets
+  const ownDisabled = normaliseDisabledComponents(ownState);
+  const oppDisabled = normaliseDisabledComponents(oppState);
+  const outcomeOwnSorted = [...outcome.ownDisabledComponents].sort();
+  const outcomeOppSorted = [...outcome.opponentDisabledComponents].sort();
+
+  if (arraysDiffer(outcomeOwnSorted, ownDisabled)) {
+    errors.push(
+      `observedOutcome.ownDisabledComponents is [${outcomeOwnSorted.join(", ")}] but fighter_a had [${ownDisabled.join(", ")}]`,
+    );
+  }
+  if (arraysDiffer(outcomeOppSorted, oppDisabled)) {
+    errors.push(
+      `observedOutcome.opponentDisabledComponents is [${outcomeOppSorted.join(", ")}] but fighter_b had [${oppDisabled.join(", ")}]`,
+    );
+  }
+
   return errors;
+}
+
+/** Extract disabled component names from a fighter state summary in canonical order. */
+function normaliseDisabledComponents(state: {
+  mobilityDisabled: boolean;
+  weaponDisabled: boolean;
+  utilityDisabled: boolean;
+}): Array<"mobility" | "weapon" | "utility"> {
+  const result: Array<"mobility" | "weapon" | "utility"> = [];
+  if (state.mobilityDisabled) result.push("mobility");
+  if (state.weaponDisabled) result.push("weapon");
+  if (state.utilityDisabled) result.push("utility");
+  return result;
+}
+
+function arraysDiffer(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return true;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return true;
+  }
+  return false;
 }
 
 export class DeepSeekArenaAgent implements ArenaAgent {
@@ -700,6 +753,19 @@ export class DeepSeekArenaAgent implements ArenaAgent {
       },
       suggestedChanges: [],
       confidence: "low",
+      observedOutcome: {
+        winnerId: factualReport.winner,
+        method: factualReport.resultMethod,
+        rounds: factualReport.rounds,
+        ownFinalIntegrity: factualReport.finalStates.fighterA.integrity,
+        opponentFinalIntegrity: factualReport.finalStates.fighterB.integrity,
+        ownDisabledComponents: normaliseDisabledComponents(
+          factualReport.finalStates.fighterA,
+        ),
+        opponentDisabledComponents: normaliseDisabledComponents(
+          factualReport.finalStates.fighterB,
+        ),
+      },
     };
 
     return {

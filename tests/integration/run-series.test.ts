@@ -78,6 +78,15 @@ function makeReview(): MatchReview {
     },
     suggestedChanges: [],
     confidence: "medium",
+    observedOutcome: {
+      winnerId: "fighter_b",
+      method: "immobilisation",
+      rounds: 5,
+      ownFinalIntegrity: 80,
+      opponentFinalIntegrity: 150,
+      ownDisabledComponents: [],
+      opponentDisabledComponents: [],
+    },
   };
 }
 

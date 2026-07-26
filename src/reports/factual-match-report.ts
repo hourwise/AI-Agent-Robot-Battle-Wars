@@ -142,7 +142,11 @@ function computeFinalState(
   events: readonly SimulationEvent[],
   fighterId: string,
 ): FighterState {
-  const state = { ...initialState, conditions: [...initialState.conditions] };
+  const state = {
+    ...initialState,
+    components: { ...initialState.components },
+    conditions: [...initialState.conditions],
+  };
 
   for (const event of events) {
     // integrity_damaged: targetId is the damaged fighter
