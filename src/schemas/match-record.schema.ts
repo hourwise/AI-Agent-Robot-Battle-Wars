@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { machineBuildProposalSchema } from "./build.schema.js";
 import { actionPolicySchema } from "./policy.schema.js";
+import { MatchReviewSchema } from "./review.schema.js";
 
 const validatedBuildSchema = z.object({
   proposal: machineBuildProposalSchema,
@@ -129,6 +130,7 @@ export const MatchRecordSchema = z.object({
   result: competitionResultSchema,
   rounds: z.number().int().nonnegative(),
   agentUsage: z.array(agentUsageRecordSchema).default([]),
+  review: MatchReviewSchema.optional(),
 });
 
 export type MatchRecord = z.infer<typeof MatchRecordSchema>;

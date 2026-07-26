@@ -8,6 +8,8 @@ import type {
 import type { MachineBuildProposal } from "../../validation/validation.types.js";
 import type { ActionPolicy } from "../../simulator/types.js";
 import type { AgentUsageRecord } from "../../types/agent-usage.js";
+import type { MatchReview } from "../../schemas/review.schema.js";
+import type { FactualMatchReport } from "../../schemas/factual-report.schema.js";
 import type { DeepSeekConfig } from "./deepseek-config.js";
 import {
   DeepSeekClient,
@@ -18,6 +20,7 @@ import {
 } from "./deepseek-client.js";
 import { machineBuildProposalSchema } from "../../schemas/build.schema.js";
 import { actionPolicySchema } from "../../schemas/policy.schema.js";
+import { MatchReviewSchema } from "../../schemas/review.schema.js";
 import { validateBuild } from "../../validation/build-validator.js";
 import { CATALOGUE_V1 } from "../../catalogue/catalogue.v1.js";
 import { estimateCost } from "../cost-calculator.js";
@@ -34,6 +37,13 @@ import {
   buildPolicyUserPrompt,
   buildPolicyCorrectionPrompt,
 } from "../../prompts/policy-prompt.v1.js";
+import {
+  REVIEW_PROMPT_VERSION,
+  buildReviewSystemPrompt,
+  buildReviewUserPrompt,
+  buildReviewCorrectionPrompt,
+} from "../../prompts/review-prompt.v1.js";
+import { buildFallbackReview } from "../../prompts/review-prompt.v1.js";
 
 const MAX_CORRECTION_ATTEMPTS = 2;
 
@@ -142,6 +152,37 @@ function validatePolicySemantic(policy: ActionPolicy): string[] {
   return errors;
 }
 
+function validateReviewSchema(
+  raw: unknown,
+): { ok: true; review: MatchReview } | { ok: false; errors: string[] } {
+  const result = MatchReviewSchema.safeParse(raw);
+  if (result.success) {
+    return { ok: true, review: result.data };
+  }
+
+  const errors = result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
+  return { ok: false, errors };
+}
+
+function validateReviewSemantic(review: MatchReview): string[] {
+  const errors: string[] = [];
+
+  if (review.summary.length < 10) {
+    errors.push("summary: too short (< 10 characters)");
+  }
+  if (review.summary.length > 500) {
+    errors.push("summary: too long (> 500 characters)");
+  }
+  if (review.keyMoments.length === 0) {
+    errors.push("keyMoments: must have at least one entry");
+  }
+  if (review.suggestedChanges.length > 5) {
+    errors.push("suggestedChanges: too many (> 5)");
+  }
+
+  return errors;
+}
+
 export class DeepSeekArenaAgent implements ArenaAgent {
   readonly id = "deepseek";
   readonly displayName = "DeepSeek AI";
@@ -180,7 +221,7 @@ export class DeepSeekArenaAgent implements ArenaAgent {
   }
 
   async designMachine(
-    _request: DesignRequest,
+    request: DesignRequest,
   ): Promise<AgentResult<MachineBuildProposal>> {
     const allErrors: string[] = [];
     let totalLatencyMs = 0;
@@ -190,7 +231,7 @@ export class DeepSeekArenaAgent implements ArenaAgent {
 
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       { role: "system", content: buildDesignSystemPrompt() },
-      { role: "user", content: buildDesignUserPrompt() },
+      { role: "user", content: buildDesignUserPrompt(request) },
     ];
 
     for (let attempt = 0; attempt <= MAX_CORRECTION_ATTEMPTS; attempt++) {
@@ -406,8 +447,147 @@ export class DeepSeekArenaAgent implements ArenaAgent {
     };
   }
 
-  async reviewMatch(_request: ReviewRequest): Promise<AgentResult<unknown>> {
-    throw new Error("Not implemented in Milestone 6");
+  async reviewMatch(request: ReviewRequest): Promise<AgentResult<MatchReview>> {
+    const allErrors: string[] = [];
+    let totalLatencyMs = 0;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let totalCachedTokens = 0;
+
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+      { role: "system", content: buildReviewSystemPrompt() },
+      { role: "user", content: buildReviewUserPrompt(request.factualReport) },
+    ];
+
+    for (let attempt = 0; attempt <= MAX_CORRECTION_ATTEMPTS; attempt++) {
+      const response = await this.client.chatCompletion({ messages });
+
+      totalLatencyMs += response.latencyMs;
+      totalInputTokens += response.usage.promptTokens;
+      totalOutputTokens += response.usage.completionTokens;
+      totalCachedTokens += response.usage.cachedTokens;
+
+      let parsed: unknown;
+      try {
+        parsed = parseJsonResponse(response.content);
+      } catch {
+        const err = "Response is not valid JSON";
+        allErrors.push(err);
+        messages.push({
+          role: "assistant",
+          content: response.content,
+        });
+        messages.push({
+          role: "user",
+          content: buildReviewCorrectionPrompt([err]),
+        });
+        continue;
+      }
+
+      const schemaResult = validateReviewSchema(parsed);
+      if (!schemaResult.ok) {
+        allErrors.push(...schemaResult.errors);
+        messages.push({
+          role: "assistant",
+          content: response.content,
+        });
+        messages.push({
+          role: "user",
+          content: buildReviewCorrectionPrompt(schemaResult.errors),
+        });
+        continue;
+      }
+
+      const semanticErrors = validateReviewSemantic(schemaResult.review);
+      if (semanticErrors.length > 0) {
+        allErrors.push(...semanticErrors);
+        messages.push({
+          role: "assistant",
+          content: response.content,
+        });
+        messages.push({
+          role: "user",
+          content: buildReviewCorrectionPrompt(semanticErrors),
+        });
+        continue;
+      }
+
+      const cost = estimateCost(
+        this.model,
+        totalInputTokens,
+        totalCachedTokens,
+        totalOutputTokens,
+      );
+
+      return {
+        value: schemaResult.review,
+        raw: response.content,
+        model: response.model,
+        providerRequestId: response.id,
+        finishReason: response.finishReason,
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        cachedTokens: totalCachedTokens,
+        costUsd: cost.costUsd,
+        costIsEstimated: cost.isEstimated,
+        latencyMs: totalLatencyMs,
+        attempts: attempt + 1,
+        promptVersion: REVIEW_PROMPT_VERSION,
+        fallbackUsed: false,
+      };
+    }
+
+    return this.fallbackReviewResult(
+      request.factualReport,
+      totalLatencyMs,
+      totalInputTokens,
+      totalOutputTokens,
+      totalCachedTokens,
+    );
+  }
+
+  private fallbackReviewResult(
+    factualReport: FactualMatchReport,
+    latencyMs: number,
+    inputTokens: number,
+    outputTokens: number,
+    cachedTokens: number,
+  ): AgentResult<MatchReview> {
+    const fallbackSummary = buildFallbackReview(factualReport);
+
+    const fallbackReview: MatchReview = {
+      schemaVersion: "1",
+      summary: fallbackSummary,
+      keyMoments: [],
+      strategyAssessment: {
+        effectiveChoices: [],
+        ineffectiveChoices: [],
+        policyAssessment: "AI review unavailable.",
+        designAssessment: "AI review unavailable.",
+      },
+      suggestedChanges: [],
+      confidence: "low",
+    };
+
+    return {
+      value: fallbackReview,
+      raw: {
+        fallback: true,
+        reason: "Review generation failed after bounded correction",
+      },
+      model: this.model,
+      providerRequestId: null,
+      finishReason: "fallback",
+      inputTokens,
+      outputTokens,
+      cachedTokens,
+      costUsd: null,
+      costIsEstimated: false,
+      latencyMs,
+      attempts: MAX_CORRECTION_ATTEMPTS + 1,
+      promptVersion: REVIEW_PROMPT_VERSION,
+      fallbackUsed: true,
+    };
   }
 }
 

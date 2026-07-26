@@ -1,0 +1,64 @@
+import { z } from "zod";
+
+const keyMomentReviewSchema = z.object({
+  round: z.number().int().nonnegative().nullable(),
+  eventType: z.string(),
+  description: z.string(),
+});
+
+const strategyAssessmentSchema = z.object({
+  effectiveChoices: z.array(z.string()),
+  ineffectiveChoices: z.array(z.string()),
+  policyAssessment: z.string(),
+  designAssessment: z.string(),
+});
+
+const suggestedChangeSchema = z.object({
+  target: z.enum(["chassis", "mobility", "weapon", "utility", "armour", "policy"]),
+  action: z.string(),
+  rationale: z.string(),
+  priority: z.enum(["low", "medium", "high"]),
+});
+
+export const MatchReviewSchema = z.object({
+  schemaVersion: z.literal("1"),
+  summary: z.string(),
+  keyMoments: z.array(keyMomentReviewSchema),
+  strategyAssessment: strategyAssessmentSchema,
+  suggestedChanges: z.array(suggestedChangeSchema),
+  confidence: z.enum(["low", "medium", "high"]),
+});
+
+export type KeyMomentReview = z.infer<typeof keyMomentReviewSchema>;
+export type StrategyAssessment = z.infer<typeof strategyAssessmentSchema>;
+export type SuggestedChange = z.infer<typeof suggestedChangeSchema>;
+export type MatchReview = z.infer<typeof MatchReviewSchema>;
+
+export function validateMatchReview(
+  data: unknown,
+): { ok: true; review: MatchReview } | { ok: false; errors: z.ZodError } {
+  const result = MatchReviewSchema.safeParse(data);
+  if (result.success) {
+    return { ok: true, review: result.data };
+  }
+  return { ok: false, errors: result.error };
+}
+
+export function serializeMatchReview(review: MatchReview): string {
+  return JSON.stringify(review, null, 2);
+}
+
+export function deserializeMatchReview(
+  json: string,
+): { ok: true; review: MatchReview } | { ok: false; errors: z.ZodError | SyntaxError } {
+  try {
+    const data = JSON.parse(json);
+    const result = MatchReviewSchema.safeParse(data);
+    if (result.success) {
+      return { ok: true, review: result.data };
+    }
+    return { ok: false, errors: result.error };
+  } catch (e) {
+    return { ok: false, errors: e as SyntaxError };
+  }
+}

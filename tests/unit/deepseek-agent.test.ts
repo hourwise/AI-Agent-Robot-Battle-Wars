@@ -123,7 +123,7 @@ describe("DeepSeekArenaAgent", () => {
     expect(result.value.armour.front).toBe(20);
     expect(result.value.machineName).toBeTruthy();
     expect(result.model).toBe("deepseek-v4-flash");
-    expect(result.promptVersion).toBe("design-v1");
+    expect(result.promptVersion).toBe("design-v2");
     expect(result.attempts).toBe(1);
   });
 
@@ -224,10 +224,211 @@ describe("DeepSeekArenaAgent", () => {
     await expect(timeoutAgent.designMachine({})).rejects.toThrow(ProviderTimeout);
   });
 
-  it("rejects review method", async () => {
-    await expect(agent.reviewMatch({ matchSummary: "test" })).rejects.toThrow(
-      "Not implemented",
-    );
+  it("returns a valid MatchReview from a valid response", async () => {
+    const mockReview = {
+      schemaVersion: "1",
+      summary: "Fighter A won by destruction in 12 rounds after a strong flank attack.",
+      keyMoments: [
+        {
+          round: 5,
+          eventType: "attack",
+          description: "Fighter A hits Fighter B for 18 damage",
+        },
+      ],
+      strategyAssessment: {
+        effectiveChoices: ["flanking movement", "rear targeting"],
+        ineffectiveChoices: ["excessive aggression early"],
+        policyAssessment: "Opening flank was effective against slow opponent.",
+        designAssessment: "Weapon choice was strong for close range.",
+      },
+      suggestedChanges: [
+        {
+          target: "armour",
+          action: "Increase rear armour from 0 to 15",
+          rationale: "Opponent may target rear if it flanks",
+          priority: "medium",
+        },
+      ],
+      confidence: "high",
+    };
+
+    mockFetchSuccess(mockReview);
+
+    const result = await agent.reviewMatch({
+      factualReport: {
+        schemaVersion: "1",
+        matchId: "test-match",
+        seed: 42,
+        rounds: 12,
+        winner: "fighter_a",
+        resultMethod: "destruction",
+        fighterA: {
+          fighterId: "fighter_a",
+          machineName: "Test Bot",
+          chassisId: "medium",
+          mobilityId: "wheels",
+          weaponId: "ram",
+          utilityId: "none",
+          armour: { front: 20, left: 10, right: 10, rear: 0, top: 0 },
+          totalCost: 50,
+          opening: "flank",
+          preferredRange: "close",
+          aggression: 70,
+          primaryTarget: "rear",
+          secondaryTarget: "left",
+        },
+        fighterB: {
+          fighterId: "fighter_b",
+          machineName: "The Bulwark",
+          chassisId: "heavy",
+          mobilityId: "tracks",
+          weaponId: "ram",
+          utilityId: "reinforced_drive",
+          armour: { front: 60, left: 15, right: 15, rear: 0, top: 0 },
+          totalCost: 52,
+          opening: "rush",
+          preferredRange: "close",
+          aggression: 85,
+          primaryTarget: "front",
+          secondaryTarget: "front",
+        },
+        criticalHits: [],
+        componentFailures: [],
+        overturns: [],
+        finalStates: {
+          fighterA: {
+            fighterId: "fighter_a",
+            machineName: "Test Bot",
+            integrity: 80,
+            maxIntegrity: 100,
+            energy: 60,
+            heat: 20,
+            zone: "center",
+            facing: "north",
+            weaponCooldown: 0,
+            utilityCooldown: 0,
+            mobilityDisabled: false,
+            weaponDisabled: false,
+            utilityDisabled: false,
+            conditions: [],
+          },
+          fighterB: {
+            fighterId: "fighter_b",
+            machineName: "The Bulwark",
+            integrity: 0,
+            maxIntegrity: 100,
+            energy: 0,
+            heat: 30,
+            zone: "center",
+            facing: "south",
+            weaponCooldown: 0,
+            utilityCooldown: 0,
+            mobilityDisabled: false,
+            weaponDisabled: false,
+            utilityDisabled: false,
+            conditions: [],
+          },
+        },
+      },
+    });
+
+    expect(result.value.summary).toContain("destruction");
+    expect(result.value.keyMoments).toHaveLength(1);
+    expect(result.value.suggestedChanges).toHaveLength(1);
+    expect(result.value.confidence).toBe("high");
+    expect(result.promptVersion).toBe("review-v1");
+  });
+
+  it("returns fallback review when correction attempts exhausted", async () => {
+    mockFetchSequence([
+      { body: { choices: [{ message: { content: "not valid json" } }] } },
+      { body: { choices: [{ message: { content: "still invalid" } }] } },
+      { body: { choices: [{ message: { content: "also bad" } }] } },
+    ]);
+
+    const result = await agent.reviewMatch({
+      factualReport: {
+        schemaVersion: "1",
+        matchId: "test",
+        seed: 42,
+        rounds: 10,
+        winner: "fighter_a",
+        resultMethod: "judges",
+        fighterA: {
+          fighterId: "fighter_a",
+          machineName: "A",
+          chassisId: "medium",
+          mobilityId: "wheels",
+          weaponId: "ram",
+          utilityId: "none",
+          armour: { front: 20, left: 10, right: 10, rear: 0, top: 0 },
+          totalCost: 50,
+          opening: "flank",
+          preferredRange: "close",
+          aggression: 70,
+          primaryTarget: "rear",
+          secondaryTarget: "left",
+        },
+        fighterB: {
+          fighterId: "fighter_b",
+          machineName: "B",
+          chassisId: "heavy",
+          mobilityId: "tracks",
+          weaponId: "ram",
+          utilityId: "reinforced_drive",
+          armour: { front: 60, left: 15, right: 15, rear: 0, top: 0 },
+          totalCost: 52,
+          opening: "rush",
+          preferredRange: "close",
+          aggression: 85,
+          primaryTarget: "front",
+          secondaryTarget: "front",
+        },
+        criticalHits: [],
+        componentFailures: [],
+        overturns: [],
+        finalStates: {
+          fighterA: {
+            fighterId: "fighter_a",
+            machineName: "A",
+            integrity: 50,
+            maxIntegrity: 100,
+            energy: 50,
+            heat: 10,
+            zone: "center",
+            facing: "north",
+            weaponCooldown: 0,
+            utilityCooldown: 0,
+            mobilityDisabled: false,
+            weaponDisabled: false,
+            utilityDisabled: false,
+            conditions: [],
+          },
+          fighterB: {
+            fighterId: "fighter_b",
+            machineName: "B",
+            integrity: 45,
+            maxIntegrity: 100,
+            energy: 40,
+            heat: 15,
+            zone: "center",
+            facing: "south",
+            weaponCooldown: 0,
+            utilityCooldown: 0,
+            mobilityDisabled: false,
+            weaponDisabled: false,
+            utilityDisabled: false,
+            conditions: [],
+          },
+        },
+      },
+    });
+
+    expect(result.fallbackUsed).toBe(true);
+    expect(result.value.confidence).toBe("low");
+    expect(result.value.suggestedChanges).toHaveLength(0);
+    expect(result.value.summary).toContain("fighter_a");
+    expect(result.value.summary).toContain("judges");
   });
 
   it("has correct metadata", () => {

@@ -1,8 +1,19 @@
 import type { MachineBuildProposal } from "../validation/validation.types.js";
 import type { ActionPolicy } from "../simulator/types.js";
 import type { AgentUsageRecord } from "../types/agent-usage.js";
+import type { MatchReview } from "../schemas/review.schema.js";
+import type { FactualMatchReport } from "../schemas/factual-report.schema.js";
+
+export interface RebuildContext {
+  readonly matchNumber: number;
+  readonly factualReport: FactualMatchReport;
+  readonly review: MatchReview;
+}
 
 export interface DesignRequest {
+  readonly opponent?: OpponentSummary;
+  readonly priorBuild?: MachineBuildProposal;
+  readonly reviewContext?: RebuildContext;
   readonly context?: string;
 }
 
@@ -30,7 +41,7 @@ export interface PolicyRequest {
 }
 
 export interface ReviewRequest {
-  readonly matchSummary: string;
+  readonly factualReport: FactualMatchReport;
   readonly context?: string;
 }
 
@@ -59,7 +70,7 @@ export interface ArenaAgent {
 
   designMachine(request: DesignRequest): Promise<AgentResult<MachineBuildProposal>>;
   choosePolicy(request: PolicyRequest): Promise<AgentResult<ActionPolicy>>;
-  reviewMatch(request: ReviewRequest): Promise<AgentResult<unknown>>;
+  reviewMatch(request: ReviewRequest): Promise<AgentResult<MatchReview>>;
 
   usageFromResult<T>(
     result: AgentResult<T>,

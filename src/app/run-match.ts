@@ -11,10 +11,15 @@ import {
 import { matchResultToRecord } from "../persistence/match-converter.js";
 import { JsonMatchRepository } from "../persistence/json-match-repository.js";
 import { renderTextReplay } from "../replay/text-replay-renderer.js";
+import {
+  buildFactualReport,
+  enrichMatchSummariesWithPolicy,
+} from "../reports/factual-match-report.js";
 import type { ValidatedBuild } from "../validation/validation.types.js";
 import type { ActionPolicy } from "../simulator/types.js";
 import type { AgentUsageRecord } from "../types/agent-usage.js";
 import type { ArenaAgent } from "../agents/arena-agent.js";
+import type { MatchReview } from "../schemas/review.schema.js";
 
 const DATA_DIR = join(process.cwd(), "data", "matches");
 
@@ -24,10 +29,11 @@ interface FighterConfig {
   source: "bulwark" | "ai";
 }
 
-function parseArgs(): { seed: number; useAi: boolean } {
+function parseArgs(): { seed: number; useAi: boolean; review: boolean } {
   const args = process.argv.slice(2);
   let seed = Math.floor(Math.random() * 1_000_000);
   let useAi = false;
+  let review = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--seed" && args[i + 1]) {
@@ -39,10 +45,12 @@ function parseArgs(): { seed: number; useAi: boolean } {
       i++;
     } else if (args[i] === "--ai") {
       useAi = true;
+    } else if (args[i] === "--review") {
+      review = true;
     }
   }
 
-  return { seed, useAi };
+  return { seed, useAi, review };
 }
 
 async function loadAiFighter(
@@ -119,13 +127,21 @@ function loadBulwarkFighter(): FighterConfig {
 }
 
 async function main() {
-  const { seed, useAi } = parseArgs();
+  const { seed, useAi, review } = parseArgs();
+
+  if (review && !useAi) {
+    console.error("--review requires --ai");
+    process.exit(1);
+  }
 
   console.log("=".repeat(50));
   console.log("FORGE ARENA — Match Runner");
   console.log("=".repeat(50));
   console.log(`Seed: ${seed}`);
   console.log(`Mode: ${useAi ? "AI vs Bulwark" : "Bulwark vs Bulwark"}`);
+  if (review) {
+    console.log("Review: enabled");
+  }
   console.log("");
 
   let fighterA: FighterConfig;
@@ -173,9 +189,51 @@ async function main() {
   const replay = renderTextReplay(result);
   console.log(replay);
 
+  let matchReview: MatchReview | undefined;
+
+  if (review && useAi) {
+    console.log("Requesting AI review...");
+    const { loadDeepSeekConfig } = await import("../agents/deepseek/deepseek-config.js");
+    const { DeepSeekArenaAgent } = await import("../agents/deepseek/deepseek-agent.js");
+
+    const config = loadDeepSeekConfig();
+    const agent: ArenaAgent = new DeepSeekArenaAgent(config);
+
+    const factualReport = buildFactualReport(result);
+    const enrichedReport = enrichMatchSummariesWithPolicy(
+      factualReport,
+      fighterA.policy,
+      fighterB.policy,
+    );
+
+    try {
+      const reviewResult = await agent.reviewMatch({ factualReport: enrichedReport });
+      matchReview = reviewResult.value;
+      agentUsage.push(agent.usageFromResult(reviewResult, "review"));
+
+      console.log(`\nReview: ${matchReview.summary}`);
+      if (matchReview.suggestedChanges.length > 0) {
+        console.log("\nSuggested changes:");
+        for (const change of matchReview.suggestedChanges) {
+          console.log(`  [${change.priority}] ${change.target}: ${change.action}`);
+          console.log(`    Rationale: ${change.rationale}`);
+        }
+      }
+      if (reviewResult.fallbackUsed) {
+        console.log("\n  WARNING: Using fallback review");
+      }
+    } catch (e) {
+      console.error("Review failed:", e instanceof Error ? e.message : String(e));
+    }
+  }
+
   await mkdir(DATA_DIR, { recursive: true });
   const repository = new JsonMatchRepository(DATA_DIR);
   const record = matchResultToRecord(result, agentUsage);
+
+  if (matchReview) {
+    record.review = matchReview;
+  }
 
   try {
     await repository.saveMatch(record);
