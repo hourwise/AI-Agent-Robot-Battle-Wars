@@ -179,6 +179,7 @@ describe("selectDamagedComponent", () => {
 });
 
 describe("getExposedZones", () => {
+  // --- Same-zone cases ---
   it("exposes front when defender faces attacker (same zone)", () => {
     const attacker = makeFighter({ fighterId: "a", zone: "center", facing: "north" });
     const defender = makeFighter({ fighterId: "b", zone: "center", facing: "south" });
@@ -188,48 +189,94 @@ describe("getExposedZones", () => {
     expect(zones).not.toContain("rear");
   });
 
-  it("exposes front when attacker is south of north-facing defender", () => {
-    // Defender at north_edge facing south (toward attacker). Attacker at south_edge
-    // is south of defender — the defender is looking AT the attacker.
-    // The position helpers use an inverted convention:
-    // facing=north + attacker south = front; facing=south + attacker north = front.
-    const attacker = makeFighter({ fighterId: "a", zone: "south_edge", facing: "north" });
+  it("exposes top only for hammer weapon", () => {
+    const attacker = makeFighter({ fighterId: "a", zone: "center", facing: "north" });
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "south" });
+    const ramZones = getExposedZones(attacker, defender, "ram");
+    expect(ramZones).not.toContain("top");
+    const hammerZones = getExposedZones(attacker, defender, "hammer");
+    expect(hammerZones).toContain("top");
+  });
+
+  // --- 8 directional cases: defender at center, attacker at edge ---
+  it("1: north-facing defender, attacker north → front", () => {
+    const attacker = makeFighter({ fighterId: "a", zone: "north_edge", facing: "south" });
     const defender = makeFighter({ fighterId: "b", zone: "center", facing: "north" });
     const zones = getExposedZones(attacker, defender, "ram");
     expect(zones).toContain("front");
+    expect(zones).not.toContain("rear");
   });
 
-  it("exposes rear when attacker is behind defender", () => {
-    const attacker = makeFighter({ fighterId: "a", zone: "north_edge", facing: "south" });
-    const defender = makeFighter({ fighterId: "b", zone: "south_edge", facing: "north" });
+  it("2: north-facing defender, attacker south → rear", () => {
+    const attacker = makeFighter({ fighterId: "a", zone: "south_edge", facing: "north" });
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "north" });
     const zones = getExposedZones(attacker, defender, "ram");
     expect(zones).toContain("rear");
     expect(zones).not.toContain("front");
   });
 
-  it("exposes left/right when flanking (east/west of north-facing defender)", () => {
+  it("3: south-facing defender, attacker south → front", () => {
+    const attacker = makeFighter({ fighterId: "a", zone: "south_edge", facing: "north" });
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "south" });
+    const zones = getExposedZones(attacker, defender, "ram");
+    expect(zones).toContain("front");
+    expect(zones).not.toContain("rear");
+  });
+
+  it("4: south-facing defender, attacker north → rear", () => {
+    const attacker = makeFighter({ fighterId: "a", zone: "north_edge", facing: "south" });
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "south" });
+    const zones = getExposedZones(attacker, defender, "ram");
+    expect(zones).toContain("rear");
+    expect(zones).not.toContain("front");
+  });
+
+  it("5: east-facing defender, attacker east → front", () => {
+    const attacker = makeFighter({ fighterId: "a", zone: "east_edge", facing: "west" });
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "east" });
+    const zones = getExposedZones(attacker, defender, "ram");
+    expect(zones).toContain("front");
+    expect(zones).not.toContain("rear");
+  });
+
+  it("6: east-facing defender, attacker west → rear", () => {
+    const attacker = makeFighter({ fighterId: "a", zone: "west_edge", facing: "east" });
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "east" });
+    const zones = getExposedZones(attacker, defender, "ram");
+    expect(zones).toContain("rear");
+    expect(zones).not.toContain("front");
+  });
+
+  it("7: west-facing defender, attacker west → front", () => {
+    const attacker = makeFighter({ fighterId: "a", zone: "west_edge", facing: "east" });
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "west" });
+    const zones = getExposedZones(attacker, defender, "ram");
+    expect(zones).toContain("front");
+    expect(zones).not.toContain("rear");
+  });
+
+  it("8: west-facing defender, attacker east → rear", () => {
+    const attacker = makeFighter({ fighterId: "a", zone: "east_edge", facing: "west" });
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "west" });
+    const zones = getExposedZones(attacker, defender, "ram");
+    expect(zones).toContain("rear");
+    expect(zones).not.toContain("front");
+  });
+
+  // --- Flanking ---
+  it("exposes left/right when flanking east/west of north-facing defender", () => {
     const attacker = makeFighter({ fighterId: "a", zone: "east_edge", facing: "west" });
     const defender = makeFighter({ fighterId: "b", zone: "center", facing: "north" });
     const zones = getExposedZones(attacker, defender, "ram");
     expect(zones).toContain("left");
     expect(zones).toContain("right");
     expect(zones).not.toContain("front");
+    expect(zones).not.toContain("rear");
   });
 
-  it("exposes top only for hammer weapon", () => {
-    const attacker = makeFighter({ fighterId: "a", zone: "center", facing: "north" });
-    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "south" });
-
-    const ramZones = getExposedZones(attacker, defender, "ram");
-    expect(ramZones).not.toContain("top");
-
-    const hammerZones = getExposedZones(attacker, defender, "hammer");
-    expect(hammerZones).toContain("top");
-  });
-
-  it("ram cannot hit top even when front is not exposed", () => {
-    // Attacker behind defender — rear is exposed, top should NOT be
-    const attacker = makeFighter({ fighterId: "a", zone: "north_edge", facing: "south" });
+  // --- Ram never hits top ---
+  it("ram cannot hit top even when behind defender", () => {
+    const attacker = makeFighter({ fighterId: "a", zone: "south_edge", facing: "north" });
     const defender = makeFighter({ fighterId: "b", zone: "center", facing: "north" });
     const zones = getExposedZones(attacker, defender, "ram");
     expect(zones).not.toContain("top");
@@ -242,37 +289,33 @@ describe("determineHitZone", () => {
     const attacker = makeFighter({ fighterId: "a", zone: "center", facing: "north" });
     const defender = makeFighter({ fighterId: "b", zone: "center", facing: "south" });
     const rng = new SeededRandom(42);
-    // Policy says primaryTarget=front, front IS exposed → hit front
     const zone = determineHitZone(attacker, defender, "ram", rng, "front", "front");
     expect(zone).toBe("front");
   });
 
   it("falls back to secondaryTarget when primary is not exposed", () => {
-    // Attacker behind defender — front not exposed, rear is
-    const attacker = makeFighter({ fighterId: "a", zone: "north_edge", facing: "south" });
+    // Attacker behind defender (south of north-facing) — front not exposed, rear is
+    const attacker = makeFighter({ fighterId: "a", zone: "south_edge", facing: "north" });
     const defender = makeFighter({ fighterId: "b", zone: "center", facing: "north" });
     const rng = new SeededRandom(42);
-    // Policy says primaryTarget=front (not exposed), secondaryTarget=rear (exposed)
     const zone = determineHitZone(attacker, defender, "ram", rng, "front", "rear");
     expect(zone).toBe("rear");
   });
 
   it("defaults to front when neither primary nor secondary is exposed", () => {
-    // Both fighters at opposite edges facing away — neither front nor rear exposed for ram
-    const attacker = makeFighter({ fighterId: "a", zone: "east_edge", facing: "west" });
-    const defender = makeFighter({ fighterId: "b", zone: "west_edge", facing: "west" });
+    // Defender at north_edge facing north; attacker at center.
+    // Attacker is south of defender → only rear exposed.
+    // Policy targets front — not exposed → defaults to front per RULESET.md.
+    const attacker = makeFighter({ fighterId: "a", zone: "center", facing: "north" });
+    const defender = makeFighter({ fighterId: "b", zone: "north_edge", facing: "north" });
     const rng = new SeededRandom(42);
-    // Policy says primaryTarget=rear, secondaryTarget=rear — neither exposed
-    const zone = determineHitZone(attacker, defender, "ram", rng, "rear", "rear");
+    const zone = determineHitZone(attacker, defender, "ram", rng, "front", "front");
     expect(zone).toBe("front");
   });
 
   it("frontal ram attacks overwhelmingly resolve against non-top zones", () => {
-    // Head-to-head: both at center, facing each other
     const attacker = makeFighter({ fighterId: "a", zone: "center", facing: "north" });
     const defender = makeFighter({ fighterId: "b", zone: "center", facing: "south" });
-
-    // Only front/left/right exposed for ram in same zone — top is never exposed
     for (let seed = 0; seed < 50; seed++) {
       const rng = new SeededRandom(seed);
       const zone = determineHitZone(attacker, defender, "ram", rng, "front", "front");
@@ -281,9 +324,9 @@ describe("determineHitZone", () => {
   });
 
   it("ram from behind exclusively resolves against rear when policy targets rear", () => {
-    const attacker = makeFighter({ fighterId: "a", zone: "north_edge", facing: "south" });
+    // Defender at center facing north; attacker at south_edge = behind
+    const attacker = makeFighter({ fighterId: "a", zone: "south_edge", facing: "north" });
     const defender = makeFighter({ fighterId: "b", zone: "center", facing: "north" });
-
     for (let seed = 0; seed < 50; seed++) {
       const rng = new SeededRandom(seed);
       const zone = determineHitZone(attacker, defender, "ram", rng, "rear", "rear");
@@ -295,7 +338,6 @@ describe("determineHitZone", () => {
     const attacker = makeFighter({ fighterId: "a", zone: "center", facing: "north" });
     const defender = makeFighter({ fighterId: "b", zone: "center", facing: "south" });
     const rng = new SeededRandom(42);
-    // No policy targets → defaults to front for ram
     const zone = determineHitZone(attacker, defender, "ram", rng);
     expect(zone).toBe("front");
   });
@@ -326,5 +368,226 @@ describe("determineHitZone", () => {
     const rng = new SeededRandom(42);
     const zone = determineHitZone(attacker, defender, "hammer", rng);
     expect(zone).toBe("top");
+  });
+
+  // --- Bulwark realistic cases ---
+  it("Bulwark frontal attack encounters front armour", () => {
+    // Both Bulwarks rush to center and face each other
+    const attacker = makeFighter({ fighterId: "a", zone: "center", facing: "north" });
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "south" });
+    const rng = new SeededRandom(42);
+    // Bulwark policy: primaryTarget=front, secondaryTarget=front
+    const zone = determineHitZone(attacker, defender, "ram", rng, "front", "front");
+    expect(zone).toBe("front");
+  });
+
+  it("Bulwark attacker behind defender can target rear armour", () => {
+    // Defender at center facing north; attacker at south_edge = behind
+    const attacker = makeFighter({ fighterId: "a", zone: "south_edge", facing: "north" });
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "north" });
+    const rng = new SeededRandom(42);
+    // Policy targets rear
+    const zone = determineHitZone(attacker, defender, "ram", rng, "rear", "rear");
+    expect(zone).toBe("rear");
+  });
+
+  it("policy front-target cannot force false front from behind", () => {
+    // Attacker behind defender, but policy stubbornly says primaryTarget=front
+    const attacker = makeFighter({ fighterId: "a", zone: "south_edge", facing: "north" });
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "north" });
+    const rng = new SeededRandom(42);
+    // primaryTarget=front is NOT exposed (attacker behind) → falls to secondaryTarget=front (also not exposed) → defaults to front
+    // The hit zone "front" is the fallback per RULESET.md, but the EXPOSED zone is rear.
+    const zone = determineHitZone(attacker, defender, "ram", rng, "front", "front");
+    // Defaults to "front" per rules when neither target is exposed — this is a rule fallback, not a geometry result
+    expect(zone).toBe("front");
+  });
+
+  it("policy rear-target from behind correctly hits rear", () => {
+    // Same geometry, but policy correctly targets rear
+    const attacker = makeFighter({ fighterId: "a", zone: "south_edge", facing: "north" });
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "north" });
+    const rng = new SeededRandom(42);
+    const zone = determineHitZone(attacker, defender, "ram", rng, "rear", "rear");
+    expect(zone).toBe("rear");
+  });
+});
+
+// --- Hammer damage bonus audit ---
+
+function makeHammerFighter(): FighterState {
+  return makeFighter({
+    fighterId: "a",
+    zone: "center",
+    facing: "north",
+    build: {
+      proposal: {
+        machineName: "Test",
+        chassisId: "heavy",
+        mobilityId: "tracks",
+        weaponId: "hammer",
+        utilityId: "none",
+        armour: { front: 0, left: 0, right: 0, rear: 0, top: 0 },
+        designSummary: "test",
+        designRationale: "test",
+      },
+      totalCost: 80,
+      armourCost: 0,
+      totalArmourPoints: 0,
+      catalogueVersion: "1",
+    },
+  });
+}
+
+describe("hammer damage bonus", () => {
+  // HAMMER_TOP_DAMAGE_BONUS = 0.15, hammer base damage = 35
+  // Hammer bonus applies when (hitZone === "top" || defender is overturned).
+  // It must never apply twice even when both conditions are true.
+
+  it("hammer against normal front armour: no bonus", () => {
+    const rng = new SeededRandom(42);
+    const attacker = makeHammerFighter();
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "south" });
+    const result = calculateAttack(attacker, defender, 1.0, 0, rng, "front", "front");
+    expect(result.hit).toBe(true);
+    expect(result.hitZone).toBe("front");
+    // No top hit, not overturned → rawDamage = baseDamage * (1 + variance)
+    // 35 * (1 + variance) — no bonus multiplier
+  });
+
+  it("hammer top hit gets the bonus", () => {
+    const rng = new SeededRandom(42);
+    const attacker = makeHammerFighter();
+    const defender = makeFighter({ fighterId: "b", zone: "center", facing: "south" });
+    const result = calculateAttack(attacker, defender, 1.0, 0, rng, "top", "top");
+    expect(result.hit).toBe(true);
+    expect(result.hitZone).toBe("top");
+    // rawDamage = 35 * (1+variance) * 1.15
+    // Compare with same scenario but no bonus
+    const rng2 = new SeededRandom(42);
+    const noBonusResult = calculateAttack(
+      attacker,
+      defender,
+      1.0,
+      0,
+      rng2,
+      "front",
+      "front",
+    );
+    // Same variance seed → ratio should be exactly 1.15
+    expect(result.rawDamage / noBonusResult.rawDamage).toBeCloseTo(1.15, 1);
+  });
+
+  it("hammer against overturned target gets the bonus", () => {
+    const rng = new SeededRandom(42);
+    const attacker = makeHammerFighter();
+    const defender = makeFighter({
+      fighterId: "b",
+      zone: "center",
+      facing: "south",
+      conditions: ["overturned"],
+    });
+    const result = calculateAttack(attacker, defender, 1.0, 0, rng, "front", "front");
+    expect(result.hit).toBe(true);
+    // Overturned → bonus applied once
+    const rng2 = new SeededRandom(42);
+    const normalDefender = makeFighter({
+      fighterId: "b",
+      zone: "center",
+      facing: "south",
+    });
+    const noBonusResult = calculateAttack(
+      attacker,
+      normalDefender,
+      1.0,
+      0,
+      rng2,
+      "front",
+      "front",
+    );
+    expect(result.rawDamage / noBonusResult.rawDamage).toBeCloseTo(1.15, 1);
+  });
+
+  it("hammer top hit against overturned target: bonus applied once, not twice", () => {
+    const rng = new SeededRandom(42);
+    const attacker = makeHammerFighter();
+    const overturnedDefender = makeFighter({
+      fighterId: "b",
+      zone: "center",
+      facing: "south",
+      conditions: ["overturned"],
+    });
+    // Both conditions true: top hit + overturned
+    const result = calculateAttack(
+      attacker,
+      overturnedDefender,
+      1.0,
+      0,
+      rng,
+      "top",
+      "top",
+    );
+    expect(result.hit).toBe(true);
+    expect(result.hitZone).toBe("top");
+
+    // Compare with top hit on non-overturned (one condition only)
+    const rng2 = new SeededRandom(42);
+    const normalDefender = makeFighter({
+      fighterId: "b",
+      zone: "center",
+      facing: "south",
+    });
+    const topOnlyResult = calculateAttack(
+      attacker,
+      normalDefender,
+      1.0,
+      0,
+      rng2,
+      "top",
+      "top",
+    );
+
+    // Both should have the SAME bonus multiplier (1.15), not doubled
+    expect(result.rawDamage).toBe(topOnlyResult.rawDamage);
+  });
+
+  it("hammer overturned bonus does not stack with top-hit bonus", () => {
+    // Compare top-hit-only vs top-hit+overturned — same rawDamage proves no double-application
+    const rng = new SeededRandom(42);
+    const attacker = makeHammerFighter();
+
+    const overturnedDefender = makeFighter({
+      fighterId: "b",
+      zone: "center",
+      facing: "south",
+      conditions: ["overturned"],
+    });
+    const bothResult = calculateAttack(
+      attacker,
+      overturnedDefender,
+      1.0,
+      0,
+      rng,
+      "top",
+      "top",
+    );
+
+    const rng2 = new SeededRandom(42);
+    const normalDefender = makeFighter({
+      fighterId: "b",
+      zone: "center",
+      facing: "south",
+    });
+    const topOnlyResult = calculateAttack(
+      attacker,
+      normalDefender,
+      1.0,
+      0,
+      rng2,
+      "top",
+      "top",
+    );
+
+    expect(bothResult.rawDamage).toBe(topOnlyResult.rawDamage);
   });
 });

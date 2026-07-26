@@ -7,6 +7,8 @@ import {
   SEPARATOR,
   padCenter,
   ARENA_WIDTH,
+  truncateLine,
+  DEFAULT_MAX_WIDTH,
 } from "./ascii-layout.js";
 
 function describeEvent(event: SimulationEvent, state: CompetitionState): string {
@@ -102,7 +104,7 @@ export function renderMoment(moment: HighlightMoment): string {
   for (const event of moment.events) {
     const description = describeEvent(event, moment.stateAfter);
     if (description) {
-      lines.push(description);
+      lines.push(truncateLine(description, DEFAULT_MAX_WIDTH));
     }
   }
 

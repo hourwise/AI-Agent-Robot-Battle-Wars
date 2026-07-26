@@ -83,11 +83,7 @@ export function calculateAttack(
     rawDamage *= multiplier;
   }
 
-  if (weaponId === "hammer" && hitZone === "top") {
-    rawDamage *= 1 + HAMMER_TOP_DAMAGE_BONUS;
-  }
-
-  if (isOverturned && weaponId === "hammer") {
+  if (weaponId === "hammer" && (hitZone === "top" || isOverturned)) {
     rawDamage *= 1 + HAMMER_TOP_DAMAGE_BONUS;
   }
 
@@ -176,10 +172,10 @@ export function getExposedZones(
     return zones;
   }
 
-  if (facing === "north" && isSouthOf(attacker.zone, defender.zone)) zones.push("front");
-  if (facing === "south" && isNorthOf(attacker.zone, defender.zone)) zones.push("front");
-  if (facing === "east" && isWestOf(attacker.zone, defender.zone)) zones.push("front");
-  if (facing === "west" && isEastOf(attacker.zone, defender.zone)) zones.push("front");
+  if (facing === "north" && isNorthOf(attacker.zone, defender.zone)) zones.push("front");
+  if (facing === "south" && isSouthOf(attacker.zone, defender.zone)) zones.push("front");
+  if (facing === "east" && isEastOf(attacker.zone, defender.zone)) zones.push("front");
+  if (facing === "west" && isWestOf(attacker.zone, defender.zone)) zones.push("front");
 
   const isFlanking =
     (facing === "north" || facing === "south") &&
@@ -191,10 +187,10 @@ export function getExposedZones(
     zones.push("left", "right");
   }
 
-  if (facing === "north" && isNorthOf(attacker.zone, defender.zone)) zones.push("rear");
-  if (facing === "south" && isSouthOf(attacker.zone, defender.zone)) zones.push("rear");
-  if (facing === "east" && isEastOf(attacker.zone, defender.zone)) zones.push("rear");
-  if (facing === "west" && isWestOf(attacker.zone, defender.zone)) zones.push("rear");
+  if (facing === "north" && isSouthOf(attacker.zone, defender.zone)) zones.push("rear");
+  if (facing === "south" && isNorthOf(attacker.zone, defender.zone)) zones.push("rear");
+  if (facing === "east" && isWestOf(attacker.zone, defender.zone)) zones.push("rear");
+  if (facing === "west" && isEastOf(attacker.zone, defender.zone)) zones.push("rear");
 
   return zones;
 }
