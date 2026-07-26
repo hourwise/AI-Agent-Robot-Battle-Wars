@@ -16,6 +16,9 @@ The language model makes choices. It does not calculate costs, determine legalit
 - Environment validation with Zod
 - Vitest test runner
 - ESLint and Prettier
+- Component catalogue (v1) and build validation
+- Deterministic combat simulator with seeded RNG
+- ASCII replay rendering with robot portraits and arena snapshots
 
 ## What does not work yet
 
@@ -59,6 +62,27 @@ npm run format:check   # Check formatting with Prettier
 npm run format         # Auto-format with Prettier
 npm run dev            # Run the application (currently a placeholder)
 ```
+
+### ASCII Replay
+
+The ASCII replay renderer produces deterministic visual battle reports from saved match results.
+
+```typescript
+import { renderAsciiReplay } from "./src/replay/ascii/ascii-replay-renderer.js";
+import { runMatch } from "./src/simulator/simulator.js";
+
+const match = runMatch(config);
+const asciiReplay = renderAsciiReplay(match);
+console.log(asciiReplay);
+```
+
+The renderer produces:
+- Fighter profiles with chassis, mobility, weapon and utility details
+- Arena snapshots showing positions and facing
+- Selected battle moments (4-7 highlights per match)
+- Final result card with winner, method and decisive event
+
+All output is deterministic and reproducible from the same seed.
 
 ## Architecture
 

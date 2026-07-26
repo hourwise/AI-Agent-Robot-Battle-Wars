@@ -47,6 +47,7 @@ src/
   simulator/      Deterministic combat engine
   events/         Event types and factory
   replay/         Text renderer and statistics
+  replay/ascii/   Presentation-only ASCII rendering layer
   persistence/    Match and series repositories
   agents/         ArenaAgent interface and provider adapters
   prompts/        Versioned prompt templates
@@ -54,6 +55,30 @@ src/
 ```
 
 Each layer depends only on layers below it. The simulator never imports agents, persistence or replay. Agents never import the simulator.
+
+### Presentation-only rendering boundary
+
+The ASCII replay renderer is a presentation layer that consumes authoritative match records. It never influences:
+
+- combat decisions
+- action resolution
+- damage calculations
+- movement
+- random rolls
+- victory conditions
+- event generation
+
+The dependency direction is:
+
+```
+MatchRecord / authoritative events
+              ↓
+      replay presentation
+              ↓
+        ASCII output
+```
+
+Simulator packages must not import replay presentation modules. The ASCII layer receives only the specific data it needs through narrow interfaces.
 
 ## LLM non-authority
 
