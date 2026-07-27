@@ -2,32 +2,45 @@ import type { BenchmarkReport } from "./benchmark.types.js";
 
 export function renderTextReport(report: BenchmarkReport): string {
   const m = report.metrics;
-  const ci = m.wilsonCI;
+  const slot = m.slotOutcomes;
+  const ci = slot.wilsonCI;
 
   const lines: string[] = [];
 
   lines.push("FORGE ARENA BENCHMARK");
   lines.push("");
-  lines.push(`Pairing: ${report.fighterA.machineName} vs ${report.fighterB.machineName}`);
+  lines.push(`Pairing: ${report.fighterX.machineName} vs ${report.fighterY.machineName}`);
   lines.push(`Seed bank: ${report.seedBankId}`);
   lines.push(`Partition: ${report.partition}`);
-  lines.push(`Seeds: ${report.totalSimulations / (report.roleSwapped ? 2 : 1)}`);
-  lines.push(`Simulations: ${report.totalSimulations}`);
+  lines.push(`Seeds: ${m.seedCount}`);
+  lines.push(`Role assignments: ${m.roleAssignmentsPerSeed} per seed`);
+  lines.push(`Total simulations: ${m.totalSimulations}`);
   lines.push(`Role-swapped: ${report.roleSwapped ? "yes" : "no"}`);
   lines.push("");
 
-  lines.push("RESULTS");
-  lines.push(`Fighter A wins: ${m.fighterAWins}`);
-  lines.push(`Fighter B wins: ${m.fighterBWins}`);
-  lines.push(`Draws: ${m.draws}`);
+  lines.push("SLOT OUTCOMES (fighter_a vs fighter_b)");
+  lines.push(`Fighter A wins: ${slot.fighterAWins}`);
+  lines.push(`Fighter B wins: ${slot.fighterBWins}`);
+  lines.push(`Draws: ${slot.draws}`);
+  lines.push(
+    `Fighter A win rate: ${(slot.winRateA * 100).toFixed(1)}% [95% CI: ${(ci.lower * 100).toFixed(1)}%–${(ci.upper * 100).toFixed(1)}%]`,
+  );
+  lines.push(`Fighter B win rate: ${(slot.winRateB * 100).toFixed(1)}%`);
+  lines.push(
+    `First-slot advantage: ${slot.firstSlotAdvantage >= 0 ? "+" : ""}${(slot.firstSlotAdvantage * 100).toFixed(1)} pp`,
+  );
   lines.push("");
 
-  lines.push("WIN RATES");
-  lines.push(
-    `Fighter A: ${(m.winRateA * 100).toFixed(1)}% [95% CI: ${(ci.lower * 100).toFixed(1)}%–${(ci.upper * 100).toFixed(1)}%]`,
-  );
-  lines.push(`Fighter B: ${(m.winRateB * 100).toFixed(1)}%`);
-  lines.push("");
+  if (m.competitorOutcomes && report.roleSwapped) {
+    const co = m.competitorOutcomes;
+    lines.push("COMPETITOR OUTCOMES (design X vs design Y)");
+    lines.push(`Design X wins: ${co.xWins}`);
+    lines.push(`Design Y wins: ${co.yWins}`);
+    lines.push(`Draws: ${co.draws}`);
+    lines.push(`X win rate: ${(co.winRateX * 100).toFixed(1)}%`);
+    lines.push(`Y win rate: ${(co.winRateY * 100).toFixed(1)}%`);
+    lines.push("");
+  }
 
   lines.push("FINISHES");
   lines.push(`Destruction: ${(m.destructionRate * 100).toFixed(1)}%`);
@@ -66,7 +79,8 @@ export function renderTextReport(report: BenchmarkReport): string {
   lines.push(`Critical hits: ${m.totalCriticalHits}`);
   lines.push("");
 
-  lines.push(`Checksum: ${report.checksum}`);
+  lines.push(`Outcomes checksum: ${report.outcomesChecksum}`);
+  lines.push(`Report checksum: ${report.reportChecksum}`);
 
   return lines.join("\n");
 }

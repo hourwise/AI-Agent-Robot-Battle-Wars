@@ -48,8 +48,8 @@ function extractPerMatch(
   let utilityDisabledA = false;
   let utilityDisabledB = false;
   let criticalHits = 0;
-  let attacksAttempted = 0;
   let attacksHit = 0;
+  let attacksMissed = 0;
 
   for (const event of result.events) {
     if (event.type === "integrity_damaged") {
@@ -71,12 +71,16 @@ function extractPerMatch(
         if (comp === "utility") utilityDisabledB = true;
       }
     }
-    if (event.type === "attack_attempted") attacksAttempted++;
     if (event.type === "attack_hit") {
       attacksHit++;
       if (event.data.isCritical) criticalHits++;
     }
+    if (event.type === "attack_missed") {
+      attacksMissed++;
+    }
   }
+
+  const attacksAttempted = attacksHit + attacksMissed;
 
   const disabledA: string[] = [];
   if (mobilityDisabledA) disabledA.push("mobility");
@@ -91,6 +95,10 @@ function extractPerMatch(
   return {
     seed,
     roleSwapped,
+    // Competitor X = config.fighterA, Competitor Y = config.fighterB
+    // When roleSwapped, X is in fighter_b slot, Y in fighter_a slot
+    fighterACompetitor: roleSwapped ? "y" : "x",
+    fighterBCompetitor: roleSwapped ? "x" : "y",
     winner: result.result.winner,
     method: result.result.method,
     rounds: result.rounds,

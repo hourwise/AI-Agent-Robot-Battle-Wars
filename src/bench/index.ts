@@ -3,6 +3,8 @@ export type {
   SeedPartition,
   BenchmarkConfig,
   PerMatchResult,
+  SlotOutcomes,
+  CompetitorOutcomes,
   AggregateMetrics,
   BenchmarkReport,
 } from "./benchmark.types.js";

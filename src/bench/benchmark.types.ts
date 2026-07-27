@@ -33,6 +33,10 @@ export interface BenchmarkConfig {
 export interface PerMatchResult {
   readonly seed: number;
   readonly roleSwapped: boolean;
+  /** Which competitor ("x" or "y") is in the fighter_a slot. */
+  readonly fighterACompetitor: "x" | "y";
+  /** Which competitor ("x" or "y") is in the fighter_b slot. */
+  readonly fighterBCompetitor: "x" | "y";
   readonly winner: string | null;
   readonly method: string;
   readonly rounds: number;
@@ -59,18 +63,37 @@ export interface PerMatchResult {
   readonly attacksHit: number;
 }
 
-export interface AggregateMetrics {
-  readonly totalMatches: number;
+export interface SlotOutcomes {
   readonly fighterAWins: number;
   readonly fighterBWins: number;
   readonly draws: number;
   readonly winRateA: number;
   readonly winRateB: number;
+  /** fighter_a win rate − fighter_b win rate */
+  readonly firstSlotAdvantage: number;
   readonly wilsonCI: {
     readonly lower: number;
     readonly upper: number;
     readonly confidence: number;
   };
+}
+
+export interface CompetitorOutcomes {
+  /** Design X wins (regardless of slot). */
+  readonly xWins: number;
+  /** Design Y wins (regardless of slot). */
+  readonly yWins: number;
+  readonly draws: number;
+  readonly winRateX: number;
+  readonly winRateY: number;
+}
+
+export interface AggregateMetrics {
+  readonly seedCount: number;
+  readonly roleAssignmentsPerSeed: number;
+  readonly totalSimulations: number;
+  readonly slotOutcomes: SlotOutcomes;
+  readonly competitorOutcomes: CompetitorOutcomes | null;
   readonly avgRounds: number;
   readonly medianRounds: number;
   readonly minRounds: number;
@@ -101,19 +124,24 @@ export interface BenchmarkReport {
   readonly simulatorVersion: string;
   readonly rulesetVersion: string;
   readonly catalogueVersion: string;
-  readonly fighterA: {
+  readonly fighterX: {
     readonly machineName: string;
     readonly buildFingerprint: string;
     readonly policyFingerprint: string;
   };
-  readonly fighterB: {
+  readonly fighterY: {
     readonly machineName: string;
     readonly buildFingerprint: string;
     readonly policyFingerprint: string;
   };
   readonly roleSwapped: boolean;
+  readonly seedCount: number;
+  readonly roleAssignmentsPerSeed: number;
   readonly totalSimulations: number;
   readonly perMatch: readonly PerMatchResult[];
   readonly metrics: AggregateMetrics;
-  readonly checksum: string;
+  /** Checksum of per-match outcomes only (not aggregate report). */
+  readonly outcomesChecksum: string;
+  /** Checksum of the full report (including aggregate metrics). */
+  readonly reportChecksum: string;
 }

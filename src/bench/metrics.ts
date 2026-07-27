@@ -1,4 +1,9 @@
-import type { PerMatchResult, AggregateMetrics } from "./benchmark.types.js";
+import type {
+  PerMatchResult,
+  AggregateMetrics,
+  SlotOutcomes,
+  CompetitorOutcomes,
+} from "./benchmark.types.js";
 
 function median(values: number[]): number {
   if (values.length === 0) return 0;
@@ -26,14 +31,69 @@ function wilsonCI(
   };
 }
 
-export function computeMetrics(results: readonly PerMatchResult[]): AggregateMetrics {
+function computeSlotOutcomes(results: readonly PerMatchResult[]): SlotOutcomes {
+  const n = results.length || 1;
+  const aWins = results.filter((r) => r.winner === "fighter_a").length;
+  const bWins = results.filter((r) => r.winner === "fighter_b").length;
+  const draws = results.filter((r) => r.winner === null).length;
+
+  return {
+    fighterAWins: aWins,
+    fighterBWins: bWins,
+    draws,
+    winRateA: aWins / n,
+    winRateB: bWins / n,
+    firstSlotAdvantage: (aWins - bWins) / n,
+    wilsonCI: wilsonCI(aWins, n),
+  };
+}
+
+function computeCompetitorOutcomes(
+  results: readonly PerMatchResult[],
+): CompetitorOutcomes | null {
+  // Determine if results have competitor identity fields
+  const first = results[0];
+  if (!first || !first.fighterACompetitor) return null;
+
+  const n = results.length || 1;
+
+  const xWins = results.filter((r) => {
+    if (r.winner === "fighter_a") return r.fighterACompetitor === "x";
+    if (r.winner === "fighter_b") return r.fighterBCompetitor === "x";
+    return false;
+  }).length;
+
+  const yWins = results.filter((r) => {
+    if (r.winner === "fighter_a") return r.fighterACompetitor === "y";
+    if (r.winner === "fighter_b") return r.fighterBCompetitor === "y";
+    return false;
+  }).length;
+
+  const draws = results.filter((r) => r.winner === null).length;
+
+  // For identical designs, competitor outcomes are N/A
+  if (xWins + yWins + draws === 0 && n > 0) return null;
+
+  return {
+    xWins,
+    yWins,
+    draws,
+    winRateX: xWins / n,
+    winRateY: yWins / n,
+  };
+}
+
+export function computeMetrics(
+  results: readonly PerMatchResult[],
+  seedCount: number,
+  roleAssignmentsPerSeed: number,
+): AggregateMetrics {
   const n = results.length;
-  const nonSwapped = results.filter((r) => !r.roleSwapped);
 
-  const fighterAWins = nonSwapped.filter((r) => r.winner === "fighter_a").length;
-  const fighterBWins = nonSwapped.filter((r) => r.winner === "fighter_b").length;
-  const draws = nonSwapped.filter((r) => r.winner === null).length;
+  const slotOutcomes = computeSlotOutcomes(results);
+  const competitorOutcomes = computeCompetitorOutcomes(results);
 
+  // Combat metrics — use ALL simulations as the population
   const rounds = results.map((r) => r.rounds);
   const avgRounds = rounds.reduce((a, b) => a + b, 0) / n;
   const minRounds = Math.min(...rounds);
@@ -83,16 +143,12 @@ export function computeMetrics(results: readonly PerMatchResult[]): AggregateMet
   const totalAttacks = results.reduce((s, r) => s + r.attacksAttempted, 0);
   const totalHits = results.reduce((s, r) => s + r.attacksHit, 0);
 
-  const nonSwappedN = nonSwapped.length || 1;
-
   return {
-    totalMatches: nonSwappedN,
-    fighterAWins,
-    fighterBWins,
-    draws,
-    winRateA: fighterAWins / nonSwappedN,
-    winRateB: fighterBWins / nonSwappedN,
-    wilsonCI: wilsonCI(fighterAWins, nonSwappedN),
+    seedCount,
+    roleAssignmentsPerSeed,
+    totalSimulations: n,
+    slotOutcomes,
+    competitorOutcomes,
     avgRounds,
     medianRounds: median(rounds),
     minRounds,
@@ -100,12 +156,12 @@ export function computeMetrics(results: readonly PerMatchResult[]): AggregateMet
     avgIntegrityA,
     avgIntegrityB,
     avgIntegrityDiff,
-    destructionRate: destructionCount / nonSwappedN,
-    immobilisationRate: immobCount / nonSwappedN,
-    judgesRate: judgesCount / nonSwappedN,
-    firstRoundFinishRate: firstRoundFinish / nonSwappedN,
-    firstRoundImmobilisationRate: firstRoundImmob / nonSwappedN,
-    matchesWithAnyDisable: anyDisable / nonSwappedN,
+    destructionRate: destructionCount / n,
+    immobilisationRate: immobCount / n,
+    judgesRate: judgesCount / n,
+    firstRoundFinishRate: firstRoundFinish / n,
+    firstRoundImmobilisationRate: firstRoundImmob / n,
+    matchesWithAnyDisable: anyDisable / n,
     mobilityDisables,
     weaponDisables,
     utilityDisables,

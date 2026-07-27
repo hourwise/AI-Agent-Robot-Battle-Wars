@@ -85,16 +85,20 @@ function main() {
     roleSwapped: false, // mirror match, no need to swap
   });
 
-  const metrics = computeMetrics(results);
+  const seedCount = results.length; // mirror: 1 sim per seed
+  const metrics = computeMetrics(results, seedCount, 1);
 
   // Sort per-match results for deterministic output
   const sortedResults = [...results].sort(
     (a, b) => a.seed - b.seed || (a.roleSwapped ? 1 : 0) - (b.roleSwapped ? 1 : 0),
   );
 
-  // Deterministic checksum
-  const canonical = JSON.stringify(sortedResults);
-  const checksum = createHash("sha256").update(canonical).digest("hex").slice(0, 16);
+  // Per-match outcomes checksum (stable as long as simulation doesn't change)
+  const outcomesCanonical = JSON.stringify(sortedResults);
+  const outcomesChecksum = createHash("sha256")
+    .update(outcomesCanonical)
+    .digest("hex")
+    .slice(0, 16);
 
   const report: BenchmarkReport = {
     schemaVersion: "1",
@@ -104,21 +108,30 @@ function main() {
     simulatorVersion: bank.simulatorVersion,
     rulesetVersion: bank.rulesetVersion,
     catalogueVersion: bank.catalogueVersion,
-    fighterA: {
+    fighterX: {
       machineName: "The Bulwark",
       buildFingerprint: fingerprintBuild(buildA),
       policyFingerprint: fingerprintPolicy(policyA),
     },
-    fighterB: {
+    fighterY: {
       machineName: "The Bulwark",
       buildFingerprint: fingerprintBuild(buildB),
       policyFingerprint: fingerprintPolicy(policyB),
     },
     roleSwapped: false,
+    seedCount,
+    roleAssignmentsPerSeed: 1,
     totalSimulations: results.length,
     perMatch: sortedResults,
     metrics,
-    checksum,
+    outcomesChecksum,
+    reportChecksum: "",
+  };
+  // Full report checksum (may change with schema/format evolution)
+  const reportBody = JSON.stringify({ ...report, reportChecksum: "" });
+  const fullReport = {
+    ...report,
+    reportChecksum: createHash("sha256").update(reportBody).digest("hex").slice(0, 16),
   };
 
   if (output) {
@@ -131,14 +144,14 @@ function main() {
       process.exit(1);
     }
 
-    writeFileSync(outPath, JSON.stringify(report, null, 2));
+    writeFileSync(outPath, JSON.stringify(fullReport, null, 2));
     if (!quiet) console.log(`Report written to ${outPath}`);
   }
 
   if (json) {
-    console.log(JSON.stringify(report, null, 2));
+    console.log(JSON.stringify(fullReport, null, 2));
   } else if (!output || !quiet) {
-    console.log(renderTextReport(report));
+    console.log(renderTextReport(fullReport));
   }
 }
 
