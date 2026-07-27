@@ -246,13 +246,21 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
 
 ## 7. Implementation Milestones
 
-### Milestone 0.2A — Benchmark Harness
+### Milestone 0.2A — Benchmark Harness ✅ COMPLETED (2026-07-27)
 
 **Scope:** Fixed seed bank, batch simulation runner, statistical report generator. No gameplay changes.
 
+**Deliverables:**
+
+- ADR-003: Deterministic Seed-Bank Evaluation Protocol (`docs/ADR-003-seed-bank-evaluation.md`)
+- Seed fixture: `data/seeds/benchmark-100-v1.json` (80 dev / 20 held-out)
+- Benchmark module: `src/bench/` (types, seed-bank, runner, metrics, report renderer)
+- CLI: `npm run benchmark -- --partition development|held-out|all`
+- Tests: `tests/unit/seed-bank.test.ts`, `tests/unit/benchmark.test.ts`
+
 **Exclusions:** Arena changes, rule changes, new opponents, adaptation loop changes.
 
-**Affected modules:** New `src/bench/` module; `src/simulator/simulator.ts` (batch runner wrapper).
+**Affected modules:** New `src/bench/` module; `src/app/run-benchmark.ts`.
 
 **Schema implications:** New benchmark result schema.
 
