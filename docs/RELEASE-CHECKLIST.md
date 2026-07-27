@@ -41,6 +41,8 @@ Use this checklist before tagging `v0.1.0-prototype`.
 ## Canonical Fixture
 
 - [x] Series `16eae0af-9ca5-4c63-acb1-aee54f41ee58` preserved in `data/series/`
+- [x] Sanitised summary committed at `tests/fixtures/prototype-0.1-canonical-series-summary.json`
+- [x] Fixture validated by `tests/unit/prototype-0.1-fixture.test.ts`
 - [x] Validation document records seeds, designs, policies, outcomes, and costs
 - [x] No raw provider metadata committed
 
@@ -48,6 +50,8 @@ Use this checklist before tagging `v0.1.0-prototype`.
 
 - [x] Tag `v0.1.0-prototype` created on commit `9f98065`
 - [x] Tag pushed to `origin`
+- [x] Tag provenance documented: code baseline is `9f98065`, docs added in `719d91c`
+- [x] Strategy: keep existing tag (Option A); documentation lives on default branch
 
 ## Post-release
 

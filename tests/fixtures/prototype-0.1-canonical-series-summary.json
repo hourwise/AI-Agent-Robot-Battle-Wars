@@ -1,0 +1,188 @@
+{
+  "seriesId": "16eae0af-9ca5-4c63-acb1-aee54f41ee58",
+  "createdAt": "2026-07-26T21:27:04.553Z",
+  "competitor": {
+    "displayName": "DeepSeek AI",
+    "provider": "deepseek"
+  },
+  "score": {
+    "aiWins": 3,
+    "bulwarkWins": 1,
+    "draws": 0
+  },
+  "winner": "ai",
+  "sourceCommitSha": "9f9806562f45c994710821dae1e1b63a17d7ecc9",
+  "simulatorVersion": "0.1.2",
+  "rulesetVersion": "0.1.0",
+  "catalogueVersion": "1",
+  "totalApiCalls": 12,
+  "totalInputTokens": 22626,
+  "totalOutputTokens": 7551,
+  "estimatedCostUsd": 0.008184,
+  "entries": [
+    {
+      "matchNumber": 1,
+      "matchId": "9169c69e-4ad4-4665-82cb-7c24a81e7815",
+      "seed": 299736961,
+      "winner": "fighter_b",
+      "method": "immobilisation",
+      "rounds": 4,
+      "design": {
+        "machineName": "Backstabber",
+        "chassisId": "medium",
+        "mobilityId": "wheels",
+        "weaponId": "horizontal_spinner",
+        "utilityId": "cooling",
+        "armour": {
+          "front": 30,
+          "left": 20,
+          "right": 20,
+          "rear": 10,
+          "top": 10
+        },
+        "designSummary": "A medium wheeled spinner designed to outmanoeuvre a slow, front-heavy ram bot. High speed and turning allow circling to attack weak rear armour. Horizontal spinner delivers high knockback to disorient and expose rear. Cooling utility manages heat from frequent attacks over 20 rounds. Armour is balanced with slight front bias to survive initial charges.",
+        "designRationale": "Exploits opponent's rear weakness and slow turning via wheeled mobility (speed 9, turning 9). Horizontal spinner (50 damage, high knockback) punishes rear hits. Cooling utility ensures sustained fire rate. Medium chassis provides enough integrity (100) to withstand ram hits while maintaining agility. Armour: 30 front to absorb charges, 20 sides, 10 rear/top to save budget for offence."
+      },
+      "policy": {
+        "opening": "flank",
+        "preferredRange": "close",
+        "aggression": 80,
+        "primaryTarget": "rear",
+        "secondaryTarget": "right",
+        "retreatThreshold": 30,
+        "heatThreshold": 70,
+        "fallback": "retreat"
+      },
+      "finalIntegrity": {
+        "ai": 96,
+        "aiMax": 100,
+        "bulwark": 150,
+        "bulwarkMax": 150
+      },
+      "aiDisabledComponents": ["mobility"]
+    },
+    {
+      "matchNumber": 2,
+      "matchId": "5c162268-0d78-4732-a662-446b9f79cd32",
+      "seed": 386253148,
+      "winner": "fighter_a",
+      "method": "immobilisation",
+      "rounds": 1,
+      "design": {
+        "machineName": "Backstabber v2",
+        "chassisId": "medium",
+        "mobilityId": "wheels",
+        "weaponId": "horizontal_spinner",
+        "utilityId": "cooling",
+        "armour": {
+          "front": 40,
+          "left": 20,
+          "right": 20,
+          "rear": 10,
+          "top": 10
+        },
+        "designSummary": "Improved front armour to 40 to better survive initial ram charges from heavy ram bots. Maintains medium chassis, wheels, and horizontal spinner for speed and flanking. Cooling utility ensures sustained spinner usage. Balanced side armour for durability during circling.",
+        "designRationale": "Match 1 loss due to mobility failure after critical hit. Increased front armour from 30 to 40 to reduce damage from ram attacks. Keeping same chassis and mobility for agility. Spinner and cooling remain optimal for disorienting and outlasting slow opponents."
+      },
+      "policy": {
+        "opening": "flank",
+        "preferredRange": "close",
+        "aggression": 80,
+        "primaryTarget": "rear",
+        "secondaryTarget": "left",
+        "retreatThreshold": 30,
+        "heatThreshold": 70,
+        "fallback": "retreat"
+      },
+      "finalIntegrity": {
+        "ai": 100,
+        "aiMax": 100,
+        "bulwark": 107,
+        "bulwarkMax": 150
+      },
+      "aiDisabledComponents": []
+    },
+    {
+      "matchNumber": 3,
+      "matchId": "787b297b-b0df-4edc-a56f-95599656b4d3",
+      "seed": 856602425,
+      "winner": "fighter_a",
+      "method": "immobilisation",
+      "rounds": 7,
+      "design": {
+        "machineName": "The Bulwark v2",
+        "chassisId": "heavy",
+        "mobilityId": "wheels",
+        "weaponId": "horizontal_spinner",
+        "utilityId": "none",
+        "armour": {
+          "front": 40,
+          "left": 20,
+          "right": 20,
+          "rear": 20,
+          "top": 0
+        },
+        "designSummary": "Heavy chassis with wheels, horizontal spinner, no utility. Armour: front 40, sides 20, rear 20, top 0. Total cost 100.",
+        "designRationale": "Removed cooling utility to reduce cost to 100. Maintained key changes: wheels for maneuverability, spinner for all-angle damage, and improved rear armour to 20."
+      },
+      "policy": {
+        "opening": "flank",
+        "preferredRange": "close",
+        "aggression": 80,
+        "primaryTarget": "rear",
+        "secondaryTarget": "left",
+        "retreatThreshold": 30,
+        "heatThreshold": 80,
+        "fallback": "retreat"
+      },
+      "finalIntegrity": {
+        "ai": 147,
+        "aiMax": 150,
+        "bulwark": 116,
+        "bulwarkMax": 150
+      },
+      "aiDisabledComponents": []
+    },
+    {
+      "matchNumber": 4,
+      "matchId": "bd4551a4-26c2-497d-8ca8-78ec63d68f18",
+      "seed": 337707035,
+      "winner": "fighter_a",
+      "method": "immobilisation",
+      "rounds": 13,
+      "design": {
+        "machineName": "The Bulwark v3",
+        "chassisId": "heavy",
+        "mobilityId": "wheels",
+        "weaponId": "horizontal_spinner",
+        "utilityId": "none",
+        "armour": {
+          "front": 30,
+          "left": 20,
+          "right": 20,
+          "rear": 20,
+          "top": 0
+        },
+        "designSummary": "Heavy chassis with wheels, horizontal spinner, no utility. Armour: front 30, sides 20, rear 20, top 0. Total cost 97.",
+        "designRationale": "Retained heavy chassis and horizontal spinner for high damage and critical hits. Switched to wheels for better turning to counter flanking. Reduced front armour to 30 and distributed to sides and rear for balanced protection. Removed cooling utility to stay within budget. Total cost 97."
+      },
+      "policy": {
+        "opening": "flank",
+        "preferredRange": "close",
+        "aggression": 80,
+        "primaryTarget": "rear",
+        "secondaryTarget": "left",
+        "retreatThreshold": 30,
+        "heatThreshold": 80,
+        "fallback": "retreat"
+      },
+      "finalIntegrity": {
+        "ai": 144,
+        "aiMax": 150,
+        "bulwark": 35,
+        "bulwarkMax": 150
+      },
+      "aiDisabledComponents": []
+    }
+  ]
+}

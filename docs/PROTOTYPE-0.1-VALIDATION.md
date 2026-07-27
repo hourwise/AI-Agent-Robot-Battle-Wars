@@ -42,10 +42,10 @@ Because the fixture contains provider metadata and token counts tied to a specif
 ### Seeds
 
 ```
-Match 1: 486966
-Match 2: 749593
-Match 3: 478998
-Match 4: 588631
+Match 1: 299736961
+Match 2: 386253148
+Match 3: 856602425
+Match 4: 337707035
 ```
 
 ## Adaptation Sequence
@@ -54,16 +54,16 @@ The AI lost Match 1, adapted, then won three consecutively.
 
 ### Meaningful Design Changes
 
-| Change                                                      | Match → Match | Rationale                                         |
-| ----------------------------------------------------------- | ------------- | ------------------------------------------------- |
-| Increased front armour                                      | 1 → 2         | Review identified front vulnerability             |
-| Changed secondary target `left` → `front`                   | 1 → 2         | Focused targeting on exposed opponent front       |
-| Medium → heavy chassis                                      | 2 → 3         | Review recommended durability increase            |
-| Cooling → none                                              | 2 → 3         | Cooling deemed unnecessary for match length       |
-| Increased rear armour                                       | 2 → 3         | Review noted rear exposure risk                   |
-| Reduced top armour                                          | 2 → 3         | Budget reallocated to front/rear                  |
-| Increased heat threshold 70 → 80                            | 3 → 4         | Review suggested higher heat tolerance            |
-| Reduced front armour after successful heavy-chassis matches | 3 → 4         | Budget reallocation after observing survivability |
+| Change                                  | Match → Match | Rationale                                         |
+| --------------------------------------- | ------------- | ------------------------------------------------- |
+| front armour 30 → 40                    | 1 → 2         | Review identified front vulnerability             |
+| policy secondaryTarget `right` → `left` | 1 → 2         | Focused secondary targeting                       |
+| chassis medium → heavy                  | 2 → 3         | Review recommended durability increase            |
+| utility cooling → none                  | 2 → 3         | Cooling deemed unnecessary for match length       |
+| rear armour 10 → 20                     | 2 → 3         | Review noted rear exposure risk                   |
+| top armour 10 → 0                       | 2 → 3         | Budget reallocated to front/rear                  |
+| heatThreshold 70 → 80                   | 2 → 3         | Review suggested higher heat tolerance            |
+| front armour 40 → 30                    | 3 → 4         | Budget reallocation after observing survivability |
 
 The final redesign reduced front armour — the AI did not simply keep adding armour after every match. It reallocated budget after observing success.
 
@@ -76,7 +76,7 @@ opening: flank
 preferredRange: close
 aggression: 80%
 primaryTarget: rear
-secondaryTarget: front (changed from left after Match 1)
+secondaryTarget: left (changed from right after Match 1)
 ```
 
 The AI kept the spinner strategy but adopted Bulwark-like durability, producing a hybrid design — heavy chassis with horizontal spinner — rather than converging onto a ram clone.
@@ -149,8 +149,9 @@ Component disables were decisive in every AI victory. We cannot separate genuine
 
 | Item                  | Value                                      |
 | --------------------- | ------------------------------------------ |
-| Commit SHA            | `9f9806562f45c994710821dae1e1b63a17d7ecc9` |
-| Final test count      | 436 (40 files)                             |
+| Commit SHA (tag)      | `9f9806562f45c994710821dae1e1b63a17d7ecc9` |
+| Docs commit SHA       | `719d91cfac40ac13ccbe14c84ced02a492892366` |
+| Final test count      | 447 (41 files)                             |
 | Simulator version     | 0.1.2                                      |
 | Ruleset version       | 0.1.0                                      |
 | Catalogue version     | 1                                          |
@@ -161,4 +162,30 @@ Component disables were decisive in every AI victory. We cannot separate genuine
 | Series schema version | 1                                          |
 | Release tag           | v0.1.0-prototype                           |
 
-All static checks pass: format, lint, type-check. All 436 tests pass with zero failures.
+All static checks pass: format, lint, type-check. All 447 tests pass with zero failures.
+
+## Tag Provenance
+
+```
+v0.1.0-prototype points to the validated executable code baseline:
+9f9806562f45c994710821dae1e1b63a17d7ecc9
+
+Release documentation and the Prototype 0.2 plan were added in:
+719d91cfac40ac13ccbe14c84ced02a492892366
+```
+
+The tag is an immutable snapshot of the validated simulator. Documentation corrections exist after the tag. No simulator behaviour changed in the documentation commit.
+
+**Recommended strategy: Option A — Keep the existing tag.** The `v0.1.0-prototype` tag correctly identifies the code baseline. Documentation lives on the default branch and can be updated without moving the tag. A second documentation-only tag would add complexity without improving clarity.
+
+## Canonical Evidence Fixture
+
+A sanitised, repository-safe summary is committed at:
+
+```
+tests/fixtures/prototype-0.1-canonical-series-summary.json
+```
+
+It contains only repository-safe data: series ID, match IDs, seeds, designs, policies, outcomes, final integrity, redesign diffs, usage totals, and version baselines. No API keys, request headers, or account identifiers are included.
+
+The fixture is validated by `tests/unit/prototype-0.1-fixture.test.ts`, which asserts all critical values and verifies no sensitive metadata is present.
