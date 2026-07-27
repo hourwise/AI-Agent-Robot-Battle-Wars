@@ -29,6 +29,7 @@ export function loadDeepSeekConfig(): DeepSeekConfig {
     thinkingMode: env.DEEPSEEK_THINKING_MODE,
     timeoutMs: env.DEEPSEEK_TIMEOUT_MS,
     maxRetries: env.DEEPSEEK_MAX_RETRIES,
+    maxResponseBytes: env.DEEPSEEK_MAX_RESPONSE_BYTES,
   });
 
   if (!result.success) {
