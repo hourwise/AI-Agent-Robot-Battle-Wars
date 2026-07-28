@@ -130,6 +130,12 @@ describe("edge cases", () => {
     const config2 = { ...config1, seed: 2 };
     const r1 = runMatch(config1);
     const r2 = runMatch(config2);
-    expect(r1.events.length).not.toBe(r2.events.length);
+    // Different seeds should produce different outcomes or event sequences
+    const sameWinner = r1.result.winner === r2.result.winner;
+    const sameRounds = r1.rounds === r2.rounds;
+    const sameMethod = r1.result.method === r2.result.method;
+    // At least one dimension should differ (not all identical)
+    const allSame = sameWinner && sameRounds && sameMethod;
+    expect(allSame).toBe(false);
   });
 });

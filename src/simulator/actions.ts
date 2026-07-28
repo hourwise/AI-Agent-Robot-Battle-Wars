@@ -6,6 +6,7 @@ import type {
   ArenaZone,
 } from "./types.js";
 import type { SeededRandom } from "./seeded-random.js";
+import { isComponentDisabled } from "./component-state.js";
 
 export function deriveAction(
   state: FighterState,
@@ -24,10 +25,10 @@ export function deriveAction(
     return { movement: "hold", combat: "defend" };
   }
 
-  if (state.components.mobilityDisabled) {
+  if (isComponentDisabled(state.comps, "mobility")) {
     return {
       movement: "hold",
-      combat: state.components.weaponDisabled ? "idle" : "attack",
+      combat: isComponentDisabled(state.comps, "weapon") ? "idle" : "attack",
     };
   }
 
@@ -56,7 +57,7 @@ function deriveFallback(
     case "defend":
       return { movement: "hold", combat: "defend" };
     case "desperate_attack":
-      return state.components.weaponDisabled
+      return isComponentDisabled(state.comps, "weapon")
         ? { movement: "hold", combat: "idle" }
         : { movement: "hold", combat: "attack" };
   }

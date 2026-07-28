@@ -36,6 +36,11 @@ function makeFighter(overrides: Partial<FighterState> = {}): FighterState {
       weaponDisabled: false,
       utilityDisabled: false,
     },
+    comps: {
+      mobility: { state: "healthy" },
+      weapon: { state: "healthy" },
+      utility: { state: "healthy", installed: true },
+    },
     conditions: [],
     ...overrides,
   };

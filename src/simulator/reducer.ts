@@ -8,7 +8,7 @@ import type {
 } from "./types.js";
 import type { SeededRandom } from "./seeded-random.js";
 import { resolveMovement } from "./movement.js";
-import { calculateAttack, selectDamagedComponent } from "./damage.js";
+import { calculateAttack } from "./damage.js";
 import {
   STARTING_ENERGY,
   MAX_HEAT,
@@ -16,11 +16,17 @@ import {
   HEAT_DISSIPATION_PER_ROUND,
   ATTACK_ENERGY_COST,
   ATTACK_HEAT_GAIN,
-  COOLING_BONUS,
   OVERHEAT_RECOVERY_AMOUNT,
   BASE_HIT_CHANCE,
 } from "./constants.js";
 import { CATALOGUE_V1 } from "../catalogue/catalogue.v1.js";
+import {
+  getEffectiveCoolingBonus,
+  selectComponentForTransition,
+  transitionComponentState,
+  applyTransition,
+  deriveBinaryComponents,
+} from "./component-state.js";
 
 function getWeaponCooldown(weaponId: string): number {
   const weapon = CATALOGUE_V1.weapons.find((w) => w.id === weaponId);
@@ -54,9 +60,10 @@ export function applyRound(
     actorId?: string,
     targetId?: string,
     data: Record<string, unknown> = {},
+    schemaVersion = "2",
   ): SimulationEvent => {
     const event: SimulationEvent = {
-      schemaVersion: "1",
+      schemaVersion,
       sequence: seq++,
       round,
       timestampMs: timestampMs + seq,
@@ -112,11 +119,11 @@ export function applyRound(
 
   const attackA =
     actions.fighterA.combat === "attack" &&
-    !a.components.weaponDisabled &&
+    a.comps.weapon.state !== "disabled" &&
     a.weaponCooldown <= 0;
   const attackB =
     actions.fighterB.combat === "attack" &&
-    !b.components.weaponDisabled &&
+    b.comps.weapon.state !== "disabled" &&
     b.weaponCooldown <= 0;
 
   const attackResultA = attackA
@@ -197,15 +204,94 @@ export function applyRound(
         }
       }
 
-      if (attackResultA.isCritical) {
-        const component = selectDamagedComponent(
-          attackResultA.hitZone,
-          b.components,
-          rng,
+      // 0.2B: qualification-based component lifecycle
+      const component = selectComponentForTransition(b.comps, attackResultA.hitZone, rng);
+      if (component) {
+        const transition = transitionComponentState(
+          b.comps,
+          component,
+          attackResultA.isCritical,
+          attackResultA.effectiveDamage,
         );
-        if (component) {
-          b = applyComponentDamage(b, component);
-          emit("component_disabled", a.fighterId, b.fighterId, { component });
+        if (transition.transitionOccurred) {
+          b = {
+            ...b,
+            comps: applyTransition(b.comps, transition),
+          };
+          b = { ...b, components: deriveBinaryComponents(b.comps) };
+
+          if (transition.reason === "reinforced_drive" && transition.guardStateBefore) {
+            emit("component_damage_resisted", a.fighterId, b.fighterId, {
+              component: "mobility",
+              previousState: "healthy",
+              newState: "healthy",
+              sourceAttack: {
+                weapon: a.build.proposal.weaponId,
+                isCritical: attackResultA.isCritical,
+              },
+              effectiveDamage: attackResultA.effectiveDamage,
+              hitZone: attackResultA.hitZone,
+              reason: "reinforced_drive",
+              guardStateBefore: transition.guardStateBefore,
+              guardStateAfter: transition.guardStateAfter,
+            });
+          } else if (transition.newState === "damaged") {
+            const eventData: Record<string, unknown> = {
+              component,
+              previousState: transition.previousState,
+              newState: transition.newState,
+              sourceAttack: {
+                weapon: a.build.proposal.weaponId,
+                isCritical: attackResultA.isCritical,
+              },
+              effectiveDamage: attackResultA.effectiveDamage,
+              hitZone: attackResultA.hitZone,
+              reason: transition.reason,
+            };
+            if (
+              component === "utility" &&
+              b.comps.utility.reinforcedDriveGuard === "lost" &&
+              transition.reason
+            ) {
+              eventData.utilityRuntimeChange = {
+                reinforcedDriveGuardBefore: "available",
+                reinforcedDriveGuardAfter: "lost",
+              };
+            }
+            emit("component_damaged", a.fighterId, b.fighterId, eventData);
+          } else if (transition.newState === "disabled") {
+            const eventData: Record<string, unknown> = {
+              component,
+              previousState: transition.previousState,
+              newState: transition.newState,
+              sourceAttack: {
+                weapon: a.build.proposal.weaponId,
+                isCritical: attackResultA.isCritical,
+              },
+              effectiveDamage: attackResultA.effectiveDamage,
+              hitZone: attackResultA.hitZone,
+              reason: transition.reason,
+            };
+            if (
+              component === "utility" &&
+              b.comps.utility.reinforcedDriveGuard === "lost"
+            ) {
+              eventData.utilityRuntimeChange = {
+                reinforcedDriveGuardBefore: "available",
+                reinforcedDriveGuardAfter: "lost",
+              };
+            }
+            emit("component_disabled", a.fighterId, b.fighterId, eventData);
+          }
+
+          if (component === "mobility" && b.comps.mobility.state === "disabled") {
+            if (!b.conditions.includes("immobilised")) {
+              b = {
+                ...b,
+                conditions: [...b.conditions, "immobilised" as Condition],
+              };
+            }
+          }
         }
       }
     }
@@ -263,15 +349,73 @@ export function applyRound(
         }
       }
 
-      if (attackResultB.isCritical) {
-        const component = selectDamagedComponent(
-          attackResultB.hitZone,
-          a.components,
-          rng,
+      // 0.2B: qualification-based component lifecycle
+      const component = selectComponentForTransition(a.comps, attackResultB.hitZone, rng);
+      if (component) {
+        const transition = transitionComponentState(
+          a.comps,
+          component,
+          attackResultB.isCritical,
+          attackResultB.effectiveDamage,
         );
-        if (component) {
-          a = applyComponentDamage(a, component);
-          emit("component_disabled", b.fighterId, a.fighterId, { component });
+        if (transition.transitionOccurred) {
+          a = {
+            ...a,
+            comps: applyTransition(a.comps, transition),
+          };
+          a = { ...a, components: deriveBinaryComponents(a.comps) };
+
+          if (transition.reason === "reinforced_drive" && transition.guardStateBefore) {
+            emit("component_damage_resisted", b.fighterId, a.fighterId, {
+              component: "mobility",
+              previousState: "healthy",
+              newState: "healthy",
+              sourceAttack: {
+                weapon: b.build.proposal.weaponId,
+                isCritical: attackResultB.isCritical,
+              },
+              effectiveDamage: attackResultB.effectiveDamage,
+              hitZone: attackResultB.hitZone,
+              reason: "reinforced_drive",
+              guardStateBefore: transition.guardStateBefore,
+              guardStateAfter: transition.guardStateAfter,
+            });
+          } else if (transition.newState === "damaged") {
+            emit("component_damaged", b.fighterId, a.fighterId, {
+              component,
+              previousState: transition.previousState,
+              newState: transition.newState,
+              sourceAttack: {
+                weapon: b.build.proposal.weaponId,
+                isCritical: attackResultB.isCritical,
+              },
+              effectiveDamage: attackResultB.effectiveDamage,
+              hitZone: attackResultB.hitZone,
+              reason: transition.reason,
+            });
+          } else if (transition.newState === "disabled") {
+            emit("component_disabled", b.fighterId, a.fighterId, {
+              component,
+              previousState: transition.previousState,
+              newState: transition.newState,
+              sourceAttack: {
+                weapon: b.build.proposal.weaponId,
+                isCritical: attackResultB.isCritical,
+              },
+              effectiveDamage: attackResultB.effectiveDamage,
+              hitZone: attackResultB.hitZone,
+              reason: transition.reason,
+            });
+          }
+
+          if (component === "mobility" && a.comps.mobility.state === "disabled") {
+            if (!a.conditions.includes("immobilised")) {
+              a = {
+                ...a,
+                conditions: [...a.conditions, "immobilised" as Condition],
+              };
+            }
+          }
         }
       }
     }
@@ -375,9 +519,8 @@ function getKnockbackZone(
 }
 
 function applyHeatAndEnergy(state: FighterState): FighterState {
-  const hasCooling =
-    state.build.proposal.utilityId === "cooling" && !state.components.utilityDisabled;
-  const dissipation = HEAT_DISSIPATION_PER_ROUND + (hasCooling ? COOLING_BONUS : 0);
+  const coolingBonus = getEffectiveCoolingBonus(state);
+  const dissipation = HEAT_DISSIPATION_PER_ROUND + coolingBonus;
 
   const newHeat = Math.max(0, state.heat - dissipation);
   const newEnergy = Math.min(STARTING_ENERGY, state.energy + ENERGY_REGEN_PER_ROUND);
@@ -393,29 +536,4 @@ function applyHeatAndEnergy(state: FighterState): FighterState {
     heat: newHeat,
     conditions: newConditions,
   };
-}
-
-function applyComponentDamage(
-  state: FighterState,
-  component: "mobility" | "weapon" | "utility",
-): FighterState {
-  const newComponents = { ...state.components };
-  const newConditions = [...state.conditions];
-
-  switch (component) {
-    case "mobility":
-      newComponents.mobilityDisabled = true;
-      if (!newConditions.includes("immobilised")) {
-        newConditions.push("immobilised");
-      }
-      break;
-    case "weapon":
-      newComponents.weaponDisabled = true;
-      break;
-    case "utility":
-      newComponents.utilityDisabled = true;
-      break;
-  }
-
-  return { ...state, components: newComponents, conditions: newConditions };
 }

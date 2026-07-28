@@ -9,6 +9,10 @@ import {
   STARTING_HEAT,
   SIMULATOR_VERSION,
 } from "./constants.js";
+import {
+  createInitialComponentStates,
+  deriveBinaryComponents,
+} from "./component-state.js";
 
 export function runMatch(config: MatchConfig): MatchResult {
   const rng = new SeededRandom(config.seed);
@@ -201,11 +205,10 @@ function createFighterState(
       rear: build.proposal.armour.rear,
       top: build.proposal.armour.top,
     },
-    components: {
-      mobilityDisabled: false,
-      weaponDisabled: false,
-      utilityDisabled: false,
-    },
+    comps: createInitialComponentStates(build.proposal.utilityId),
+    components: deriveBinaryComponents(
+      createInitialComponentStates(build.proposal.utilityId),
+    ),
     conditions: [],
   };
 }

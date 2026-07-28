@@ -15,6 +15,25 @@ export interface ArmourState {
   top: number;
 }
 
+export type ComponentKind = "mobility" | "weapon" | "utility";
+export type ComponentStatus = "healthy" | "damaged" | "disabled";
+
+export interface RuntimeComponentState {
+  state: ComponentStatus;
+}
+
+export interface UtilityRuntimeState extends RuntimeComponentState {
+  installed: boolean;
+  reinforcedDriveGuard?: "available" | "spent" | "lost";
+}
+
+export interface ComponentStates {
+  mobility: RuntimeComponentState;
+  weapon: RuntimeComponentState;
+  utility: UtilityRuntimeState;
+}
+
+/** Legacy binary projection — derived from authoritative ComponentStates. */
 export interface ComponentState {
   mobilityDisabled: boolean;
   weaponDisabled: boolean;
@@ -33,6 +52,9 @@ export interface FighterState {
   weaponCooldown: number;
   utilityCooldown: number;
   armour: ArmourState;
+  /** Authoritative 0.2 component state map. */
+  comps: ComponentStates;
+  /** Legacy compatibility projection — derived from comps. */
   components: ComponentState;
   conditions: Condition[];
 }

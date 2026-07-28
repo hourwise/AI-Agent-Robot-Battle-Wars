@@ -21,6 +21,7 @@ import {
   OVERTURNED_DEFENCE_PENALTY,
   COMPONENT_DAMAGE_CHANCE,
 } from "./constants.js";
+import { getEffectiveWeaponDamage } from "./component-state.js";
 
 export interface AttackResult {
   hit: boolean;
@@ -72,8 +73,10 @@ export function calculateAttack(
   const baseDamage =
     weaponId === "grappler" ? GRAPPLER_BASE_DAMAGE : getWeaponBaseDamage(weaponId);
 
+  const effectiveBaseDamage = getEffectiveWeaponDamage(attacker, baseDamage);
+
   const variance = rng.range(-DAMAGE_VARIANCE, DAMAGE_VARIANCE);
-  let rawDamage = baseDamage * (1 + variance);
+  let rawDamage = effectiveBaseDamage * (1 + variance);
 
   if (weaponId === "ram" && movementMomentum > 0) {
     const multiplier = Math.min(

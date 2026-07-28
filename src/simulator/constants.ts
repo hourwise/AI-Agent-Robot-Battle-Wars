@@ -1,5 +1,15 @@
-export const SIMULATOR_VERSION = "0.1.2" as const;
-export const RULESET_VERSION = "0.1.0" as const;
+export const SIMULATOR_VERSION = "0.2.0" as const;
+export const RULESET_VERSION = "0.2.0" as const;
+
+// 0.2B component qualification candidate set A (benchmark-tuned, not permanent)
+export const CRITICAL_COMPONENT_DAMAGE_THRESHOLD = 10 as const;
+export const HIGH_DAMAGE_COMPONENT_THRESHOLD = 35 as const;
+// Proportion of base damage when weapon component is damaged
+export const DAMAGED_WEAPON_MULTIPLIER = 0.75 as const;
+// Speed penalty when mobility component is damaged
+export const DAMAGED_MOBILITY_SPEED_PENALTY = 2 as const;
+// Reduced cooling bonus when cooling utility is damaged
+export const DAMAGED_COOLING_BONUS = 2 as const;
 export const MAX_ROUNDS = 20 as const;
 
 export const STARTING_ENERGY = 100 as const;

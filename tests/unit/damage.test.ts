@@ -10,7 +10,7 @@ import { SeededRandom } from "../../src/simulator/seeded-random.js";
 import type { FighterState } from "../../src/simulator/types.js";
 
 function makeFighter(overrides: Partial<FighterState> = {}): FighterState {
-  return {
+  const base = {
     fighterId: "test",
     build: {
       proposal: {
@@ -32,8 +32,8 @@ function makeFighter(overrides: Partial<FighterState> = {}): FighterState {
     maxIntegrity: 100,
     energy: 100,
     heat: 0,
-    zone: "center",
-    facing: "north",
+    zone: "center" as const,
+    facing: "north" as const,
     weaponCooldown: 0,
     utilityCooldown: 0,
     armour: { front: 10, left: 5, right: 5, rear: 0, top: 0 },
@@ -41,9 +41,26 @@ function makeFighter(overrides: Partial<FighterState> = {}): FighterState {
       mobilityDisabled: false,
       weaponDisabled: false,
       utilityDisabled: false,
+    } as const,
+    conditions: [] as string[],
+  };
+
+  const merged = { ...base, ...overrides };
+  const utilityId = merged.build.proposal.utilityId;
+
+  return {
+    ...merged,
+    comps: {
+      mobility: { state: "healthy" as const },
+      weapon: { state: "healthy" as const },
+      utility: {
+        state: "healthy" as const,
+        installed: utilityId !== "none",
+        reinforcedDriveGuard:
+          utilityId === "reinforced_drive" ? ("available" as const) : undefined,
+      },
     },
-    conditions: [],
-    ...overrides,
+    conditions: merged.conditions ?? [],
   };
 }
 

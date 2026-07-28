@@ -65,12 +65,12 @@ describe("full match (Bulwark vs Bulwark)", () => {
       catalogueVersion: CATALOGUE_V1.version,
     });
 
-    const same =
-      result1.events.length === result2.events.length &&
-      result1.result.method === result2.result.method &&
-      result1.rounds === result2.rounds;
-
-    expect(same).toBe(false);
+    // Different seeds should produce at least one observable difference
+    const sameWinner = result1.result.winner === result2.result.winner;
+    const sameRounds = result1.rounds === result2.rounds;
+    const sameMethod = result1.result.method === result2.result.method;
+    const allSame = sameWinner && sameRounds && sameMethod;
+    expect(allSame).toBe(false);
   });
 
   it("converts to a valid match record", () => {
