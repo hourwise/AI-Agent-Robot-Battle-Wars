@@ -50,7 +50,7 @@ export class JsonMatchRepository implements MatchRepository {
 
     const validation = validateMatchRecord(record);
     if (!validation.ok) {
-      throw new Error(`Invalid match record: ${validation.errors.message}`);
+      throw new Error(`Invalid match record: ${validation.errors}`);
     }
 
     const json = serializeMatchRecord(record);
@@ -79,7 +79,7 @@ export class JsonMatchRepository implements MatchRepository {
       const json = await readFile(this.getMatchPath(matchId), "utf-8");
       const validation = validateMatchRecord(JSON.parse(json));
       if (!validation.ok) {
-        throw new Error(`Invalid match record: ${validation.errors.message}`);
+        throw new Error(`Invalid match record: ${validation.errors}`);
       }
       return validation.record;
     } catch (e: unknown) {

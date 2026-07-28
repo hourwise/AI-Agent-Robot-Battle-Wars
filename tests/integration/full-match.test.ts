@@ -73,7 +73,7 @@ describe("full match (Bulwark vs Bulwark)", () => {
     expect(allSame).toBe(false);
   });
 
-  it("converts to a valid match record", () => {
+  it("converts to a valid match record (v2)", () => {
     const result = runMatch({
       seed: 42,
       fighterA: { build, policy: BULWARK_POLICY },
@@ -84,13 +84,24 @@ describe("full match (Bulwark vs Bulwark)", () => {
 
     const record = matchResultToRecord(result);
 
-    expect(record.schemaVersion).toBe("1");
+    // Simulator version 0.2.0 writes v2 records
+    expect(record.schemaVersion).toBe("2");
     expect(record.matchId).toBeDefined();
     expect(record.seed).toBe(42);
     expect(record.events).toEqual(result.events);
     expect(record.result).toEqual(result.result);
     expect(record.config.fighterA.build).toEqual(build);
     expect(record.config.fighterA.policy).toEqual(BULWARK_POLICY);
+
+    // v2-specific: comps in initial state
+    if (record.schemaVersion === "2") {
+      const { comps: compsA } = record.initialState.fighterA;
+      expect(compsA).toBeDefined();
+      expect(compsA.mobility.state).toBe("healthy");
+      expect(compsA.weapon.state).toBe("healthy");
+      expect(compsA.utility.installed).toBe(true);
+      expect(compsA.utility.reinforcedDriveGuard).toBe("available");
+    }
   });
 
   it("renders a text replay without errors", () => {

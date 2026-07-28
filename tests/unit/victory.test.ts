@@ -88,6 +88,39 @@ describe("checkVictory", () => {
     expect(result).not.toBeNull();
     expect(result!.method).toBe("judges");
   });
+
+  // v2: damaged mobility does NOT trigger immobilisation
+  it("damaged mobility does NOT end the match (v2 behaviour)", () => {
+    // Damaged mobility → components.mobilityDisabled is false (from deriveBinaryComponents)
+    const a = makeFighter({ fighterId: "a" });
+    const b = makeFighter({
+      fighterId: "b",
+      components: {
+        mobilityDisabled: false, // damaged, not disabled
+        weaponDisabled: false,
+        utilityDisabled: false,
+      },
+    });
+    // match should continue when only mobility is damaged, not disabled
+    const result = checkVictory(a, b, 5, 20, { a: 30, b: 20 }, { a: 3, b: 2 });
+    expect(result).toBeNull();
+  });
+
+  // v2: only disabled mobility ends match by immobilisation
+  it("disabled mobility STILL ends the match by immobilisation", () => {
+    const a = makeFighter({ fighterId: "a" });
+    const b = makeFighter({
+      fighterId: "b",
+      components: {
+        mobilityDisabled: true, // disabled
+        weaponDisabled: false,
+        utilityDisabled: false,
+      },
+    });
+    const result = checkVictory(a, b, 5, 20, { a: 30, b: 20 }, { a: 3, b: 2 });
+    expect(result).not.toBeNull();
+    expect(result!.method).toBe("immobilisation");
+  });
 });
 
 describe("judgeDecision", () => {

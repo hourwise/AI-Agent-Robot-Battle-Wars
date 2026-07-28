@@ -193,28 +193,54 @@ export function transitionComponentState(
       reason: "reinforced_drive",
       guardStateBefore: "available",
       guardStateAfter: "spent",
+      utilityRuntimeChange: {
+        reinforcedDriveGuardBefore: "available",
+        reinforcedDriveGuardAfter: "spent",
+      },
     };
   }
 
   // Normal transitions
   if (current === "healthy") {
-    return {
+    const result: TransitionResult = {
       transitionOccurred: true,
       component,
       previousState: "healthy",
       newState: "damaged",
       reason: qual.reason!,
     };
+    // Utility transition will lose an available reinforced-drive guard
+    if (
+      component === "utility" &&
+      comps.utility.reinforcedDriveGuard === "available"
+    ) {
+      result.utilityRuntimeChange = {
+        reinforcedDriveGuardBefore: "available",
+        reinforcedDriveGuardAfter: "lost",
+      };
+    }
+    return result;
   }
 
   if (current === "damaged") {
-    return {
+    const result: TransitionResult = {
       transitionOccurred: true,
       component,
       previousState: "damaged",
       newState: "disabled",
       reason: qual.reason!,
     };
+    // Utility transition will lose an available reinforced-drive guard
+    if (
+      component === "utility" &&
+      comps.utility.reinforcedDriveGuard === "available"
+    ) {
+      result.utilityRuntimeChange = {
+        reinforcedDriveGuardBefore: "available",
+        reinforcedDriveGuardAfter: "lost",
+      };
+    }
+    return result;
   }
 
   // Disabled — no transition

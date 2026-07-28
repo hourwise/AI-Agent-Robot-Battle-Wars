@@ -166,16 +166,49 @@ function makeValidRecord(): MatchRecord {
 }
 
 describe("validateMatchRecord", () => {
-  it("validates a correct record", () => {
+  it("validates a correct v1 record", () => {
     const record = makeValidRecord();
     const result = validateMatchRecord(record);
     expect(result.ok).toBe(true);
   });
 
-  it("rejects invalid schema version", () => {
-    const record = makeValidRecord();
-    record.schemaVersion = "2" as "1";
+  it("accepts schema version 2", () => {
+    const record = { ...makeValidRecord(), schemaVersion: "2" as const };
+    // v2 record needs comps in initial state
+    const v2Record = {
+      ...record,
+      initialState: {
+        fighterA: {
+          ...record.initialState.fighterA,
+          comps: {
+            mobility: { state: "healthy" as const },
+            weapon: { state: "healthy" as const },
+            utility: { state: "healthy" as const, installed: false },
+          },
+        },
+        fighterB: {
+          ...record.initialState.fighterB,
+          comps: {
+            mobility: { state: "healthy" as const },
+            weapon: { state: "healthy" as const },
+            utility: { state: "healthy" as const, installed: false },
+          },
+        },
+      },
+    };
+    const result = validateMatchRecord(v2Record);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects unknown schema version 3", () => {
+    const record = { ...makeValidRecord(), schemaVersion: "3" };
     const result = validateMatchRecord(record);
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects missing schemaVersion", () => {
+    const { schemaVersion, ...rest } = makeValidRecord();
+    const result = validateMatchRecord(rest);
     expect(result.ok).toBe(false);
   });
 
@@ -188,23 +221,83 @@ describe("validateMatchRecord", () => {
 });
 
 describe("serializeMatchRecord", () => {
-  it("serializes to valid JSON", () => {
+  it("serializes v1 to valid JSON", () => {
     const record = makeValidRecord();
     const json = serializeMatchRecord(record);
     const parsed = JSON.parse(json);
     expect(parsed.matchId).toBe(record.matchId);
     expect(parsed.schemaVersion).toBe("1");
   });
+
+  it("serializes v2 to valid JSON with comps", () => {
+    const v2Record = {
+      ...makeValidRecord(),
+      schemaVersion: "2" as const,
+      initialState: {
+        fighterA: {
+          ...makeValidRecord().initialState.fighterA,
+          comps: {
+            mobility: { state: "healthy" as const },
+            weapon: { state: "healthy" as const },
+            utility: { state: "healthy" as const, installed: false },
+          },
+        },
+        fighterB: {
+          ...makeValidRecord().initialState.fighterB,
+          comps: {
+            mobility: { state: "healthy" as const },
+            weapon: { state: "healthy" as const },
+            utility: { state: "healthy" as const, installed: false },
+          },
+        },
+      },
+    };
+    const json = serializeMatchRecord(v2Record);
+    const parsed = JSON.parse(json);
+    expect(parsed.schemaVersion).toBe("2");
+    expect(parsed.initialState.fighterA.comps.mobility.state).toBe("healthy");
+  });
 });
 
 describe("deserializeMatchRecord", () => {
-  it("deserializes valid JSON", () => {
+  it("deserializes valid v1 JSON", () => {
     const record = makeValidRecord();
     const json = serializeMatchRecord(record);
     const result = deserializeMatchRecord(json);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.record.matchId).toBe(record.matchId);
+      expect(result.record.schemaVersion).toBe("1");
+    }
+  });
+
+  it("deserializes valid v2 JSON", () => {
+    const v2Record = {
+      ...makeValidRecord(),
+      schemaVersion: "2" as const,
+      initialState: {
+        fighterA: {
+          ...makeValidRecord().initialState.fighterA,
+          comps: {
+            mobility: { state: "healthy" as const },
+            weapon: { state: "healthy" as const },
+            utility: { state: "healthy" as const, installed: false },
+          },
+        },
+        fighterB: {
+          ...makeValidRecord().initialState.fighterB,
+          comps: {
+            mobility: { state: "healthy" as const },
+            weapon: { state: "healthy" as const },
+            utility: { state: "healthy" as const, installed: false },
+          },
+        },
+      },
+    };
+    const json = serializeMatchRecord(v2Record);
+    const result = deserializeMatchRecord(json);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.record.schemaVersion).toBe("2");
     }
   });
 
@@ -213,8 +306,8 @@ describe("deserializeMatchRecord", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("rejects invalid schema", () => {
-    const result = deserializeMatchRecord('{"schemaVersion": "2"}');
+  it("rejects unknown schema version 3", () => {
+    const result = deserializeMatchRecord('{"schemaVersion": "3"}');
     expect(result.ok).toBe(false);
   });
 });

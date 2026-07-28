@@ -23,6 +23,10 @@ const fighterStateSummarySchema = z.object({
   mobilityDisabled: z.boolean(),
   weaponDisabled: z.boolean(),
   utilityDisabled: z.boolean(),
+  /** v2: component is damaged (but not disabled). */
+  mobilityDamaged: z.boolean(),
+  weaponDamaged: z.boolean(),
+  utilityDamaged: z.boolean(),
   conditions: z.array(z.enum(["overturned", "immobilised", "overheated", "stunned"])),
 });
 

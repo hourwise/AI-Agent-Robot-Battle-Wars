@@ -74,6 +74,19 @@ export function describeEvent(event: SimulationEvent, result: MatchResult): stri
       return `${target} takes ${damage} integrity damage. (${remaining} remaining)`;
     }
 
+    case "component_damaged": {
+      const component = event.data.component as string;
+      const prev = event.data.previousState as string;
+      const next = event.data.newState as string;
+      return `${target}'s ${component} is damaged (${prev} → ${next}).`;
+    }
+
+    case "component_damage_resisted": {
+      const guardBefore = event.data.guardStateBefore as string;
+      const guardAfter = event.data.guardStateAfter as string;
+      return `${target}'s reinforced drive absorbs the hit (guard: ${guardBefore} → ${guardAfter}).`;
+    }
+
     case "component_disabled": {
       const component = event.data.component as string;
       return `${target}'s ${component} system is disabled!`;

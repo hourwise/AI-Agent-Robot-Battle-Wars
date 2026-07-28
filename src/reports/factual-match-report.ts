@@ -42,6 +42,9 @@ function buildFighterStateSummary(state: FighterState): FighterStateSummary {
     mobilityDisabled: state.components.mobilityDisabled,
     weaponDisabled: state.components.weaponDisabled,
     utilityDisabled: state.components.utilityDisabled,
+    mobilityDamaged: state.comps.mobility.state === "damaged",
+    weaponDamaged: state.comps.weapon.state === "damaged",
+    utilityDamaged: state.comps.utility.state === "damaged",
     conditions: [...state.conditions],
   };
 }
@@ -82,9 +85,21 @@ function formatEventData(event: SimulationEvent): string {
       const to = String(data.to ?? "unknown");
       return `${actor} moves to ${to}`;
     }
+    case "component_damaged": {
+      const component = String(data.component ?? "unknown");
+      const prev = String(data.previousState ?? "");
+      const next = String(data.newState ?? "");
+      return `${target ?? actor}'s ${component} damaged (${prev} → ${next})`;
+    }
+    case "component_damage_resisted": {
+      const guardAfter = String(data.guardStateAfter ?? "unknown");
+      return `${target ?? actor}'s reinforced drive absorbs impact (guard: ${guardAfter})`;
+    }
     case "component_disabled": {
       const component = String(data.component ?? "unknown");
-      return `${target ?? actor}'s ${component} is disabled`;
+      const prev = String(data.previousState ?? "");
+      const next = String(data.newState ?? "");
+      return `${target ?? actor}'s ${component} disabled (${prev} → ${next})`;
     }
     case "robot_overturned":
       return `${target ?? actor} is overturned`;
@@ -120,7 +135,11 @@ function findCriticalHits(events: readonly SimulationEvent[]): MatchMoment[] {
 function findComponentFailures(events: readonly SimulationEvent[]): MatchMoment[] {
   const moments: MatchMoment[] = [];
   for (const event of events) {
-    if (event.type === "component_disabled") {
+    if (
+      event.type === "component_disabled" ||
+      event.type === "component_damaged" ||
+      event.type === "component_damage_resisted"
+    ) {
       moments.push(extractMoment(event));
     }
   }
@@ -142,9 +161,10 @@ function computeFinalState(
   events: readonly SimulationEvent[],
   fighterId: string,
 ): FighterState {
-  const state = {
+  const state: FighterState = {
     ...initialState,
     components: { ...initialState.components },
+    comps: structuredClone(initialState.comps),
     conditions: [...initialState.conditions],
   };
 
@@ -154,18 +174,45 @@ function computeFinalState(
       state.integrity = Number(event.data.remaining ?? state.integrity);
     }
 
+    // component_damaged: targetId is the affected fighter
+    if (event.type === "component_damaged" && event.targetId === fighterId) {
+      const component = String(event.data.component ?? "");
+      if (component === "mobility") state.comps.mobility.state = "damaged";
+      if (component === "weapon") state.comps.weapon.state = "damaged";
+      if (component === "utility") state.comps.utility.state = "damaged";
+    }
+
     // component_disabled: targetId is the affected fighter
     if (event.type === "component_disabled" && event.targetId === fighterId) {
       const component = String(event.data.component ?? "");
-      if (component === "mobility") state.components.mobilityDisabled = true;
-      if (component === "weapon") state.components.weaponDisabled = true;
-      if (component === "utility") state.components.utilityDisabled = true;
+      if (component === "mobility") {
+        state.comps.mobility.state = "disabled";
+        state.components.mobilityDisabled = true;
+      }
+      if (component === "weapon") {
+        state.comps.weapon.state = "disabled";
+        state.components.weaponDisabled = true;
+      }
+      if (component === "utility") {
+        state.comps.utility.state = "disabled";
+        state.components.utilityDisabled = true;
+      }
+    }
+
+    // component_damage_resisted: guard consumed
+    if (event.type === "component_damage_resisted" && event.targetId === fighterId) {
+      if (
+        state.comps.utility.reinforcedDriveGuard === "available" &&
+        event.data.guardStateAfter === "spent"
+      ) {
+        state.comps.utility.reinforcedDriveGuard = "spent";
+      }
     }
 
     // robot_overturned: targetId is the overturned fighter
     if (event.type === "robot_overturned" && event.targetId === fighterId) {
       if (!state.conditions.includes("overturned")) {
-        state.conditions.push("overturned" as (typeof state.conditions)[number]);
+        state.conditions.push("overturned");
       }
     }
 
@@ -179,6 +226,13 @@ function computeFinalState(
       }
     }
   }
+
+  // Sync legacy binary projection from authoritative state
+  state.components = {
+    mobilityDisabled: state.comps.mobility.state === "disabled",
+    weaponDisabled: state.comps.weapon.state === "disabled",
+    utilityDisabled: state.comps.utility.state === "disabled",
+  };
 
   return state;
 }

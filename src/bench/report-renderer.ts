@@ -65,7 +65,22 @@ export function renderTextReport(report: BenchmarkReport): string {
   lines.push(`Average differential (A–B): ${m.avgIntegrityDiff.toFixed(1)}`);
   lines.push("");
 
-  lines.push("COMPONENT DISABLES");
+  lines.push("COMPONENT TRANSITIONS (v2)");
+  lines.push(`Damaged transitions: ${m.totalDamagedTransitions}`);
+  lines.push(`  — Mobility: ${m.mobilityDamagedTransitions}`);
+  lines.push(`  — Weapon: ${m.weaponDamagedTransitions}`);
+  lines.push(`  — Utility: ${m.utilityDamagedTransitions}`);
+  lines.push(`Disabled transitions: ${m.totalDisabledTransitions}`);
+  lines.push(`  — Mobility: ${m.mobilityDisabledTransitions}`);
+  lines.push(`  — Weapon: ${m.weaponDisabledTransitions}`);
+  lines.push(`  — Utility: ${m.utilityDisabledTransitions}`);
+  lines.push(`Resisted transitions: ${m.totalResistedTransitions}`);
+  lines.push(`Guards spent: ${m.totalGuardsSpent}, lost: ${m.totalGuardsLost}`);
+  lines.push(`Matches with any transition: ${(m.matchesWithAnyComponentTransition * 100).toFixed(1)}%`);
+  lines.push(`Matches with any damaged component: ${(m.matchesWithAnyDamagedComponent * 100).toFixed(1)}%`);
+  lines.push("");
+
+  lines.push("COMPONENT DISABLES (terminal)");
   lines.push(`Matches with any disable: ${(m.matchesWithAnyDisable * 100).toFixed(1)}%`);
   lines.push(`Mobility disables: ${m.mobilityDisables}`);
   lines.push(`Weapon disables: ${m.weaponDisables}`);

@@ -25,6 +25,26 @@ const componentStateSchema = z.object({
   utilityDisabled: z.boolean(),
 });
 
+// ── v2 component state schemas ──
+
+const componentStatusSchema = z.enum(["healthy", "damaged", "disabled"]);
+
+const runtimeComponentStateSchema = z.object({
+  state: componentStatusSchema,
+});
+
+const utilityRuntimeStateSchema = z.object({
+  state: componentStatusSchema,
+  installed: z.boolean(),
+  reinforcedDriveGuard: z.enum(["available", "spent", "lost"]).optional(),
+});
+
+const componentStatesSchema = z.object({
+  mobility: runtimeComponentStateSchema,
+  weapon: runtimeComponentStateSchema,
+  utility: utilityRuntimeStateSchema,
+});
+
 const fighterStateSchema = z.object({
   fighterId: z.string(),
   build: validatedBuildSchema,
@@ -39,6 +59,10 @@ const fighterStateSchema = z.object({
   armour: armourStateSchema,
   components: componentStateSchema,
   conditions: z.array(z.enum(["overturned", "immobilised", "overheated", "stunned"])),
+});
+
+const fighterStateV2Schema = fighterStateSchema.extend({
+  comps: componentStatesSchema,
 });
 
 const simulationEventSchema = z.object({
@@ -113,7 +137,7 @@ const agentUsageRecordSchema = z.object({
   ]),
 });
 
-export const MatchRecordSchema = z.object({
+export const MatchRecordV1Schema = z.object({
   schemaVersion: z.literal("1"),
   matchId: z.string().uuid(),
   createdAt: z.string().datetime(),
@@ -133,7 +157,34 @@ export const MatchRecordSchema = z.object({
   review: MatchReviewSchema.optional(),
 });
 
-export type MatchRecord = z.infer<typeof MatchRecordSchema>;
+export const MatchRecordV2Schema = z.object({
+  schemaVersion: z.literal("2"),
+  matchId: z.string().uuid(),
+  createdAt: z.string().datetime(),
+  rulesetVersion: z.string(),
+  catalogueVersion: z.string(),
+  simulatorVersion: z.string(),
+  seed: z.number().int().nonnegative(),
+  config: matchConfigSchema,
+  initialState: z.object({
+    fighterA: fighterStateV2Schema,
+    fighterB: fighterStateV2Schema,
+  }),
+  events: z.array(simulationEventSchema),
+  result: competitionResultSchema,
+  rounds: z.number().int().nonnegative(),
+  agentUsage: z.array(agentUsageRecordSchema).default([]),
+  review: MatchReviewSchema.optional(),
+});
+
+export type MatchRecordV1 = z.infer<typeof MatchRecordV1Schema>;
+export type MatchRecordV2 = z.infer<typeof MatchRecordV2Schema>;
+export type MatchRecord = MatchRecordV1 | MatchRecordV2;
+
+/** Legacy alias — prefer MatchRecordV1 / MatchRecordV2 discriminated. */
+/** @deprecated Use MatchRecordV1 explicitly. */
+export const MatchRecordSchema = MatchRecordV1Schema;
+
 export type AgentUsageRecordSchema = z.infer<typeof agentUsageRecordSchema>;
 
 export function validateMatchRecord(data: unknown):
@@ -143,13 +194,41 @@ export function validateMatchRecord(data: unknown):
     }
   | {
       ok: false;
-      errors: z.ZodError;
+      errors: string;
     } {
-  const result = MatchRecordSchema.safeParse(data);
-  if (result.success) {
-    return { ok: true, record: result.data };
+  if (typeof data !== "object" || data === null) {
+    return { ok: false, errors: "Expected an object" };
   }
-  return { ok: false, errors: result.error };
+  const version = (data as Record<string, unknown>).schemaVersion;
+
+  if (version === "1") {
+    const result = MatchRecordV1Schema.safeParse(data);
+    if (result.success) {
+      return { ok: true, record: result.data };
+    }
+    return { ok: false, errors: result.error.message };
+  }
+
+  if (version === "2") {
+    const result = MatchRecordV2Schema.safeParse(data);
+    if (result.success) {
+      return { ok: true, record: result.data };
+    }
+    return { ok: false, errors: result.error.message };
+  }
+
+  return {
+    ok: false,
+    errors: `Unsupported or missing schemaVersion: ${String(version)}`,
+  };
+}
+
+export function isV2Record(record: MatchRecord): record is MatchRecordV2 {
+  return record.schemaVersion === "2";
+}
+
+export function isV1Record(record: MatchRecord): record is MatchRecordV1 {
+  return record.schemaVersion === "1";
 }
 
 export function serializeMatchRecord(record: MatchRecord): string {
@@ -163,16 +242,12 @@ export function deserializeMatchRecord(json: string):
     }
   | {
       ok: false;
-      errors: z.ZodError | SyntaxError;
+      errors: string;
     } {
   try {
     const data = JSON.parse(json);
-    const result = MatchRecordSchema.safeParse(data);
-    if (result.success) {
-      return { ok: true, record: result.data };
-    }
-    return { ok: false, errors: result.error };
+    return validateMatchRecord(data);
   } catch (e) {
-    return { ok: false, errors: e as SyntaxError };
+    return { ok: false, errors: e instanceof SyntaxError ? e.message : String(e) };
   }
 }

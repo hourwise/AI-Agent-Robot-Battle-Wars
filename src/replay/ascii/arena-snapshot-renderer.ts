@@ -13,6 +13,8 @@ function getMarker(fighter: FighterVisualState, label: string): string {
 
   if (fighter.components.mobilityDisabled) {
     marker += "X";
+  } else if (fighter.components.mobilityDamaged) {
+    marker += "x";
   } else if (fighter.conditions.includes("overturned")) {
     marker += CONDITION_MARKERS.overturned;
   } else if (fighter.conditions.includes("overheated")) {
@@ -90,8 +92,11 @@ function renderCompactStatus(fighter: FighterVisualState, label: string): string
   const parts: string[] = [`${label}: ${fighter.zone}`];
 
   if (fighter.components.mobilityDisabled) parts.push("mobility disabled");
+  else if (fighter.components.mobilityDamaged) parts.push("mobility damaged");
   if (fighter.components.weaponDisabled) parts.push("weapon disabled");
+  else if (fighter.components.weaponDamaged) parts.push("weapon damaged");
   if (fighter.components.utilityDisabled) parts.push("utility disabled");
+  else if (fighter.components.utilityDamaged) parts.push("utility damaged");
   if (fighter.conditions.includes("overturned")) parts.push("overturned");
   if (fighter.conditions.includes("overheated")) parts.push("overheated");
 

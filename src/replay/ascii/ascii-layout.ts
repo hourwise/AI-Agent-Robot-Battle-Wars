@@ -47,11 +47,26 @@ export function formatComponentStatus(components: {
   mobilityDisabled: boolean;
   weaponDisabled: boolean;
   utilityDisabled: boolean;
+  mobilityDamaged?: boolean;
+  weaponDamaged?: boolean;
+  utilityDamaged?: boolean;
 }): string {
   const parts: string[] = [];
-  if (components.mobilityDisabled) parts.push("mobility disabled");
-  if (components.weaponDisabled) parts.push("weapon disabled");
-  if (components.utilityDisabled) parts.push("utility disabled");
+  if (components.mobilityDisabled) {
+    parts.push("mobility disabled");
+  } else if (components.mobilityDamaged) {
+    parts.push("mobility damaged");
+  }
+  if (components.weaponDisabled) {
+    parts.push("weapon disabled");
+  } else if (components.weaponDamaged) {
+    parts.push("weapon damaged");
+  }
+  if (components.utilityDisabled) {
+    parts.push("utility disabled");
+  } else if (components.utilityDamaged) {
+    parts.push("utility damaged");
+  }
   return parts.length > 0 ? parts.join(", ") : "all functional";
 }
 

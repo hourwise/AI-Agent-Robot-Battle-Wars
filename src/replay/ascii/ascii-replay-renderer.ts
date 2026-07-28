@@ -11,36 +11,54 @@ import { renderMoment, renderOpeningFrame } from "./moment-renderer.js";
 import { renderResultCard } from "./result-card-renderer.js";
 import { SEPARATOR, padCenter, ARENA_WIDTH, resolveDisplayName } from "./ascii-layout.js";
 
+function adaptFighterVisual(fighter: MatchResult["initialState"]["fighterA"]): {
+  fighterId: string;
+  build: typeof fighter.build;
+  integrity: number;
+  maxIntegrity: number;
+  energy: number;
+  heat: number;
+  zone: string;
+  facing: string;
+  conditions: string[];
+  components: {
+    mobilityDisabled: boolean;
+    weaponDisabled: boolean;
+    utilityDisabled: boolean;
+    mobilityDamaged: boolean;
+    weaponDamaged: boolean;
+    utilityDamaged: boolean;
+  };
+  armour: typeof fighter.armour;
+} {
+  return {
+    fighterId: fighter.fighterId,
+    build: fighter.build,
+    integrity: fighter.integrity,
+    maxIntegrity: fighter.maxIntegrity,
+    energy: fighter.energy,
+    heat: fighter.heat,
+    zone: fighter.zone,
+    facing: fighter.facing,
+    conditions: [...fighter.conditions],
+    components: {
+      mobilityDisabled: fighter.components.mobilityDisabled,
+      weaponDisabled: fighter.components.weaponDisabled,
+      utilityDisabled: fighter.components.utilityDisabled,
+      mobilityDamaged: fighter.comps.mobility.state === "damaged",
+      weaponDamaged: fighter.comps.weapon.state === "damaged",
+      utilityDamaged: fighter.comps.utility.state === "damaged",
+    },
+    armour: { ...fighter.armour },
+  };
+}
+
 function adaptMatchResult(result: MatchResult): AsciiReplayInput {
   return {
     config: result.config,
     initialState: {
-      fighterA: {
-        fighterId: "fighter_a",
-        build: result.initialState.fighterA.build,
-        integrity: result.initialState.fighterA.integrity,
-        maxIntegrity: result.initialState.fighterA.maxIntegrity,
-        energy: result.initialState.fighterA.energy,
-        heat: result.initialState.fighterA.heat,
-        zone: result.initialState.fighterA.zone,
-        facing: result.initialState.fighterA.facing,
-        conditions: [...result.initialState.fighterA.conditions],
-        components: { ...result.initialState.fighterA.components },
-        armour: { ...result.initialState.fighterA.armour },
-      },
-      fighterB: {
-        fighterId: "fighter_b",
-        build: result.initialState.fighterB.build,
-        integrity: result.initialState.fighterB.integrity,
-        maxIntegrity: result.initialState.fighterB.maxIntegrity,
-        energy: result.initialState.fighterB.energy,
-        heat: result.initialState.fighterB.heat,
-        zone: result.initialState.fighterB.zone,
-        facing: result.initialState.fighterB.facing,
-        conditions: [...result.initialState.fighterB.conditions],
-        components: { ...result.initialState.fighterB.components },
-        armour: { ...result.initialState.fighterB.armour },
-      },
+      fighterA: adaptFighterVisual(result.initialState.fighterA),
+      fighterB: adaptFighterVisual(result.initialState.fighterB),
     },
     events: result.events,
     result: result.result,

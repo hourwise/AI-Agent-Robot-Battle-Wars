@@ -3,6 +3,8 @@ import type { HighlightMoment } from "./ascii.types.js";
 
 const PRIORITY_CRIT = 100;
 const PRIORITY_COMPONENT_DISABLE = 90;
+const PRIORITY_COMPONENT_DAMAGED = 85;
+const PRIORITY_COMPONENT_RESIST = 80;
 const PRIORITY_KNOCKBACK = 80;
 const PRIORITY_FIRST_HIT = 75;
 const PRIORITY_REAR_ATTACK = 70;
@@ -37,6 +39,14 @@ export function isComponentDisable(event: SimulationEvent): boolean {
   return event.type === "component_disabled";
 }
 
+export function isComponentDamaged(event: SimulationEvent): boolean {
+  return event.type === "component_damaged";
+}
+
+export function isComponentDamageResisted(event: SimulationEvent): boolean {
+  return event.type === "component_damage_resisted";
+}
+
 export function isFinishingAction(
   event: SimulationEvent,
   result: { winner: string | null },
@@ -55,6 +65,8 @@ function getEventPriority(
 ): number {
   if (isCriticalHit(event)) return PRIORITY_CRIT;
   if (isComponentDisable(event)) return PRIORITY_COMPONENT_DISABLE;
+  if (isComponentDamaged(event)) return PRIORITY_COMPONENT_DAMAGED;
+  if (isComponentDamageResisted(event)) return PRIORITY_COMPONENT_RESIST;
   if (isKnockbackMovement(event)) return PRIORITY_KNOCKBACK;
   if (isFirstDamagingHit(event, allEvents)) return PRIORITY_FIRST_HIT;
   if (isRearAttack(event)) return PRIORITY_REAR_ATTACK;
@@ -129,6 +141,13 @@ function getGroupTitle(group: SimulationEvent[]): string {
     if (event.type === "component_disabled") {
       const component = event.data.component as string;
       return `${formatComponentName(component)} DISABLED`;
+    }
+    if (event.type === "component_damaged") {
+      const component = event.data.component as string;
+      return `${formatComponentName(component)} DAMAGED`;
+    }
+    if (event.type === "component_damage_resisted") {
+      return "GUARD ABSORBED";
     }
     if (event.type === "robot_overturned") return "OVERTURNED";
     if (isKnockbackMovement(event)) return "KNOCKBACK";

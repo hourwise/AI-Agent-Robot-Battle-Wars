@@ -34,6 +34,10 @@ export interface FighterVisualState {
     readonly mobilityDisabled: boolean;
     readonly weaponDisabled: boolean;
     readonly utilityDisabled: boolean;
+    /** v2: component is damaged (but not disabled). */
+    readonly mobilityDamaged: boolean;
+    readonly weaponDamaged: boolean;
+    readonly utilityDamaged: boolean;
   };
   readonly armour: {
     readonly front: number;

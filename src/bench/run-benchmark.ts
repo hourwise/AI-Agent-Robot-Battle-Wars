@@ -47,9 +47,27 @@ function extractPerMatch(
   let weaponDisabledB = false;
   let utilityDisabledA = false;
   let utilityDisabledB = false;
+  let mobilityDamagedA = false;
+  let mobilityDamagedB = false;
+  let weaponDamagedA = false;
+  let weaponDamagedB = false;
+  let utilityDamagedA = false;
+  let utilityDamagedB = false;
   let criticalHits = 0;
   let attacksHit = 0;
   let attacksMissed = 0;
+  // v2 transition counters
+  let componentDamagedTransitions = 0;
+  let componentDisabledTransitions = 0;
+  let componentResistedTransitions = 0;
+  let guardsSpent = 0;
+  let guardsLost = 0;
+  let mobilityDamagedCount = 0;
+  let weaponDamagedCount = 0;
+  let utilityDamagedCount = 0;
+  let mobilityDisabledCount = 0;
+  let weaponDisabledCount = 0;
+  let utilityDisabledCount = 0;
 
   for (const event of result.events) {
     if (event.type === "integrity_damaged") {
@@ -58,17 +76,52 @@ function extractPerMatch(
       if (event.targetId === "fighter_b")
         integrityB = Number(event.data.remaining ?? integrityB);
     }
-    if (event.type === "component_disabled") {
+    if (event.type === "component_damaged") {
+      componentDamagedTransitions++;
       const comp = String(event.data.component ?? "");
       if (event.targetId === "fighter_a") {
-        if (comp === "mobility") mobilityDisabledA = true;
-        if (comp === "weapon") weaponDisabledA = true;
-        if (comp === "utility") utilityDisabledA = true;
+        if (comp === "mobility") { mobilityDamagedA = true; mobilityDamagedCount++; }
+        if (comp === "weapon") { weaponDamagedA = true; weaponDamagedCount++; }
+        if (comp === "utility") { utilityDamagedA = true; utilityDamagedCount++; }
       }
       if (event.targetId === "fighter_b") {
-        if (comp === "mobility") mobilityDisabledB = true;
-        if (comp === "weapon") weaponDisabledB = true;
-        if (comp === "utility") utilityDisabledB = true;
+        if (comp === "mobility") { mobilityDamagedB = true; mobilityDamagedCount++; }
+        if (comp === "weapon") { weaponDamagedB = true; weaponDamagedCount++; }
+        if (comp === "utility") { utilityDamagedB = true; utilityDamagedCount++; }
+      }
+      // Check for guard loss on utility damage
+      if (event.data.utilityRuntimeChange) {
+        const change = event.data.utilityRuntimeChange as Record<string, string>;
+        if (change.reinforcedDriveGuardBefore === "available" &&
+            change.reinforcedDriveGuardAfter === "lost") {
+          guardsLost++;
+        }
+      }
+    }
+    if (event.type === "component_damage_resisted") {
+      componentResistedTransitions++;
+      guardsSpent++;
+    }
+    if (event.type === "component_disabled") {
+      componentDisabledTransitions++;
+      const comp = String(event.data.component ?? "");
+      if (event.targetId === "fighter_a") {
+        if (comp === "mobility") { mobilityDisabledA = true; mobilityDamagedA = true; mobilityDisabledCount++; }
+        if (comp === "weapon") { weaponDisabledA = true; weaponDamagedA = true; weaponDisabledCount++; }
+        if (comp === "utility") { utilityDisabledA = true; utilityDamagedA = true; utilityDisabledCount++; }
+      }
+      if (event.targetId === "fighter_b") {
+        if (comp === "mobility") { mobilityDisabledB = true; mobilityDamagedB = true; mobilityDisabledCount++; }
+        if (comp === "weapon") { weaponDisabledB = true; weaponDamagedB = true; weaponDisabledCount++; }
+        if (comp === "utility") { utilityDisabledB = true; utilityDamagedB = true; utilityDisabledCount++; }
+      }
+      // Check for guard loss on utility disable
+      if (event.data.utilityRuntimeChange) {
+        const change = event.data.utilityRuntimeChange as Record<string, string>;
+        if (change.reinforcedDriveGuardBefore === "available" &&
+            change.reinforcedDriveGuardAfter === "lost") {
+          guardsLost++;
+        }
       }
     }
     if (event.type === "attack_hit") {
@@ -110,6 +163,9 @@ function extractPerMatch(
       weaponDisabled: weaponDisabledA,
       utilityDisabled: utilityDisabledA,
       disabledComponents: disabledA,
+      mobilityDamaged: mobilityDamagedA,
+      weaponDamaged: weaponDamagedA,
+      utilityDamaged: utilityDamagedA,
     },
     fighterB: {
       machineName: bName,
@@ -119,10 +175,24 @@ function extractPerMatch(
       weaponDisabled: weaponDisabledB,
       utilityDisabled: utilityDisabledB,
       disabledComponents: disabledB,
+      mobilityDamaged: mobilityDamagedB,
+      weaponDamaged: weaponDamagedB,
+      utilityDamaged: utilityDamagedB,
     },
     criticalHits,
     attacksAttempted,
     attacksHit,
+    componentDamagedTransitions,
+    componentDisabledTransitions,
+    componentResistedTransitions,
+    guardsSpent,
+    guardsLost,
+    mobilityDamagedCount,
+    weaponDamagedCount,
+    utilityDamagedCount,
+    mobilityDisabledCount,
+    weaponDisabledCount,
+    utilityDisabledCount,
   };
 }
 

@@ -48,6 +48,10 @@ export interface PerMatchResult {
     readonly weaponDisabled: boolean;
     readonly utilityDisabled: boolean;
     readonly disabledComponents: readonly string[];
+    /** v2: component damaged (not disabled) at match end. */
+    readonly mobilityDamaged: boolean;
+    readonly weaponDamaged: boolean;
+    readonly utilityDamaged: boolean;
   };
   readonly fighterB: {
     readonly machineName: string;
@@ -57,10 +61,27 @@ export interface PerMatchResult {
     readonly weaponDisabled: boolean;
     readonly utilityDisabled: boolean;
     readonly disabledComponents: readonly string[];
+    /** v2: component damaged (not disabled) at match end. */
+    readonly mobilityDamaged: boolean;
+    readonly weaponDamaged: boolean;
+    readonly utilityDamaged: boolean;
   };
   readonly criticalHits: number;
   readonly attacksAttempted: number;
   readonly attacksHit: number;
+  /** v2: component transition counts */
+  readonly componentDamagedTransitions: number;
+  readonly componentDisabledTransitions: number;
+  readonly componentResistedTransitions: number;
+  readonly guardsSpent: number;
+  readonly guardsLost: number;
+  /** v2: per-component breakdown */
+  readonly mobilityDamagedCount: number;
+  readonly weaponDamagedCount: number;
+  readonly utilityDamagedCount: number;
+  readonly mobilityDisabledCount: number;
+  readonly weaponDisabledCount: number;
+  readonly utilityDisabledCount: number;
 }
 
 export interface SlotOutcomes {
@@ -114,6 +135,22 @@ export interface AggregateMetrics {
   readonly totalAttacks: number;
   readonly totalHits: number;
   readonly hitRate: number;
+  /** v2: component transition metrics */
+  readonly totalDamagedTransitions: number;
+  readonly totalDisabledTransitions: number;
+  readonly totalResistedTransitions: number;
+  readonly totalGuardsSpent: number;
+  readonly totalGuardsLost: number;
+  readonly matchesWithAnyComponentTransition: number;
+  /** v2: per-component transition counts */
+  readonly mobilityDamagedTransitions: number;
+  readonly weaponDamagedTransitions: number;
+  readonly utilityDamagedTransitions: number;
+  readonly mobilityDisabledTransitions: number;
+  readonly weaponDisabledTransitions: number;
+  readonly utilityDisabledTransitions: number;
+  /** v2: matches with damaged (not disabled) components at end */
+  readonly matchesWithAnyDamagedComponent: number;
 }
 
 export interface BenchmarkReport {

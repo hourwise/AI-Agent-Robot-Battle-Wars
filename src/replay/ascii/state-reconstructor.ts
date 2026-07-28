@@ -105,6 +105,39 @@ function applyEvent(state: CompetitionState, event: SimulationEvent): Competitio
       return state;
     }
 
+    case "component_damaged": {
+      const data = event.data as { component: string };
+      const targetId = event.targetId;
+      if (targetId !== "fighter_a" && targetId !== "fighter_b") return state;
+
+      const key = targetId === "fighter_a" ? "fighterA" : "fighterB";
+      const fighter = state[key];
+      const newComponents = { ...fighter.components };
+
+      if (data.component === "mobility") {
+        newComponents.mobilityDamaged = true;
+      } else if (data.component === "weapon") {
+        newComponents.weaponDamaged = true;
+      } else if (data.component === "utility") {
+        newComponents.utilityDamaged = true;
+      }
+
+      return {
+        ...state,
+        [key]: {
+          ...fighter,
+          components: newComponents,
+        },
+      };
+    }
+
+    case "component_damage_resisted": {
+      // Guard was consumed — no component state change, but guard is spent.
+      // The event data records guardStateBefore/After for factual reporting.
+      // No visual component state change needed for ASCII replay.
+      return state;
+    }
+
     case "component_disabled": {
       const data = event.data as { component: string };
       const targetId = event.targetId;
@@ -115,10 +148,13 @@ function applyEvent(state: CompetitionState, event: SimulationEvent): Competitio
       const newComponents = { ...fighter.components };
 
       if (data.component === "mobility") {
+        newComponents.mobilityDamaged = true;
         newComponents.mobilityDisabled = true;
       } else if (data.component === "weapon") {
+        newComponents.weaponDamaged = true;
         newComponents.weaponDisabled = true;
       } else if (data.component === "utility") {
+        newComponents.utilityDamaged = true;
         newComponents.utilityDisabled = true;
       }
 

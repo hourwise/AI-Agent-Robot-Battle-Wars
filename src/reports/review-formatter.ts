@@ -74,6 +74,20 @@ function formatFighterSummary(fighter: FactualMatchReport["fighterA"]): string {
   return lines.join("\n");
 }
 
+function formatComponentLine(state: FactualMatchReport["finalStates"]["fighterA"]): string {
+  const parts: string[] = [];
+  if (state.mobilityDisabled) parts.push("mobility=DISABLED");
+  else if (state.mobilityDamaged) parts.push("mobility=DAMAGED");
+  else parts.push("mobility=OK");
+  if (state.weaponDisabled) parts.push("weapon=DISABLED");
+  else if (state.weaponDamaged) parts.push("weapon=DAMAGED");
+  else parts.push("weapon=OK");
+  if (state.utilityDisabled) parts.push("utility=DISABLED");
+  else if (state.utilityDamaged) parts.push("utility=DAMAGED");
+  else parts.push("utility=OK");
+  return `  Components: ${parts.join(", ")}`;
+}
+
 function formatFinalState(
   label: string,
   state: FactualMatchReport["finalStates"]["fighterA"],
@@ -85,9 +99,7 @@ function formatFinalState(
   lines.push(`  Integrity: ${state.integrity}/${state.maxIntegrity} (${integrityPct}%)`);
   lines.push(`  Energy: ${state.energy}, Heat: ${state.heat}`);
   lines.push(`  Zone: ${state.zone}, Facing: ${state.facing}`);
-  lines.push(
-    `  Components: mobility=${state.mobilityDisabled ? "DOWN" : "OK"}, weapon=${state.weaponDisabled ? "DOWN" : "OK"}, utility=${state.utilityDisabled ? "DOWN" : "OK"}`,
-  );
+  lines.push(formatComponentLine(state));
   if (state.conditions.length > 0) {
     lines.push(`  Conditions: ${state.conditions.join(", ")}`);
   }

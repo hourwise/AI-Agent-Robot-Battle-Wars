@@ -143,6 +143,32 @@ export function computeMetrics(
   const totalAttacks = results.reduce((s, r) => s + r.attacksAttempted, 0);
   const totalHits = results.reduce((s, r) => s + r.attacksHit, 0);
 
+  // v2: component transition metrics
+  const totalDamagedTransitions = results.reduce((s, r) => s + (r.componentDamagedTransitions ?? 0), 0);
+  const totalDisabledTransitions = results.reduce((s, r) => s + (r.componentDisabledTransitions ?? 0), 0);
+  const totalResistedTransitions = results.reduce((s, r) => s + (r.componentResistedTransitions ?? 0), 0);
+  const totalGuardsSpent = results.reduce((s, r) => s + (r.guardsSpent ?? 0), 0);
+  const totalGuardsLost = results.reduce((s, r) => s + (r.guardsLost ?? 0), 0);
+
+  const anyTransition = results.filter(
+    (r) => (r.componentDamagedTransitions ?? 0) +
+           (r.componentDisabledTransitions ?? 0) +
+           (r.componentResistedTransitions ?? 0) > 0,
+  ).length;
+
+  const anyDamagedComp = results.filter(
+    (r) =>
+      r.fighterA.mobilityDamaged || r.fighterA.weaponDamaged || r.fighterA.utilityDamaged ||
+      r.fighterB.mobilityDamaged || r.fighterB.weaponDamaged || r.fighterB.utilityDamaged,
+  ).length;
+
+  const mobilityDamagedTransitions = results.reduce((s, r) => s + (r.mobilityDamagedCount ?? 0), 0);
+  const weaponDamagedTransitions = results.reduce((s, r) => s + (r.weaponDamagedCount ?? 0), 0);
+  const utilityDamagedTransitions = results.reduce((s, r) => s + (r.utilityDamagedCount ?? 0), 0);
+  const mobilityDisabledTransitions = results.reduce((s, r) => s + (r.mobilityDisabledCount ?? 0), 0);
+  const weaponDisabledTransitions = results.reduce((s, r) => s + (r.weaponDisabledCount ?? 0), 0);
+  const utilityDisabledTransitions = results.reduce((s, r) => s + (r.utilityDisabledCount ?? 0), 0);
+
   return {
     seedCount,
     roleAssignmentsPerSeed,
@@ -169,5 +195,18 @@ export function computeMetrics(
     totalAttacks,
     totalHits,
     hitRate: totalAttacks > 0 ? totalHits / totalAttacks : 0,
+    totalDamagedTransitions,
+    totalDisabledTransitions,
+    totalResistedTransitions,
+    totalGuardsSpent,
+    totalGuardsLost,
+    matchesWithAnyComponentTransition: anyTransition / n,
+    mobilityDamagedTransitions,
+    weaponDamagedTransitions,
+    utilityDamagedTransitions,
+    mobilityDisabledTransitions,
+    weaponDisabledTransitions,
+    utilityDisabledTransitions,
+    matchesWithAnyDamagedComponent: anyDamagedComp / n,
   };
 }

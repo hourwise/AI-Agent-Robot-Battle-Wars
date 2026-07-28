@@ -221,7 +221,7 @@ export function applyRound(
           b = { ...b, components: deriveBinaryComponents(b.comps) };
 
           if (transition.reason === "reinforced_drive" && transition.guardStateBefore) {
-            emit("component_damage_resisted", a.fighterId, b.fighterId, {
+            const resistData: Record<string, unknown> = {
               component: "mobility",
               previousState: "healthy",
               newState: "healthy",
@@ -234,7 +234,11 @@ export function applyRound(
               reason: "reinforced_drive",
               guardStateBefore: transition.guardStateBefore,
               guardStateAfter: transition.guardStateAfter,
-            });
+            };
+            if (transition.utilityRuntimeChange) {
+              resistData.utilityRuntimeChange = transition.utilityRuntimeChange;
+            }
+            emit("component_damage_resisted", a.fighterId, b.fighterId, resistData);
           } else if (transition.newState === "damaged") {
             const eventData: Record<string, unknown> = {
               component,
@@ -248,15 +252,8 @@ export function applyRound(
               hitZone: attackResultA.hitZone,
               reason: transition.reason,
             };
-            if (
-              component === "utility" &&
-              b.comps.utility.reinforcedDriveGuard === "lost" &&
-              transition.reason
-            ) {
-              eventData.utilityRuntimeChange = {
-                reinforcedDriveGuardBefore: "available",
-                reinforcedDriveGuardAfter: "lost",
-              };
+            if (transition.utilityRuntimeChange) {
+              eventData.utilityRuntimeChange = transition.utilityRuntimeChange;
             }
             emit("component_damaged", a.fighterId, b.fighterId, eventData);
           } else if (transition.newState === "disabled") {
@@ -272,14 +269,8 @@ export function applyRound(
               hitZone: attackResultA.hitZone,
               reason: transition.reason,
             };
-            if (
-              component === "utility" &&
-              b.comps.utility.reinforcedDriveGuard === "lost"
-            ) {
-              eventData.utilityRuntimeChange = {
-                reinforcedDriveGuardBefore: "available",
-                reinforcedDriveGuardAfter: "lost",
-              };
+            if (transition.utilityRuntimeChange) {
+              eventData.utilityRuntimeChange = transition.utilityRuntimeChange;
             }
             emit("component_disabled", a.fighterId, b.fighterId, eventData);
           }
@@ -366,7 +357,7 @@ export function applyRound(
           a = { ...a, components: deriveBinaryComponents(a.comps) };
 
           if (transition.reason === "reinforced_drive" && transition.guardStateBefore) {
-            emit("component_damage_resisted", b.fighterId, a.fighterId, {
+            const resistData: Record<string, unknown> = {
               component: "mobility",
               previousState: "healthy",
               newState: "healthy",
@@ -379,9 +370,13 @@ export function applyRound(
               reason: "reinforced_drive",
               guardStateBefore: transition.guardStateBefore,
               guardStateAfter: transition.guardStateAfter,
-            });
+            };
+            if (transition.utilityRuntimeChange) {
+              resistData.utilityRuntimeChange = transition.utilityRuntimeChange;
+            }
+            emit("component_damage_resisted", b.fighterId, a.fighterId, resistData);
           } else if (transition.newState === "damaged") {
-            emit("component_damaged", b.fighterId, a.fighterId, {
+            const eventData: Record<string, unknown> = {
               component,
               previousState: transition.previousState,
               newState: transition.newState,
@@ -392,9 +387,13 @@ export function applyRound(
               effectiveDamage: attackResultB.effectiveDamage,
               hitZone: attackResultB.hitZone,
               reason: transition.reason,
-            });
+            };
+            if (transition.utilityRuntimeChange) {
+              eventData.utilityRuntimeChange = transition.utilityRuntimeChange;
+            }
+            emit("component_damaged", b.fighterId, a.fighterId, eventData);
           } else if (transition.newState === "disabled") {
-            emit("component_disabled", b.fighterId, a.fighterId, {
+            const eventData: Record<string, unknown> = {
               component,
               previousState: transition.previousState,
               newState: transition.newState,
@@ -405,7 +404,11 @@ export function applyRound(
               effectiveDamage: attackResultB.effectiveDamage,
               hitZone: attackResultB.hitZone,
               reason: transition.reason,
-            });
+            };
+            if (transition.utilityRuntimeChange) {
+              eventData.utilityRuntimeChange = transition.utilityRuntimeChange;
+            }
+            emit("component_disabled", b.fighterId, a.fighterId, eventData);
           }
 
           if (component === "mobility" && a.comps.mobility.state === "disabled") {

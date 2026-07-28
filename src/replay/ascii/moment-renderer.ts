@@ -31,6 +31,15 @@ function describeEvent(event: SimulationEvent, state: CompetitionState): string 
       return `${targetName} takes ${damage} integrity damage. (${remaining} remaining)`;
     }
 
+    case "component_damaged": {
+      const component = event.data.component as string;
+      return `${targetName}'s ${component} system is damaged.`;
+    }
+
+    case "component_damage_resisted": {
+      return `${targetName}'s reinforced drive absorbs the impact.`;
+    }
+
     case "component_disabled": {
       const component = event.data.component as string;
       return `${targetName}'s ${component} system is disabled.`;

@@ -34,6 +34,9 @@ function findDecisiveEvent(
     if (event.type === "component_disabled" && event.data.component === "mobility") {
       return event;
     }
+    if (event.type === "component_damaged" && event.data.component === "mobility") {
+      return event;
+    }
     if (event.type === "integrity_damaged" && event.data.remaining === 0) {
       return event;
     }
@@ -41,7 +44,7 @@ function findDecisiveEvent(
 
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i]!;
-    if (event.type === "component_disabled") {
+    if (event.type === "component_disabled" || event.type === "component_damaged") {
       return event;
     }
   }
@@ -58,6 +61,10 @@ function getDecisiveEventDescription(
   const targetName = getFighterName(event.targetId, state);
 
   switch (event.type) {
+    case "component_damaged": {
+      const component = event.data.component as string;
+      return `${targetName}'s ${component} damaged`;
+    }
     case "component_disabled": {
       const component = event.data.component as string;
       return `${targetName}'s ${component} disabled`;
