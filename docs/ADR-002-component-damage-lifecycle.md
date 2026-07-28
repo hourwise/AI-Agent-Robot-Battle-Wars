@@ -1,8 +1,8 @@
 # ADR-002: Component Damage and Disable Lifecycle
 
-**Status:** Proposed  
+**Status:** Accepted — benchmark-tuned constants  
 **Date:** 2026-07-28  
-**Prototype:** 0.2B (decision prerequisite)
+**Prototype:** 0.2B (decision prerequisite, ready for implementation)
 
 ## 1. Context
 
@@ -43,7 +43,7 @@ The frozen comparison baseline is the deterministic Bulwark mirror benchmark ove
 | Mobility disables                      |                   78 |
 | Critical hits                          |                  127 |
 
-The near-even role result does not show a significant first-player problem. This ADR therefore addresses the lifecycle and not turn order.
+The observed 2.5 percentage-point difference between fighter A and fighter B is small relative to the uncertainty at this sample size and does not currently justify changing turn order. Wilson intervals are reported for slot win rate. No formal paired significance test for slot advantage has yet been adopted. This ADR therefore leaves turn order unchanged because the measured component volatility is far more material.
 
 The disable results are undesirable because one critical roll can overwhelm build quality, a full-integrity robot can lose immediately, and favourable seeds can dominate adaptation results. Structural integrity becomes secondary, mobility disablement is disproportionately decisive, and the simulator cannot reliably distinguish design quality from component luck.
 
@@ -114,13 +114,20 @@ healthy -> damaged -> disabled
 For a successful attack, calculate hit zone, raw damage, and post-armour `effectiveDamage` exactly once using the normal deterministic attack pipeline. The hit qualifies for component progression when either condition is true:
 
 ```text
-(isCritical && effectiveDamage >= 10)
-|| effectiveDamage >= 35
+(isCritical && effectiveDamage >= CRITICAL_COMPONENT_DAMAGE_THRESHOLD)
+|| effectiveDamage >= HIGH_DAMAGE_COMPONENT_THRESHOLD
+```
+
+**0.2B qualification candidate set A:**
+
+```
+CRITICAL_COMPONENT_DAMAGE_THRESHOLD = 10
+HIGH_DAMAGE_COMPONENT_THRESHOLD = 35
 ```
 
 There is no subsequent probability roll. A qualifying hit selects one installed, non-disabled component using the existing zone-weighted selection model; 0.2B must make the candidate list exclude absent utilities. The qualification reason is `critical_effective_damage` for the first clause and `high_effective_damage` for the second.
 
-The fixed thresholds are ruleset constants, not build-specific hidden values. They are deliberately evaluated against post-armour effective damage. Armour therefore reduces component progression by reducing the damage that crosses a defined threshold, while hit zone retains its current role in deciding which component is exposed. There is no second armour-exposure multiplier in 0.2B.
+The lifecycle and deterministic qualification model are accepted. The values `10` and `35` are the initial implementation values for candidate set A. They must be evaluated against the fixed development seed bank. They are not permanent balance constants until the acceptance benchmark passes. Tuning these constants after the first implementation run requires an ADR amendment or documented tuning record. The seed bank must not be changed to make the thresholds pass. Held-out seeds are used only after development tuning is complete.
 
 ### 8.3 State transitions and direct disablement
 
@@ -144,6 +151,20 @@ All penalties are deterministic and take effect from the state transition onward
 
 The damaged mobility penalty is sufficient to influence movement without introducing redundant motors or a separate failed-movement roll. A damaged, overturned fighter uses the existing overturned rules plus the speed penalty; it is not immobilised until mobility becomes disabled.
 
+### 8.4.1 Central effective-stat helpers
+
+Damaged-state penalties must be implemented through shared pure functions rather than duplicated conditionals across modules:
+
+```
+getEffectiveSpeed(fighter)     → baseSpeed − 2 if mobility damaged, min 1
+getEffectiveWeaponDamage(fighter, baseDamage) → baseDamage × 0.75 if weapon damaged
+getEffectiveCoolingBonus(fighter) → 2 if cooling damaged, else 5 (if installed)
+```
+
+These are the single authoritative calculation for each effective stat. Movement, initiative, attack resolution, reports, and tests must use the same helpers. Consumers must not independently reproduce the penalty formula. Replay reconstruction records state transitions but does not rerun combat calculations. Presentation code may display derived values but must use shared helpers or persisted facts where appropriate.
+
+This is an implementation boundary, not a request to create the helpers in this task.
+
 ### 8.5 Mobility and immobilisation
 
 There is one mobility component per fighter. A disabled mobility state still means immobilisation. Resolution remains after the full round: both already-eligible simultaneous attacks resolve, then normal victory evaluation detects the disabled mobility component. No extra confirmation round is added.
@@ -162,10 +183,60 @@ while reinforced_drive is healthy and unspent
 
 - It protects only the first healthy-to-damaged mobility transition.
 - It does not prevent a damaged-to-disabled transition, direct damage to other components, or non-component integrity damage.
-- If the utility component becomes damaged or disabled before the guard is used, the unused guard is lost.
+- If the utility component becomes damaged or disabled before the guard is used, the unused guard is lost atomically with the utility component transition. A `utilityRuntimeChange` field on the `component_damaged` or `component_disabled` event captures the guard-state change so consumers can reconstruct the guard state without inferring it from catalogue identity.
 - It is not a probability modifier, so it is auditable and cannot silently become mandatory through a hidden multiplier.
 
 Future protective utilities may use the same explicit one-transition pattern for their own named component, but 0.2B adds no catalogue entries.
+
+#### Guard-state representation
+
+The guard state belongs with the utility runtime state:
+
+```ts
+reinforcedDriveGuard: "available" | "spent" | "lost";
+```
+
+Present only when `utilityId === "reinforced_drive"` and `utility.state !== "disabled"`. This is visible state, not an implicit counter.
+
+#### Guard transition events
+
+For `component_damage_resisted`, the event includes:
+
+```json
+{
+  "component": "mobility",
+  "previousState": "healthy",
+  "newState": "healthy",
+  "sourceAttack": { "weapon": "ram", "isCritical": true },
+  "effectiveDamage": 12,
+  "hitZone": "front",
+  "reason": "reinforced_drive",
+  "guardStateBefore": "available",
+  "guardStateAfter": "spent"
+}
+```
+
+For a utility component transition that causes an unused guard to be lost, the `component_damaged` or `component_disabled` event carries the guard change atomically:
+
+```json
+{
+  "component": "utility",
+  "previousState": "healthy",
+  "newState": "damaged",
+  "sourceAttack": { "weapon": "hammer", "isCritical": false },
+  "effectiveDamage": 38,
+  "hitZone": "top",
+  "reason": "high_effective_damage",
+  "utilityRuntimeChange": {
+    "reinforcedDriveGuardBefore": "available",
+    "reinforcedDriveGuardAfter": "lost"
+  }
+}
+```
+
+No separate `utility_guard_lost` event is required. One atomic event carries both the component transition and the associated guard-state change.
+
+Consumers — text replay, ASCII reconstruction, factual reports, benchmark aggregation, and future voxel replay — must reconstruct guard state from these explicit events. They must not infer guard changes from catalogue identity alone.
 
 ### 8.7 Armour, hit zones, and weapons
 
@@ -241,17 +312,17 @@ compare distributions; do not require per-seed identity
 
 The candidate passes the development gate only if all of the following are true:
 
-| Measure                                        |                           0.1 baseline | 0.2B acceptance target                                                                               |
-| ---------------------------------------------- | -------------------------------------: | ---------------------------------------------------------------------------------------------------- |
-| First-round immobilisation                     |                                  26.3% | below 13.2% (at least 50% reduction)                                                                 |
-| Matches with any terminal disable              |                                 100.0% | below 85%                                                                                            |
-| Overall immobilisation                         |                                  92.5% | 40% to 75%                                                                                           |
-| Structural destruction                         |         not the dominant observed path | at least 10% of matches                                                                              |
-| Judges decisions                               |                                      — | below 45%                                                                                            |
-| Any one finish method                          |                   immobilisation 92.5% | below 85%                                                                                            |
-| Component damage (healthy-to-damaged or later) |                           not measured | 70% to 95% of matches                                                                                |
-| Draws                                          |                                   5.0% | at or below 10%                                                                                      |
-| Average match length                           | compare from retained benchmark report | 4.0 to 12.0 rounds and no more than 50% or 2.0 rounds above baseline, whichever allowance is greater |
+| Measure                                        |                           0.1 baseline | 0.2B acceptance target                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------- | -------------------------------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First-round immobilisation                     |                                  26.3% | below 13.2% (at least 50% reduction)                                                                                                                                                                                                                                                                                                                                                        |
+| Matches with any terminal disable              |                                 100.0% | below 85%                                                                                                                                                                                                                                                                                                                                                                                   |
+| Overall immobilisation                         |                                  92.5% | 40% to 75%                                                                                                                                                                                                                                                                                                                                                                                  |
+| Structural destruction                         |         not the dominant observed path | at least 10% of matches                                                                                                                                                                                                                                                                                                                                                                     |
+| Judges decisions                               |                                      — | below 45%                                                                                                                                                                                                                                                                                                                                                                                   |
+| Any one finish method                          |                   immobilisation 92.5% | below 85%                                                                                                                                                                                                                                                                                                                                                                                   |
+| Component damage (healthy-to-damaged or later) |                           not measured | **Diagnostic:** report the percentage of matches containing at least one healthy→damaged or damaged→disabled transition. Exploratory preferred range: 50% to 95%. Below 50% requires investigation but is not an automatic failure if finish distribution, match length, and volatility targets are otherwise met. Above 95% requires investigation for continued component over-dominance. |
+| Draws                                          |                                   5.0% | at or below 10%                                                                                                                                                                                                                                                                                                                                                                             |
+| Average match length                           | compare from retained benchmark report | 4.0 to 12.0 rounds and no more than 50% or 2.0 rounds above baseline, whichever allowance is greater                                                                                                                                                                                                                                                                                        |
 
 Terminal-disable mix is a diagnostic guardrail: mobility should be 35% to 55% of terminal disables, weapon 25% to 45%, and utility 10% to 30%; no component category may exceed 55%. If fewer than ten terminal disables occur, report the counts and investigate rather than treating percentage noise as a pass.
 
@@ -299,12 +370,14 @@ Excluded:
 - Broad weapon rebalance or new catalogue components.
 - Multiplayer, matchmaking, or VS Code extension work.
 
-## 17. Follow-up Questions Requiring Approval
+## 17. Resolution
 
-1. Approve the proposed thresholds (`10` qualifying critical damage and `35` qualifying normal damage) as the first 0.2B benchmark candidate, or require a tuning-only amendment before implementation.
-2. Approve no direct healthy-to-disabled path for 0.2B. A catastrophic exception remains intentionally deferred.
-3. Approve `reinforced_drive` as a one-use healthy-to-damaged mobility guard; it currently has no runtime behaviour despite its catalogue description.
-4. Approve the v1/v2 replay boundary described here, with ADR-005 retaining responsibility for the concrete version-dispatch architecture.
+All follow-up questions resolved:
+
+1. ✅ Thresholds `10` and `35` accepted as 0.2B qualification candidate set A. They must be evaluated against the fixed development seed bank and may be tuned through documented amendment after the first benchmark run.
+2. ✅ No direct healthy-to-disabled path for 0.2B. A catastrophic exception remains intentionally deferred.
+3. ✅ `reinforced_drive` accepted as a one-use healthy-to-damaged mobility guard with explicit `component_damage_resisted` events and atomic `utilityRuntimeChange` on utility transitions.
+4. ✅ v1/v2 replay boundary accepted. ADR-005 retains responsibility for the concrete version-dispatch architecture.
 
 ## 18. Source Files Inspected
 

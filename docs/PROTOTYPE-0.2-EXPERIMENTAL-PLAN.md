@@ -287,19 +287,19 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
 
 ---
 
-### ADR-002 — Component Damage and Disable Lifecycle 🟡 PROPOSED (2026-07-28)
+### ADR-002 — Component Damage and Disable Lifecycle ✅ ACCEPTED (2026-07-28)
 
 - Decision record: `docs/ADR-002-component-damage-lifecycle.md`
-- 0.2A benchmark evidence has been recorded.
-- 0.2B must not start until this proposed ADR is approved.
+- Candidate threshold set A: `10` critical / `35` normal (benchmark-tuned, not permanent).
+- 0.2B may now proceed.
 
 ---
 
-### Milestone 0.2B — Component-State Refinement ⏳ AWAITING ADR-002 APPROVAL
+### Milestone 0.2B — Component-State Refinement ✅ READY FOR IMPLEMENTATION
 
 **Scope:** Damaged vs disabled states, revised critical logic, simulator/ruleset version bump, benchmark comparison against 0.1 baseline.
 
-**Entry gate:** ADR-002 is Proposed and requires approval before implementation.
+**Entry gate:** ADR-002 accepted. 0.2B not yet implemented.
 
 **Exclusions:** Positioning changes, new opponents.
 
@@ -401,16 +401,16 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
 
 Decision questions to resolve before implementation. Recommended order reflects dependencies.
 
-| #       | ADR                                | Question                                                                                              | Depends on                  |
-| ------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------- |
-| ADR-001 | Positioning representation         | Which arena model (3×3 grid, range+bearing, or abstract states)?                                      | Nothing                     |
-| ADR-002 | Component damage lifecycle         | Damaged→disabled, or damage-scaled probability, or other? **Status: Proposed; 0.2B awaits approval.** | Volatility benchmark (0.2A) |
-| ADR-003 | Deterministic seed-bank evaluation | Fixed seeds, sample size, held-out protocol?                                                          | Nothing                     |
-| ADR-004 | Multi-opponent fixture format      | How are opponent builds and policies stored and versioned?                                            | Nothing                     |
-| ADR-005 | Simulator version compatibility    | How do old matches replay under new rules? Version-gating vs separate code paths?                     | ADR-001, ADR-002            |
-| ADR-006 | Adaptation success metrics         | What thresholds define improvement? How is overfitting detected?                                      | ADR-003                     |
+| #       | ADR                                | Question                                                                                                            | Depends on                  |
+| ------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| ADR-001 | Positioning representation         | Which arena model (3×3 grid, range+bearing, or abstract states)?                                                    | Nothing                     |
+| ADR-002 | Component damage lifecycle         | Damaged→disabled, or damage-scaled probability, or other? **Status: Accepted. Candidate set A: 10/35. 0.2B ready.** | Volatility benchmark (0.2A) |
+| ADR-003 | Deterministic seed-bank evaluation | Fixed seeds, sample size, held-out protocol?                                                                        | Nothing                     |
+| ADR-004 | Multi-opponent fixture format      | How are opponent builds and policies stored and versioned?                                                          | Nothing                     |
+| ADR-005 | Simulator version compatibility    | How do old matches replay under new rules? Version-gating vs separate code paths?                                   | ADR-001, ADR-002            |
+| ADR-006 | Adaptation success metrics         | What thresholds define improvement? How is overfitting detected?                                                    | ADR-003                     |
 
-Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are independent). ADR-001 should follow soon after. ADR-002 must wait for benchmark data from 0.2A. ADR-005 depends on decisions made in ADR-001 and ADR-002. ADR-006 is last — it needs the evaluation protocol defined.
+Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are independent). ADR-001 should follow soon after. ADR-002 is now accepted (0.2B ready). ADR-005 depends on decisions made in ADR-001 and ADR-002. ADR-006 is last — it needs the evaluation protocol defined.
 
 ---
 
