@@ -20,7 +20,8 @@
     "series": "tsx src/app/run-series.ts",
     "replay": "tsx src/app/replay-match.ts",
     "smoke:design": "tsx src/app/smoke-design.ts",
-    "benchmark": "tsx src/app/run-benchmark.ts"
+    "benchmark": "tsx src/app/run-benchmark.ts",
+    "benchmark:lifecycle": "tsx src/app/run-lifecycle-benchmark.ts"
   },
   "keywords": [
     "ai",

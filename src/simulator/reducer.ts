@@ -22,7 +22,7 @@ import {
 import { CATALOGUE_V1 } from "../catalogue/catalogue.v1.js";
 import {
   getEffectiveCoolingBonus,
-  selectComponentForTransition,
+  selectQualifiedComponentForTransition,
   transitionComponentState,
   applyTransition,
   deriveBinaryComponents,
@@ -229,9 +229,12 @@ export function applyRound(
       }
 
       // 0.2B: qualification-based component lifecycle
-      const component = facts.qualification.qualifies
-        ? selectComponentForTransition(b.comps, attackResultA.hitZone, rng)
-        : null;
+      const component = selectQualifiedComponentForTransition(
+        facts.qualification,
+        b.comps,
+        attackResultA.hitZone,
+        rng,
+      );
       if (component) {
         const transition = transitionComponentState(
           b.comps,
@@ -406,9 +409,12 @@ export function applyRound(
       }
 
       // 0.2B: qualification-based component lifecycle
-      const component = facts.qualification.qualifies
-        ? selectComponentForTransition(a.comps, attackResultB.hitZone, rng)
-        : null;
+      const component = selectQualifiedComponentForTransition(
+        facts.qualification,
+        a.comps,
+        attackResultB.hitZone,
+        rng,
+      );
       if (component) {
         const transition = transitionComponentState(
           a.comps,

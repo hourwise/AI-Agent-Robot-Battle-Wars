@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { runMatch } from "../simulator/simulator.js";
 import { CATALOGUE_V1 } from "../catalogue/catalogue.v1.js";
 import type { BenchmarkConfig, PerMatchResult } from "./benchmark.types.js";
+import type { BenchmarkExecution } from "./lifecycle-suite.types.js";
 import { getSeedsForPartition } from "./seed-bank.js";
 import {
   RULESET_VERSION,
@@ -23,7 +24,7 @@ function extractPerMatch(
   seed: number,
   roleSwapped: boolean,
   config: BenchmarkConfig,
-): PerMatchResult {
+): BenchmarkExecution {
   const aBuild = roleSwapped ? config.fighterB.build : config.fighterA.build;
   const aPolicy = roleSwapped ? config.fighterB.policy : config.fighterA.policy;
   const bBuild = roleSwapped ? config.fighterA.build : config.fighterB.build;
@@ -89,20 +90,40 @@ function extractPerMatch(
       componentDamagedTransitions++;
       const comp = String(event.data.component ?? "");
       if (event.targetId === "fighter_a") {
-        if (comp === "mobility") { mobilityDamagedA = true; mobilityDamagedCount++; }
-        if (comp === "weapon") { weaponDamagedA = true; weaponDamagedCount++; }
-        if (comp === "utility") { utilityDamagedA = true; utilityDamagedCount++; }
+        if (comp === "mobility") {
+          mobilityDamagedA = true;
+          mobilityDamagedCount++;
+        }
+        if (comp === "weapon") {
+          weaponDamagedA = true;
+          weaponDamagedCount++;
+        }
+        if (comp === "utility") {
+          utilityDamagedA = true;
+          utilityDamagedCount++;
+        }
       }
       if (event.targetId === "fighter_b") {
-        if (comp === "mobility") { mobilityDamagedB = true; mobilityDamagedCount++; }
-        if (comp === "weapon") { weaponDamagedB = true; weaponDamagedCount++; }
-        if (comp === "utility") { utilityDamagedB = true; utilityDamagedCount++; }
+        if (comp === "mobility") {
+          mobilityDamagedB = true;
+          mobilityDamagedCount++;
+        }
+        if (comp === "weapon") {
+          weaponDamagedB = true;
+          weaponDamagedCount++;
+        }
+        if (comp === "utility") {
+          utilityDamagedB = true;
+          utilityDamagedCount++;
+        }
       }
       // Check for guard loss on utility damage
       if (event.data.utilityRuntimeChange) {
         const change = event.data.utilityRuntimeChange as Record<string, string>;
-        if (change.reinforcedDriveGuardBefore === "available" &&
-            change.reinforcedDriveGuardAfter === "lost") {
+        if (
+          change.reinforcedDriveGuardBefore === "available" &&
+          change.reinforcedDriveGuardAfter === "lost"
+        ) {
           guardsLost++;
         }
       }
@@ -115,20 +136,46 @@ function extractPerMatch(
       componentDisabledTransitions++;
       const comp = String(event.data.component ?? "");
       if (event.targetId === "fighter_a") {
-        if (comp === "mobility") { mobilityDisabledA = true; mobilityDamagedA = true; mobilityDisabledCount++; }
-        if (comp === "weapon") { weaponDisabledA = true; weaponDamagedA = true; weaponDisabledCount++; }
-        if (comp === "utility") { utilityDisabledA = true; utilityDamagedA = true; utilityDisabledCount++; }
+        if (comp === "mobility") {
+          mobilityDisabledA = true;
+          mobilityDamagedA = true;
+          mobilityDisabledCount++;
+        }
+        if (comp === "weapon") {
+          weaponDisabledA = true;
+          weaponDamagedA = true;
+          weaponDisabledCount++;
+        }
+        if (comp === "utility") {
+          utilityDisabledA = true;
+          utilityDamagedA = true;
+          utilityDisabledCount++;
+        }
       }
       if (event.targetId === "fighter_b") {
-        if (comp === "mobility") { mobilityDisabledB = true; mobilityDamagedB = true; mobilityDisabledCount++; }
-        if (comp === "weapon") { weaponDisabledB = true; weaponDamagedB = true; weaponDisabledCount++; }
-        if (comp === "utility") { utilityDisabledB = true; utilityDamagedB = true; utilityDisabledCount++; }
+        if (comp === "mobility") {
+          mobilityDisabledB = true;
+          mobilityDamagedB = true;
+          mobilityDisabledCount++;
+        }
+        if (comp === "weapon") {
+          weaponDisabledB = true;
+          weaponDamagedB = true;
+          weaponDisabledCount++;
+        }
+        if (comp === "utility") {
+          utilityDisabledB = true;
+          utilityDamagedB = true;
+          utilityDisabledCount++;
+        }
       }
       // Check for guard loss on utility disable
       if (event.data.utilityRuntimeChange) {
         const change = event.data.utilityRuntimeChange as Record<string, string>;
-        if (change.reinforcedDriveGuardBefore === "available" &&
-            change.reinforcedDriveGuardAfter === "lost") {
+        if (
+          change.reinforcedDriveGuardBefore === "available" &&
+          change.reinforcedDriveGuardAfter === "lost"
+        ) {
           guardsLost++;
         }
       }
@@ -162,7 +209,7 @@ function extractPerMatch(
   if (weaponDisabledB) disabledB.push("weapon");
   if (utilityDisabledB) disabledB.push("utility");
 
-  return {
+  const perMatch: PerMatchResult = {
     seed,
     roleSwapped,
     // Competitor X = config.fighterA, Competitor Y = config.fighterB
@@ -217,11 +264,12 @@ function extractPerMatch(
     utilityDisabledCount,
     terminalDisable: disabledA.length > 0 || disabledB.length > 0,
   };
+  return { perMatch, match: result };
 }
 
-export function runBenchmark(config: BenchmarkConfig): PerMatchResult[] {
+export function runBenchmarkDetailed(config: BenchmarkConfig): BenchmarkExecution[] {
   const seeds = getSeedsForPartition(config.seedBank, config.partition);
-  const results: PerMatchResult[] = [];
+  const results: BenchmarkExecution[] = [];
 
   for (const seed of seeds) {
     results.push(extractPerMatch(seed, false, config));
@@ -234,4 +282,8 @@ export function runBenchmark(config: BenchmarkConfig): PerMatchResult[] {
   }
 
   return results;
+}
+
+export function runBenchmark(config: BenchmarkConfig): PerMatchResult[] {
+  return runBenchmarkDetailed(config).map((execution) => execution.perMatch);
 }

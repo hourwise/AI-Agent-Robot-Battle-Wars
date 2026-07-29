@@ -115,7 +115,9 @@ export interface QualificationResult {
   readonly reason: "critical_component_impact" | "high_component_impact" | null;
 }
 
-export function calculateComponentImpact(input: ComponentImpactInput): ComponentImpactResult {
+export function calculateComponentImpact(
+  input: ComponentImpactInput,
+): ComponentImpactResult {
   if (!Number.isFinite(input.rawDamage) || input.rawDamage < 0) {
     throw new Error("rawDamage must be a finite non-negative number");
   }
@@ -129,7 +131,10 @@ export function calculateComponentImpact(input: ComponentImpactInput): Component
     minimumImpact: COMPONENT_MIN_IMPACT,
     componentImpact: Math.max(
       COMPONENT_MIN_IMPACT,
-      Math.round(Math.trunc(input.rawDamage) - Math.trunc(input.armourAtHitZone) * COMPONENT_ARMOUR_FACTOR),
+      Math.round(
+        Math.trunc(input.rawDamage) -
+          Math.trunc(input.armourAtHitZone) * COMPONENT_ARMOUR_FACTOR,
+      ),
     ),
   };
 }
@@ -148,7 +153,8 @@ export function checkComponentQualification(
       reason: null,
     };
   }
-  const criticalQualifies = isCritical && componentImpact >= CRITICAL_COMPONENT_IMPACT_THRESHOLD;
+  const criticalQualifies =
+    isCritical && componentImpact >= CRITICAL_COMPONENT_IMPACT_THRESHOLD;
   const highImpactQualifies = componentImpact >= HIGH_COMPONENT_IMPACT_THRESHOLD;
   return {
     qualifies: criticalQualifies || highImpactQualifies,
@@ -156,7 +162,11 @@ export function checkComponentQualification(
     componentImpact,
     criticalThreshold: CRITICAL_COMPONENT_IMPACT_THRESHOLD,
     highImpactThreshold: HIGH_COMPONENT_IMPACT_THRESHOLD,
-    reason: criticalQualifies ? "critical_component_impact" : highImpactQualifies ? "high_component_impact" : null,
+    reason: criticalQualifies
+      ? "critical_component_impact"
+      : highImpactQualifies
+        ? "high_component_impact"
+        : null,
   };
 }
 
@@ -194,6 +204,16 @@ export function selectComponentForTransition(
   return rng.weightedPick(eligible, entryWeights);
 }
 
+export function selectQualifiedComponentForTransition(
+  qualification: QualificationResult,
+  comps: ComponentStates,
+  hitZone: string,
+  rng: SeededRandom,
+): ComponentKind | null {
+  if (!qualification.qualifies) return null;
+  return selectComponentForTransition(comps, hitZone, rng);
+}
+
 // ── Transition ──
 
 export interface TransitionResult {
@@ -216,9 +236,10 @@ export function transitionComponentState(
   qualificationOrCritical: QualificationResult | boolean,
   impactOrLegacyDamage: number = 0,
 ): TransitionResult {
-  const qual = typeof qualificationOrCritical === "boolean"
-    ? checkComponentQualification(qualificationOrCritical, impactOrLegacyDamage)
-    : qualificationOrCritical;
+  const qual =
+    typeof qualificationOrCritical === "boolean"
+      ? checkComponentQualification(qualificationOrCritical, impactOrLegacyDamage)
+      : qualificationOrCritical;
   if (!qual.qualifies) {
     return {
       transitionOccurred: false,
@@ -265,10 +286,7 @@ export function transitionComponentState(
       reason: qual.reason!,
     };
     // Utility transition will lose an available reinforced-drive guard
-    if (
-      component === "utility" &&
-      comps.utility.reinforcedDriveGuard === "available"
-    ) {
+    if (component === "utility" && comps.utility.reinforcedDriveGuard === "available") {
       result.utilityRuntimeChange = {
         reinforcedDriveGuardBefore: "available",
         reinforcedDriveGuardAfter: "lost",
@@ -286,10 +304,7 @@ export function transitionComponentState(
       reason: qual.reason!,
     };
     // Utility transition will lose an available reinforced-drive guard
-    if (
-      component === "utility" &&
-      comps.utility.reinforcedDriveGuard === "available"
-    ) {
+    if (component === "utility" && comps.utility.reinforcedDriveGuard === "available") {
       result.utilityRuntimeChange = {
         reinforcedDriveGuardBefore: "available",
         reinforcedDriveGuardAfter: "lost",

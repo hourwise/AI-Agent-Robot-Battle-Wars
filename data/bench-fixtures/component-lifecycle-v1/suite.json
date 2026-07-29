@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "1",
+  "suiteId": "component-lifecycle-v1",
+  "componentQualificationId": "component-impact-c1",
+  "simulatorVersion": "0.2.0",
+  "rulesetVersion": "0.2.0",
+  "catalogueVersion": "1",
+  "seedPartition": "development",
+  "competitors": [
+    {
+      "competitorId": "bulwark-guarded",
+      "source": "canonical-bulwark",
+      "build": {
+        "machineName": "The Bulwark",
+        "chassisId": "heavy",
+        "mobilityId": "tracks",
+        "weaponId": "ram",
+        "utilityId": "reinforced_drive",
+        "armour": {
+          "front": 60,
+          "left": 15,
+          "right": 15,
+          "rear": 0,
+          "top": 0
+        },
+        "designSummary": "An unstoppable forward assault machine with heavy frontal armour.",
+        "designRationale": "Maximise frontal protection and close-range ram damage. Accept rear vulnerability."
+      },
+      "policy": {
+        "opening": "rush",
+        "preferredRange": "close",
+        "aggression": 85,
+        "primaryTarget": "front",
+        "secondaryTarget": "front",
+        "retreatThreshold": 10,
+        "heatThreshold": 90,
+        "fallback": "desperate_attack"
+      }
+    },
+    {
+      "competitorId": "bulwark-unguarded",
+      "source": "benchmark-only",
+      "build": {
+        "machineName": "The Bulwark",
+        "chassisId": "heavy",
+        "mobilityId": "tracks",
+        "weaponId": "ram",
+        "utilityId": "none",
+        "armour": {
+          "front": 60,
+          "left": 15,
+          "right": 15,
+          "rear": 0,
+          "top": 0
+        },
+        "designSummary": "An unstoppable forward assault machine with heavy frontal armour.",
+        "designRationale": "Maximise frontal protection and close-range ram damage. Accept rear vulnerability."
+      },
+      "policy": {
+        "opening": "rush",
+        "preferredRange": "close",
+        "aggression": 85,
+        "primaryTarget": "front",
+        "secondaryTarget": "front",
+        "retreatThreshold": 10,
+        "heatThreshold": 90,
+        "fallback": "desperate_attack"
+      }
+    },
+    {
+      "competitorId": "glass-cannon",
+      "source": "benchmark-v2-transition-test",
+      "build": {
+        "machineName": "Glass Cannon",
+        "chassisId": "light",
+        "mobilityId": "wheels",
+        "weaponId": "ram",
+        "utilityId": "none",
+        "armour": {
+          "front": 5,
+          "left": 0,
+          "right": 0,
+          "rear": 0,
+          "top": 0
+        },
+        "designSummary": "All offence, no defence — guaranteed transitions.",
+        "designRationale": "Designed to trigger component damage in testing."
+      },
+      "policy": {
+        "opening": "rush",
+        "preferredRange": "close",
+        "aggression": 100,
+        "primaryTarget": "front",
+        "secondaryTarget": "front",
+        "retreatThreshold": 0,
+        "heatThreshold": 100,
+        "fallback": "desperate_attack"
+      }
+    }
+  ],
+  "fixtures": [
+    {
+      "fixtureId": "bulwark-guarded-mirror",
+      "benchmarkId": "bulwark-mirror",
+      "purpose": "high-armour plus reinforced-drive stress test",
+      "fighterXCompetitorId": "bulwark-guarded",
+      "fighterYCompetitorId": "bulwark-guarded",
+      "roleSwapped": false,
+      "seedPartition": "development",
+      "classification": "hard"
+    },
+    {
+      "fixtureId": "bulwark-unguarded-mirror",
+      "benchmarkId": "bulwark-unguarded-mirror",
+      "purpose": "high-armour lifecycle progression without guard interference",
+      "fighterXCompetitorId": "bulwark-unguarded",
+      "fighterYCompetitorId": "bulwark-unguarded",
+      "roleSwapped": false,
+      "seedPartition": "development",
+      "classification": "hard"
+    },
+    {
+      "fixtureId": "glass-cannon-mirror",
+      "benchmarkId": "glass-cannon-mirror",
+      "purpose": "low-armour over-aggression and transition-density test",
+      "fighterXCompetitorId": "glass-cannon",
+      "fighterYCompetitorId": "glass-cannon",
+      "roleSwapped": false,
+      "seedPartition": "development",
+      "classification": "hard"
+    },
+    {
+      "fixtureId": "bulwark-vs-glass-cannon",
+      "benchmarkId": "bulwark-vs-glass-cannon",
+      "purpose": "armour differentiation and role-swapped behaviour",
+      "fighterXCompetitorId": "bulwark-guarded",
+      "fighterYCompetitorId": "glass-cannon",
+      "roleSwapped": true,
+      "seedPartition": "development",
+      "classification": "diagnostic"
+    }
+  ]
+}

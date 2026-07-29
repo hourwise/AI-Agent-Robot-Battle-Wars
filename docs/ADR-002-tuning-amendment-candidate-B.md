@@ -825,3 +825,156 @@ by this evidence. The next task is a documentation/benchmark-fixture task to
 approve the split gates and freeze the no-utility and Glass Cannon diagnostics;
 it must not combine critical-rate review or C2 tuning. Milestone 0.2B remains
 incomplete.
+
+## 23. Split Acceptance Gates and Frozen Diagnostic Fixture Suite
+
+### 23.1 Revised acceptance model
+
+The Candidate C1 failure diagnosis is preserved above as the reason for this
+amendment. Qualification-only Milestone 0.2B now separates lifecycle acceptance
+from whole-combat balance.
+
+Lifecycle hard gates use these exact definitions:
+
+| Gate                                  | Definition and denominator                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No healthy-to-disabled transition     | Across every suite component event, `component_disabled.previousState` must be `damaged`; zero events may report `healthy -> disabled`.                                                                                                                                                                                                                                         |
+| Damaged mobility does not end         | Every immobilisation loser must have an explicit mobility-disabled event; a mobility-damaged event alone is insufficient. Denominator: all immobilisation outcomes.                                                                                                                                                                                                             |
+| Disabled mobility ends                | Every mobility-disabled event must occur in its match-ending round. Denominator: all mobility-disabled events. Simultaneous double disables may end in judges.                                                                                                                                                                                                                  |
+| Qualifying hits are non-zero          | Each hard fixture must have `totalQualifyingHits > 0`.                                                                                                                                                                                                                                                                                                                          |
+| Healthy-to-damaged is non-zero        | Each hard fixture must have `totalDamagedTransitions > 0`.                                                                                                                                                                                                                                                                                                                      |
+| Damaged-to-disabled is non-zero       | The hard-fixture suite sum must have `totalDisabledTransitions > 0`.                                                                                                                                                                                                                                                                                                            |
+| Guard resistance is observable        | `bulwark-guarded-mirror.totalResistedTransitions > 0`.                                                                                                                                                                                                                                                                                                                          |
+| Unguarded resistance is absent        | `bulwark-unguarded-mirror.totalResistedTransitions = 0`.                                                                                                                                                                                                                                                                                                                        |
+| Non-qualifying selection randomness   | The qualification wrapper must return before `weightedPick`; a dedicated draw-count test requires zero selection draws for a non-qualifying hit and one after qualification. Event audit additionally requires every component event to link to a qualifying attack.                                                                                                            |
+| Historical replay compatibility       | Existing v1 and identifier-absent Candidate A v2 schema/replay regression tests remain passing. Candidate C audits do not reinterpret legacy facts.                                                                                                                                                                                                                             |
+| Candidate C1 factual reconstruction   | Every C1 component event must contain component ID, raw damage, struck armour, integrity damage, component impact, both constants and thresholds, qualification reason, nested critical fact, hit zone, previous state, and new state. Guard events also require `available -> spent`; missing facts fail rather than receiving defaults. Denominator: all C1 component events. |
+| First-round immobilisation            | Per hard fixture, `round-1 immobilisation outcomes / simulations < 0.132`.                                                                                                                                                                                                                                                                                                      |
+| Terminal-disable incidence            | Per hard fixture, `matches with at least one component-disabled event / simulations < 0.85`. The boundary fails.                                                                                                                                                                                                                                                                |
+| Suite component dominance             | Across all four fixtures, `largest component terminal-disable count / all terminal disables <= 0.70` when at least ten terminal disables exist. Below ten is not applicable.                                                                                                                                                                                                    |
+| Glass first-round terminal volatility | In `glass-cannon-mirror`, `matches with any round-1 component-disabled event / simulations < 0.25`. The boundary fails. This is an additional regression ceiling, not a substitute for the 13.2% immobilisation gate.                                                                                                                                                           |
+
+Lifecycle diagnostics are always reported but do not independently fail 0.2B:
+qualifications per match, matches with any qualification, damaged and disabled
+transition counts, resistance rate, component mix, immobilisation, average and
+maximum rounds, judges, destruction, draws, round-cap incidence, integrity,
+win rates, and matches ending with a non-disabled damaged component.
+
+The prior hard finish gates are not deleted. For qualification-only 0.2B they
+are superseded and retained as future whole-combat objectives:
+
+- structural destruction at least 10%;
+- overall immobilisation from 40% through 75%;
+- judges below 45%;
+- no finish method at or above 85%;
+- average rounds from 4 through 12;
+- round-cap incidence at or below 10%.
+
+Those objectives require later positioning, damage/armour, weapon, match-length,
+and multi-opponent balance work. They remain diagnostics in this suite.
+
+### 23.2 Frozen fixture suite
+
+The timestamp-free manifest is
+`data/bench-fixtures/component-lifecycle-v1/suite.json`. It declares suite
+schema `1`, suite ID `component-lifecycle-v1`, Candidate C1, simulator/ruleset
+`0.2.0`, catalogue `1`, and development partition only. Builds pass the normal
+catalogue validator and policies pass the existing policy schema.
+
+| Fixture                    | Purpose                                            | Classification |  Assignments |
+| -------------------------- | -------------------------------------------------- | -------------- | -----------: |
+| `bulwark-guarded-mirror`   | High armour plus reinforced-drive stress           | Hard           | 80 seeds x 1 |
+| `bulwark-unguarded-mirror` | High-armour progression without guard interference | Hard           | 80 seeds x 1 |
+| `glass-cannon-mirror`      | Low-armour over-aggression and transition density  | Hard           | 80 seeds x 1 |
+| `bulwark-vs-glass-cannon`  | Armour differentiation and role-swapped behaviour  | Diagnostic     | 80 seeds x 2 |
+
+The guarded competitor exactly equals the canonical Bulwark. The unguarded
+competitor differs only by `utilityId: "none"`. Glass Cannon is the committed
+light/wheels/ram/no-utility, front-armour-5 build and aggressive policy formerly
+defined by the v2 transition integration test. The asymmetric fixture uses
+those identities without creating public opponents. No fixture references an
+API-backed agent.
+
+The CLI `npm run benchmark:lifecycle` accepts `--partition development`,
+optional `--fixture`, `--output`, `--json`, and `--force`. It rejects
+`held-out` and `all` before executing a match. The existing single-benchmark
+command and guarded checksums are unchanged.
+
+### 23.3 Development suite results
+
+Only the 80 development seeds were executed. The role-swapped diagnostic
+produced two assignments per seed, so the suite total is exactly 400
+simulations.
+
+Identity:
+
+| Fixture                 | X build/policy fingerprint              | Y build/policy fingerprint              | Simulations | Outcome checksum   | Report checksum    |
+| ----------------------- | --------------------------------------- | --------------------------------------- | ----------: | ------------------ | ------------------ |
+| Guarded Bulwark         | `f2e1893c62974e63` / `34ad9c55b2d7ef29` | same                                    |          80 | `6d5ccc01ddc76064` | `2df267be422b70ab` |
+| Unguarded Bulwark       | `873141a9efe3db30` / `34ad9c55b2d7ef29` | same                                    |          80 | `8b182f2598cad6d6` | `81a7bc2edf31c563` |
+| Glass Cannon            | `f3a49b22fcec2286` / `55eb704a73156632` | same                                    |          80 | `07154dc578aa035f` | `88bfd4baaf80598d` |
+| Bulwark vs Glass Cannon | `f2e1893c62974e63` / `34ad9c55b2d7ef29` | `f3a49b22fcec2286` / `55eb704a73156632` |         160 | `af4a1c74f7dce919` | `be838704133885f8` |
+
+Qualification and lifecycle:
+
+| Fixture      |  Hits | Qualifying; rate | Matches 1+/2+/3+ | Critical/high | Resisted | Damaged | Disabled | Disabled M/W/U | Terminal incidence | Ending damaged |
+| ------------ | ----: | ---------------- | ---------------- | ------------- | -------: | ------: | -------: | -------------- | -----------------: | -------------: |
+| Guarded      | 1,255 | 164; 13.1%       | 76/48/28         | 164/2         |       64 |      81 |       19 | 4/15/0         |              22.5% |          65.0% |
+| Unguarded    | 1,074 | 147; 13.7%       | 76/48/20         | 147/2         |        0 |     111 |       36 | 23/13/0        |              42.5% |          71.3% |
+| Glass Cannon |   355 | 345; 97.2%       | 80/80/73         | 264/320       |        0 |     215 |      130 | 79/51/0        |             100.0% |          76.3% |
+| Asymmetric   |   931 | 554; 59.5%       | 160/160/130      | 424/509       |       18 |     301 |      235 | 154/81/0       |             100.0% |          39.4% |
+
+Whole-combat diagnostics:
+
+| Fixture      | Destruction | Immobilisation | Judges | Draws | Average/max rounds | Round cap |
+| ------------ | ----------: | -------------: | -----: | ----: | ------------------ | --------: |
+| Guarded      |           0 |              4 |     76 |    15 | 19.79 / 20         |     96.3% |
+| Unguarded    |           0 |             21 |     59 |    10 | 17.69 / 20         |     73.8% |
+| Glass Cannon |          24 |             47 |      9 |     0 | 7.08 / 20          |      6.3% |
+| Asymmetric   |          73 |             87 |      0 |     0 | 8.00 / 20          |      1.3% |
+
+The asymmetric slot result was 80 fighter-A wins and 80 fighter-B wins.
+Competitor-relative results were Bulwark 160, Glass Cannon 0, draws 0. Win
+balance is diagnostic and is not a 0.2B gate.
+
+### 23.4 Gate evaluation and decision
+
+PASS:
+
+- all transition-state invariants in all fixtures;
+- damaged-mobility and disabled-mobility outcome semantics;
+- non-zero qualifications and healthy-to-damaged transitions in every hard
+  fixture;
+- 185 terminal transitions across hard fixtures;
+- guarded resistance 64 and unguarded resistance 0;
+- qualification-before-selection draw behavior;
+- historical v1 and Candidate A v2 compatibility regressions;
+- zero missing C1 facts or guard fact errors;
+- first-round immobilisation 0% in every hard fixture;
+- Glass Cannon first-round terminal-disable incidence 0%;
+- terminal-disable incidence 22.5% guarded and 42.5% unguarded;
+- suite terminal mix mobility 260, weapon 160, utility 0: mobility is the
+  largest at 61.90% of 420, below the 70% ceiling.
+
+FAIL:
+
+- `glass-cannon-mirror` terminal-disable incidence is 80/80, or 100%, which is
+  not below 85%.
+
+The Glass Cannon result is not an immediate single-hit lifecycle defect:
+first-round terminal incidence is zero and no healthy-to-disabled transition
+occurred. It is a qualification-density tuning failure: 345/355 successful hits
+qualified and every match eventually reached a terminal component state.
+
+The required decision is:
+
+> **B. Candidate C1 fails revised lifecycle gates and requires one bounded
+> tuning candidate.**
+
+Candidate C1 is not development-passed. No Candidate C2 is created or tuned in
+this task. Held-out confirmation remains prohibited. The next task may define
+one bounded candidate against this unchanged suite, while critical-probability
+review and the deferred whole-combat gates remain separate. Milestone 0.2B is
+not complete.
+
+The deterministic suite checksum is `04fe9aeb6cd48dbe`.

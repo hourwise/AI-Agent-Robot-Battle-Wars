@@ -510,6 +510,67 @@ remains incomplete. The next task is to approve the split gate definition and
 freeze benchmark-only no-utility and Glass Cannon fixtures; it must not tune
 constants or combine critical-rate review.
 
+## Split Acceptance Gates and Frozen Diagnostic Fixture Suite
+
+The split model is now implemented. Qualification-only 0.2B hard acceptance
+covers transition legality, damaged/disabled mobility semantics, non-zero
+qualification and both lifecycle stages, guarded/unguarded resistance,
+qualification-before-selection randomness, legacy replay compatibility, C1
+factual completeness, first-round immobilisation below 13.2%, terminal-disable
+incidence below 85% in every hard fixture, and no component above 70% of suite
+terminal disables when at least ten exist. Glass Cannon additionally requires
+first-round terminal-disable incidence below 25%.
+
+Structural destruction at least 10%, overall immobilisation 40%-75%, judges
+below 45%, finish-method dominance below 85%, average rounds 4-12, and round-cap
+incidence at most 10% are preserved but superseded for 0.2B lifecycle
+acceptance. They remain future whole-combat objectives for positioning,
+damage/armour, weapon, duration, and multi-opponent balance work.
+
+The versioned, development-only manifest is
+`data/bench-fixtures/component-lifecycle-v1/suite.json`:
+
+| Fixture                    | Classification | Purpose                                  | Simulations |
+| -------------------------- | -------------- | ---------------------------------------- | ----------: |
+| `bulwark-guarded-mirror`   | Hard           | High-armour/reinforced-drive stress      |          80 |
+| `bulwark-unguarded-mirror` | Hard           | High-armour progression without a guard  |          80 |
+| `glass-cannon-mirror`      | Hard           | Low-armour over-aggression density       |          80 |
+| `bulwark-vs-glass-cannon`  | Diagnostic     | Armour differentiation and role swapping |         160 |
+
+The guarded fixture remains byte-for-behavior equivalent to the canonical
+Bulwark. The unguarded build differs only in utility. Glass Cannon reuses the
+committed transition-test definition. None are public opponents or API-backed
+agents. `npm run benchmark:lifecycle` rejects held-out and all-partition
+requests.
+
+Development results:
+
+| Fixture      | Hits / qualifying | Resisted | Damaged / disabled | Terminal incidence | Outcomes D/I/J | Average rounds / cap |
+| ------------ | ----------------- | -------: | ------------------ | -----------------: | -------------- | -------------------- |
+| Guarded      | 1,255 / 164       |       64 | 81 / 19            |              22.5% | 0 / 4 / 76     | 19.79 / 96.3%        |
+| Unguarded    | 1,074 / 147       |        0 | 111 / 36           |              42.5% | 0 / 21 / 59    | 17.69 / 73.8%        |
+| Glass Cannon | 355 / 345         |        0 | 215 / 130          |         **100.0%** | 24 / 47 / 9    | 7.08 / 6.3%          |
+| Asymmetric   | 931 / 554         |       18 | 301 / 235          |  100.0% diagnostic | 73 / 87 / 0    | 8.00 / 1.3%          |
+
+All event invariants, mobility semantics, factual completeness, guard behavior,
+first-round gates, and compatibility checks pass. The suite terminal mix is
+mobility 260, weapon 160, utility 0; the 61.90% maximum passes the 70% ceiling.
+The only hard failure is Glass Cannon terminal-disable incidence: all 80 matches
+contained a terminal disable, exceeding the strict `<85%` gate despite zero
+first-round terminals.
+
+The selected outcome is:
+
+> **B. Candidate C1 fails revised lifecycle gates and requires one bounded
+> tuning candidate.**
+
+C1 is not development-passed. No C2 was created, no held-out match was
+executed, and Milestone 0.2B remains incomplete. A later bounded-candidate task
+may tune against the same frozen suite. Whole-combat finish objectives and
+critical-rate review remain separate.
+
+Suite checksum: `04fe9aeb6cd48dbe`.
+
 ## 9. Final Recommendation
 
 ### First Milestone: 0.2A — Benchmark Harness

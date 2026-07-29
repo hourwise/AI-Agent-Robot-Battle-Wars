@@ -93,7 +93,7 @@ describe("runBenchmark", () => {
     const build = createBulwarkBuild();
     const smallBank = {
       ...bank,
-      developmentSeeds: bank.heldOutSeeds.slice(0, 5),
+      developmentSeeds: bank.developmentSeeds.slice(0, 5),
     };
     const results = runBenchmark({
       label: "test",
@@ -110,18 +110,22 @@ describe("runBenchmark", () => {
 
   it("produces deterministic results", () => {
     const build = createBulwarkBuild();
+    const smallBank = {
+      ...bank,
+      developmentSeeds: bank.developmentSeeds.slice(0, 5),
+    };
     const results1 = runBenchmark({
       label: "test",
-      seedBank: bank,
-      partition: "held-out",
+      seedBank: smallBank,
+      partition: "development",
       fighterA: { build, policy: BULWARK_POLICY, machineName: "Bulwark A" },
       fighterB: { build, policy: BULWARK_POLICY, machineName: "Bulwark B" },
       roleSwapped: false,
     });
     const results2 = runBenchmark({
       label: "test",
-      seedBank: bank,
-      partition: "held-out",
+      seedBank: smallBank,
+      partition: "development",
       fighterA: { build, policy: BULWARK_POLICY, machineName: "Bulwark A" },
       fighterB: { build, policy: BULWARK_POLICY, machineName: "Bulwark B" },
       roleSwapped: false,
@@ -131,23 +135,31 @@ describe("runBenchmark", () => {
 
   it("preserves seed order", () => {
     const build = createBulwarkBuild();
+    const smallBank = {
+      ...bank,
+      developmentSeeds: bank.developmentSeeds.slice(0, 5),
+    };
     const results = runBenchmark({
       label: "test",
-      seedBank: bank,
-      partition: "held-out",
+      seedBank: smallBank,
+      partition: "development",
       fighterA: { build, policy: BULWARK_POLICY, machineName: "Bulwark A" },
       fighterB: { build, policy: BULWARK_POLICY, machineName: "Bulwark B" },
       roleSwapped: false,
     });
-    expect(results.map((r) => r.seed)).toEqual(bank.heldOutSeeds);
+    expect(results.map((r) => r.seed)).toEqual(smallBank.developmentSeeds);
   });
 
   it("per-match results include competitor identity fields", () => {
     const build = createBulwarkBuild();
+    const smallBank = {
+      ...bank,
+      developmentSeeds: bank.developmentSeeds.slice(0, 5),
+    };
     const results = runBenchmark({
       label: "test",
-      seedBank: bank,
-      partition: "held-out",
+      seedBank: smallBank,
+      partition: "development",
       fighterA: { build, policy: BULWARK_POLICY, machineName: "Bulwark A" },
       fighterB: { build, policy: BULWARK_POLICY, machineName: "Bulwark B" },
       roleSwapped: true,
@@ -281,20 +293,20 @@ describe("computeMetrics", () => {
     expect(m10.slotOutcomes.wilsonCI.upper).toBe(1);
   });
 
-  it("Bulwark mirror held-out baseline is stable", () => {
+  it("Bulwark mirror development baseline is stable", () => {
     const build = createBulwarkBuild();
     const results = runBenchmark({
       label: "test",
       seedBank: bank,
-      partition: "held-out",
+      partition: "development",
       fighterA: { build, policy: BULWARK_POLICY, machineName: "Bulwark A" },
       fighterB: { build, policy: BULWARK_POLICY, machineName: "Bulwark B" },
       roleSwapped: false,
     });
-    const m = computeMetrics(results, 20, 1);
-    expect(m.totalSimulations).toBe(20);
+    const m = computeMetrics(results, 80, 1);
+    expect(m.totalSimulations).toBe(80);
     expect(
       m.slotOutcomes.fighterAWins + m.slotOutcomes.fighterBWins + m.slotOutcomes.draws,
-    ).toBe(20);
+    ).toBe(80);
   });
 });

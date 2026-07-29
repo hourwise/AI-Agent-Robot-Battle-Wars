@@ -62,6 +62,43 @@ C1 is retained pending revised gates and fixture diagnostics. It is not
 permanently accepted or rejected. C2 is not justified, critical-rate review is
 a separate future ADR/balance task, and Milestone 0.2B remains incomplete.
 
+### D27: Split 0.2B gates and freeze lifecycle fixture suite
+
+Accepted the combined split-and-fixture strategy from D26. Qualification-only
+0.2B hard gates now cover lifecycle state legality, damaged/disabled mobility
+semantics, non-zero qualification and both transition stages,
+guarded/unguarded resistance, qualification-before-selection randomness,
+historical replay, C1 factual completeness, first-round volatility,
+per-hard-fixture terminal incidence below 85%, and suite component-terminal
+dominance at or below 70% when at least ten disables exist.
+
+The former destruction, overall immobilisation, judges, finish dominance,
+average-round, and round-cap gates remain in the audit trail but are superseded
+for 0.2B lifecycle acceptance. They are retained as future whole-combat balance
+objectives.
+
+Frozen benchmark-only suite `component-lifecycle-v1`:
+
+- guarded Bulwark mirror: hard, 80 development simulations;
+- unguarded Bulwark mirror: hard, 80;
+- Glass Cannon mirror: hard, 80;
+- guarded Bulwark versus Glass Cannon: diagnostic, role-swapped, 160.
+
+The 400-simulation development run passed every event invariant, factual,
+compatibility, guard, first-round, and dominance gate. Guarded and unguarded
+terminal incidence were 22.5% and 42.5%. Glass Cannon qualified 345/355 hits and
+had terminal disables in 80/80 matches. Its 100% incidence fails the strict
+`<85%` gate, although first-round terminal incidence was zero.
+
+Decision outcome:
+
+> **B. Candidate C1 fails revised lifecycle gates and requires one bounded
+> tuning candidate.**
+
+Candidate C1 is not development-passed. No new candidate is created by this
+decision. Held-out confirmation remains prohibited and Milestone 0.2B remains
+incomplete. Suite checksum: `04fe9aeb6cd48dbe`.
+
 | Date       | Decision                                                                              | Rationale                                                                                                                                                                                                                                   | Alternatives considered                                                                                                                                        |
 | ---------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-07-26 | D1: Five-zone ring arena with derived distance                                        | Positional play, circling, flanking and knockback are core to the concept. Distance derived from zones prevents state contradictions.                                                                                                       | Distance-bands only (simpler but removes spatial tactics)                                                                                                      |

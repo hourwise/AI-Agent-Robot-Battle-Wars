@@ -1,25 +1,11 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { createHash } from "node:crypto";
 import { loadSeedBank } from "../bench/seed-bank.js";
-import {
-  runBenchmark,
-  fingerprintBuild,
-  fingerprintPolicy,
-} from "../bench/run-benchmark.js";
-import { computeMetrics } from "../bench/metrics.js";
+import { runBenchmark } from "../bench/run-benchmark.js";
+import { createBenchmarkReport } from "../bench/benchmark-report.js";
 import { renderTextReport } from "../bench/report-renderer.js";
 import { createBulwarkBuild, BULWARK_POLICY } from "../agents/scripted/bulwark-agent.js";
-import type { BenchmarkReport, SeedPartition } from "../bench/benchmark.types.js";
-import {
-  SIMULATOR_VERSION,
-  RULESET_VERSION,
-  COMPONENT_QUALIFICATION_ID,
-  COMPONENT_ARMOUR_FACTOR,
-  COMPONENT_MIN_IMPACT,
-  CRITICAL_COMPONENT_IMPACT_THRESHOLD,
-  HIGH_COMPONENT_IMPACT_THRESHOLD,
-} from "../simulator/constants.js";
+import type { SeedPartition } from "../bench/benchmark.types.js";
 
 const SEED_BANK_PATH = join("data", "seeds", "benchmark-100-v1.json");
 
@@ -85,70 +71,21 @@ function main() {
   const policyA = BULWARK_POLICY;
   const policyB = BULWARK_POLICY;
 
-  const results = runBenchmark({
+  const config = {
     label: "Bulwark Mirror Baseline",
     seedBank: bank,
     partition,
     fighterA: { build: buildA, policy: policyA, machineName: "The Bulwark" },
     fighterB: { build: buildB, policy: policyB, machineName: "The Bulwark" },
     roleSwapped: false, // mirror match, no need to swap
-  });
+  };
+  const results = runBenchmark(config);
 
-  const seedCount = results.length; // mirror: 1 sim per seed
-  const metrics = computeMetrics(results, seedCount, 1);
-
-  // Sort per-match results for deterministic output
-  const sortedResults = [...results].sort(
-    (a, b) => a.seed - b.seed || (a.roleSwapped ? 1 : 0) - (b.roleSwapped ? 1 : 0),
+  const fullReport = createBenchmarkReport(
+    `bulwark-mirror-${partition}`,
+    config,
+    results,
   );
-
-  // Per-match outcomes checksum (stable as long as simulation doesn't change)
-  const outcomesCanonical = JSON.stringify(sortedResults);
-  const outcomesChecksum = createHash("sha256")
-    .update(outcomesCanonical)
-    .digest("hex")
-    .slice(0, 16);
-
-  const report: BenchmarkReport = {
-    schemaVersion: "1",
-    benchmarkId: `bulwark-mirror-${partition}`,
-    seedBankId: bank.bankId,
-    partition,
-    simulatorVersion: SIMULATOR_VERSION,
-    rulesetVersion: RULESET_VERSION,
-    catalogueVersion: bank.catalogueVersion,
-    componentQualificationId: COMPONENT_QUALIFICATION_ID,
-    qualificationConstants: {
-      armourFactor: COMPONENT_ARMOUR_FACTOR,
-      minimumImpact: COMPONENT_MIN_IMPACT,
-      criticalThreshold: CRITICAL_COMPONENT_IMPACT_THRESHOLD,
-      highImpactThreshold: HIGH_COMPONENT_IMPACT_THRESHOLD,
-    },
-    fighterX: {
-      machineName: "The Bulwark",
-      buildFingerprint: fingerprintBuild(buildA),
-      policyFingerprint: fingerprintPolicy(policyA),
-    },
-    fighterY: {
-      machineName: "The Bulwark",
-      buildFingerprint: fingerprintBuild(buildB),
-      policyFingerprint: fingerprintPolicy(policyB),
-    },
-    roleSwapped: false,
-    seedCount,
-    roleAssignmentsPerSeed: 1,
-    totalSimulations: results.length,
-    perMatch: sortedResults,
-    metrics,
-    outcomesChecksum,
-    reportChecksum: "",
-  };
-  // Full report checksum (may change with schema/format evolution)
-  const reportBody = JSON.stringify({ ...report, reportChecksum: "" });
-  const fullReport = {
-    ...report,
-    reportChecksum: createHash("sha256").update(reportBody).digest("hex").slice(0, 16),
-  };
 
   if (output) {
     const outPath = resolve(output);

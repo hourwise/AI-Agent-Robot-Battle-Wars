@@ -93,6 +93,19 @@ npm run replay -- --match <match-id>    # Replay a saved match from JSON
 npm run smoke:design    # Live test of DeepSeek design generation
 ```
 
+### Benchmarks
+
+```bash
+npm run benchmark                                  # Existing Bulwark mirror benchmark
+npm run benchmark:lifecycle -- --partition development
+npm run benchmark:lifecycle -- --partition development --fixture glass-cannon-mirror
+npm run benchmark:lifecycle -- --partition development --json
+```
+
+The component-lifecycle suite is benchmark-only and rejects `held-out` and
+`all` partitions until a future explicitly authorised confirmation task. Its
+fixed manifest is in `data/bench-fixtures/component-lifecycle-v1/`.
+
 ## Output
 
 - **Matches** are saved to `data/matches/<match-id>.json`
@@ -114,6 +127,7 @@ npm run smoke:design    # Live test of DeepSeek design generation
 
 ```
 data/
+  bench-fixtures/ # Versioned benchmark-only fixtures
   matches/    # Individual match JSON files
   series/     # Series JSON files
 ```
