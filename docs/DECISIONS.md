@@ -10,6 +10,58 @@ Implementation is complete but development benchmark confirmation failed, so Mil
 
 Candidate C1 ran against the unchanged 80-seed development partition only. It produced 164 qualifying hits versus the analytical estimate of 161, 81 damaged transitions, 19 disabled transitions, 64 resisted events, 0% destruction, 95% judges, and 19.79 average rounds. The small qualification-count divergence is expected from live combat paths and qualification-before-selection PRNG consumption. Hard gates failed; no automatic tuning or held-out execution is authorised.
 
+### D26: Candidate C1 Development Failure Diagnosis
+
+**Decision outcome B:** Candidate C1 is viable, but the 0.2B gates must be split
+or re-scoped before acceptance. Select the combined split-and-fixture-suite
+strategy.
+
+The development event stream supports this decision:
+
+- 164 qualifying hits produced 64 reinforced-drive resistances, 81
+  healthy-to-damaged transitions, and 19 damaged-to-disabled transitions;
+- 4 mobility disables caused 4 immobilisations; 15 weapon disables and no
+  utility disables completed the terminal mix;
+- 160 guards started available, 64 were spent, none were lost, and 50 matches
+  spent at least one;
+- an analytical no-guard transformation of persisted selections suggests 21
+  additional fighter mobility disables and 19 additional match outcomes, but
+  is not a simulation;
+- every one of 1,255 successful hits dealt the one-damage minimum. A fighter
+  can receive at most 20 damage in 20 rounds against 150 starting integrity, so
+  structural destruction is mathematically impossible in this fixture;
+- 77/80 matches reached round 20. Moving judges below 45% requires 41
+  additional match-ending mobility disables;
+- the bounded incidence model reaches only 24.58% immobilisation at five
+  qualifications per match. Reaching about 56% requires about 8.2 and predicts
+  93.22% terminal-disable incidence, violating the `< 85%` gate;
+- all 164 qualifications used the critical branch. The high-impact branch added
+  zero exclusive qualifications, and a one-point critical-threshold change
+  creates a large 259/164/59 qualification cliff.
+
+Statements B and C are supported: the guarded high-armour mirror is unsuitable
+as the sole acceptance fixture, and several finish-distribution gates require
+whole-combat mechanics outside qualification-only 0.2B. Statement A is only
+partially supported: C1 is conservative for guarded mobility finishes, but
+tuning cannot make destruction possible or reconcile the judge and terminal
+incidence gates.
+
+Hard 0.2B gates should cover lifecycle semantics, non-zero damaged and terminal
+transitions, first-round volatility, terminal-disable incidence,
+reinforced-drive observability, gross component dominance, replay
+compatibility, and factual reconstruction. Structural destruction, judges,
+draws, finish dominance, and match length move to whole-combat or
+fixture-dependent diagnostics.
+
+Keep the Bulwark mirror as a hard guarded stress fixture. Add a benchmark-only
+no-utility Bulwark fixture using the existing valid heavy/tracks/ram/`none`
+configuration, retain the committed Glass Cannon mirror as a diagnostic, and
+defer formal role-swapped heavy-versus-light acceptance to Milestone 0.2D.
+
+C1 is retained pending revised gates and fixture diagnostics. It is not
+permanently accepted or rejected. C2 is not justified, critical-rate review is
+a separate future ADR/balance task, and Milestone 0.2B remains incomplete.
+
 | Date       | Decision                                                                              | Rationale                                                                                                                                                                                                                                   | Alternatives considered                                                                                                                                        |
 | ---------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-07-26 | D1: Five-zone ring arena with derived distance                                        | Positional play, circling, flanking and knockback are core to the concept. Distance derived from zones prevents state contradictions.                                                                                                       | Distance-bands only (simpler but removes spatial tactics)                                                                                                      |

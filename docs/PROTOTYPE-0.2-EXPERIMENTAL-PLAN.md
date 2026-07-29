@@ -405,16 +405,16 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
 
 Decision questions to resolve before implementation. Recommended order reflects dependencies.
 
-| #       | ADR                                | Question                                                                                                                                                                | Depends on                  |
-| ------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| ADR-001 | Positioning representation         | Which arena model (3×3 grid, range+bearing, or abstract states)?                                                                                                        | Nothing                     |
-| ADR-002 | Component damage lifecycle         | **Accepted:** healthy→damaged→disabled. Core 0.2B implementation complete. Candidate A and B1-B3 failed analytically; Candidate C selected, implementation not started. | Volatility benchmark (0.2A) |
-| ADR-003 | Deterministic seed-bank evaluation | Fixed seeds, sample size, held-out protocol?                                                                                                                            | Nothing                     |
-| ADR-004 | Multi-opponent fixture format      | How are opponent builds and policies stored and versioned?                                                                                                              | Nothing                     |
-| ADR-005 | Simulator version compatibility    | How do old matches replay under new rules? Version-gating vs separate code paths?                                                                                       | ADR-001, ADR-002            |
-| ADR-006 | Adaptation success metrics         | What thresholds define improvement? How is overfitting detected?                                                                                                        | ADR-003                     |
+| #       | ADR                                | Question                                                                                                                                                               | Depends on                  |
+| ------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| ADR-001 | Positioning representation         | Which arena model (3×3 grid, range+bearing, or abstract states)?                                                                                                       | Nothing                     |
+| ADR-002 | Component damage lifecycle         | **Accepted:** healthy→damaged→disabled. Candidate C1 is implemented and viable for lifecycle coverage, but 0.2B acceptance awaits split gates and diagnostic fixtures. | Volatility benchmark (0.2A) |
+| ADR-003 | Deterministic seed-bank evaluation | Fixed seeds, sample size, held-out protocol?                                                                                                                           | Nothing                     |
+| ADR-004 | Multi-opponent fixture format      | How are opponent builds and policies stored and versioned?                                                                                                             | Nothing                     |
+| ADR-005 | Simulator version compatibility    | How do old matches replay under new rules? Version-gating vs separate code paths?                                                                                      | ADR-001, ADR-002            |
+| ADR-006 | Adaptation success metrics         | What thresholds define improvement? How is overfitting detected?                                                                                                       | ADR-003                     |
 
-Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are independent). ADR-001 should follow soon after. ADR-002's lifecycle and Candidate C qualification decision are accepted; Candidate C implementation and benchmark confirmation remain outstanding. ADR-005 depends on decisions made in ADR-001 and ADR-002. ADR-006 is last — it needs the evaluation protocol defined.
+Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are independent). ADR-001 should follow soon after. ADR-002's lifecycle and Candidate C qualification architecture are accepted; Candidate C1 is implemented, but split gate approval and diagnostic fixture confirmation remain outstanding. ADR-005 depends on decisions made in ADR-001 and ADR-002. ADR-006 is last — it needs the evaluation protocol defined.
 
 ---
 
@@ -423,6 +423,92 @@ Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are ind
 Candidate C1 (`component-impact-c1`) is implemented with armour factor `0.20`, minimum impact `0`, critical threshold `11`, and high-impact threshold `13`. Qualification uses canonical raw damage and struck-zone armour before component selection. Facts are persisted in attack/component events, match metadata, replay/report output, and benchmark metadata.
 
 The unchanged development partition produced 80 simulations, 1,255 successful hits, 164 qualifying hits, 81 damaged transitions, 19 disabled transitions, 64 resisted events, 0% destruction, 5% immobilisation, 95% judges, 15 draws, 19.79 average rounds, and a 20-round maximum. It fails the destruction, judges, average-round, and round-cap hard gates. No constants were tuned, no C2 was created, and held-out seeds were not inspected. Milestone 0.2B remains incomplete.
+
+## Candidate C1 Development Failure Diagnosis
+
+The authoritative event stream shows that C1 is not a null lifecycle candidate.
+Its 164 qualifying hits produced 164 selections: 64 reinforced-drive
+resistances, 81 healthy-to-damaged transitions, and 19
+damaged-to-disabled transitions. The terminal mix was 4 mobility and 15 weapon
+disables; every mobility disable ended its match. Qualification converted to a
+state transition at 60.98%, to resistance at 39.02%, and to a terminal disable
+at 11.59%.
+
+The failed finish distribution has two independent causes:
+
+1. Bulwark versus Bulwark includes 160 starting reinforced-drive guards.
+   Sixty-four were spent and none were lost. Thirty-six matches spent one guard
+   and 14 spent both. A persisted-selection analytical counterfactual indicates
+   21 additional fighter mobility disables and 19 additional match outcomes
+   without resistance, but it is not a simulated no-utility result.
+2. All 1,255 successful hits dealt exactly one integrity damage. Starting from
+   150 integrity, a fighter can receive at most 20 such hits in 20 rounds.
+   Structural destruction is therefore mathematically impossible under the
+   frozen pairing, policy, damage, armour, and cap.
+
+Seventy-seven matches (96.25%) reached round 20. Fifty-two had fewer than the
+three total qualifications minimally required to disable guarded mobility, 48
+had damage but no disable, 50 spent a guard, and 55 damaged a weapon. Damaged
+weapons made 205 successful hits in later rounds with zero further
+qualifications. These overlapping mechanisms explain the 76 judge decisions.
+
+To put judges below 45%, 41 currently judged matches would need to become
+non-judge finishes. With destruction unavailable, that means 41 additional
+match-ending mobility disables and a total immobilisation rate of 56.25%. A
+bounded Poisson/selection model estimates that five qualifying hits per match
+still yield only 24.58% immobilisation. About 8.2 are needed for 56%, at which
+point terminal-disable incidence is about 93.22% and violates the accepted
+`< 85%` gate. First-round immobilisation remains structurally zero because the
+accepted lifecycle has no healthy-to-disabled path and each fighter can receive
+only one selection in round one.
+
+The nominal 70% critical rate is a separate sensitivity concern. The observed
+rate was 72.27%; all 164 qualifications were critical-qualified, only two also
+met the high-impact branch, and no hit qualified through high impact alone.
+Holding the high threshold at 13, a one-point critical-threshold decrease would
+raise qualifications from 164 to 259, while a one-point increase would reduce
+them to 59. Critical-rate review belongs in a future ADR/balance task and is not
+part of 0.2B completion.
+
+### Gate and fixture plan
+
+Classify first-round immobilisation and terminal-disable incidence as
+component-lifecycle gates. Classify structural destruction, judge rate,
+finish-method dominance, average rounds, and maximum rounds as
+whole-combat-balance gates. Overall immobilisation, draw rate, and round-cap
+incidence are opponent-fixture-dependent gates.
+
+Select **Option D: combined split and fixture suite**:
+
+- keep the Bulwark mirror as the hard high-armour/reinforced-drive lifecycle
+  stress fixture;
+- add a benchmark-only no-utility Bulwark mirror, based on the existing valid
+  heavy/tracks/ram/`none` configuration, to isolate lifecycle progression;
+- use the committed Glass Cannon mirror as a low-armour over-aggression
+  diagnostic;
+- defer formal asymmetric heavy-versus-light acceptance and broader
+  finish-distribution targets to Milestone 0.2D.
+
+Proposed 0.2B hard gates are: first-round immobilisation below 13.2%, terminal
+disable incidence below 85%, non-zero damaged and terminal transitions, no
+healthy-to-disabled transition, correct damaged/disabled mobility semantics,
+observable damaged-state penalties, observable but non-universal
+reinforced-drive resistance, no gross selectable-component terminal dominance,
+historical v1/v2 replay compatibility, and factual transition reconstruction.
+Qualifying-hit incidence, transition incidence and mix, resistance rate,
+immobilisation, and average length remain diagnostics rather than finish-balance
+gates.
+
+The decision outcome is:
+
+> **B. Candidate C1 is viable, but the 0.2B gates must be split or re-scoped
+> before acceptance.**
+
+C1 is retained pending revised gates and fixture diagnostics. It is neither
+permanently accepted nor rejected, and C2 is not justified. Milestone 0.2B
+remains incomplete. The next task is to approve the split gate definition and
+freeze benchmark-only no-utility and Glass Cannon fixtures; it must not tune
+constants or combine critical-rate review.
 
 ## 9. Final Recommendation
 

@@ -494,3 +494,334 @@ Transition events persist raw damage, struck-zone armour, integrity damage, comp
 The unchanged development partition produced 80 Bulwark mirror matches, 1,255 successful hits, 164 qualifying hits, 164 critical-qualified hits, 2 high-impact-qualified hits, 2 hits satisfying both conditions, 81 damaged transitions, 19 disabled transitions, and 64 resisted events. Checksums: outcomes `6d5ccc01ddc76064`; report `2df267be422b70ab`.
 
 C1 fails development hard gates: destruction 0%, judges 95%, average rounds 19.79, and round-cap incidence exceeds the limit. No tuning or C2 was attempted, held-out seeds remain untouched, and Milestone 0.2B remains incomplete.
+
+## 22. Candidate C1 Development Failure Diagnosis
+
+### 22.1 Evidence boundary
+
+This diagnosis reran the unchanged Candidate C1 Bulwark mirror on the 80
+development seeds at commit `5ea09edf8cc948ec86161c1da0bcf6791f6739df`.
+It reconstructed facts from the authoritative event stream. It did not run or
+inspect held-out matches, alter constants, or simulate another candidate.
+
+The benchmark contains 80 matches and 160 reinforced-drive-equipped fighters.
+All component hits were front-zone hits, where the deterministic selection
+weights are mobility 50, weapon 50, and utility 0. Counts described below as
+counterfactual are analytical transformations of persisted selections, not
+combat simulations.
+
+### 22.2 Outcome funnel
+
+Resistance, healthy-to-damaged, and damaged-to-disabled are mutually exclusive
+outcomes of a selected qualifying hit. They are branches, not three consecutive
+steps for the same hit.
+
+| Stage                           | Count |                                                                  Conversion |
+| ------------------------------- | ----: | --------------------------------------------------------------------------: |
+| Successful attacks              | 1,255 |                                                                  Population |
+| Qualifying hits                 |   164 |                                                13.07% of successful attacks |
+| Component selections            |   164 |                                                  100.00% of qualifying hits |
+| Reinforced-drive resistances    |    64 |                                                        39.02% of selections |
+| Healthy-to-damaged transitions  |    81 |                                                        49.39% of selections |
+| Damaged-to-disabled transitions |    19 | 11.59% of selections; 23.46% relative to the healthy-to-damaged event count |
+| Mobility disables               |     4 |                                                 21.05% of terminal disables |
+| Weapon disables                 |    15 |                                                 78.95% of terminal disables |
+| Utility disables                |     0 |                                                  0.00% of terminal disables |
+| Immobilisation outcomes         |     4 |                              100.00% of mobility disables; 5.00% of matches |
+
+The requested headline conversions are:
+
+- qualification to state transition: `100 / 164 = 60.98%`;
+- qualification to resistance: `64 / 164 = 39.02%`;
+- qualification to terminal disable: `19 / 164 = 11.59%`;
+- terminal mobility disable to immobilisation: `4 / 4 = 100.00%`.
+
+Per-match distributions are shown as `events in a match: number of matches`:
+
+| Stage                          | Distribution                                                                                  | Min / median / mean / max |
+| ------------------------------ | --------------------------------------------------------------------------------------------- | ------------------------- |
+| Successful attacks             | `6:1, 10:2, 11:2, 12:11, 13:5, 14:10, 15:6, 16:11, 17:7, 18:10, 19:7, 20:2, 21:3, 22:2, 25:1` | 6 / 16 / 15.69 / 25       |
+| Qualifying hits and selections | `0:4, 1:28, 2:20, 3:18, 4:8, 5:2`                                                             | 0 / 2 / 2.05 / 5          |
+| Resistances                    | `0:30, 1:36, 2:14`                                                                            | 0 / 1 / 0.80 / 2          |
+| Healthy-to-damaged             | `0:14, 1:52, 2:13, 3:1`                                                                       | 0 / 1 / 1.01 / 3          |
+| Damaged-to-disabled            | `0:62, 1:17, 2:1`                                                                             | 0 / 0 / 0.24 / 2          |
+| Mobility disables              | `0:76, 1:4`                                                                                   | 0 / 0 / 0.05 / 1          |
+| Weapon disables                | `0:65, 1:15`                                                                                  | 0 / 0 / 0.19 / 1          |
+| Utility disables               | `0:80`                                                                                        | 0 / 0 / 0 / 0             |
+
+Selection facts are complete for this run:
+
+- mobility was selected 93 times and weapon 71 times; utility was never
+  selected because its front-zone weight is zero;
+- per match, mobility selections were
+  `0:30, 1:20, 2:19, 3:9, 4:2`; weapon selections were
+  `0:25, 1:39, 2:16`;
+- 145 selections saw a healthy component: 64 were resisted mobility
+  selections and 81 became damaged;
+- 19 selections saw an already-damaged component and all 19 became disabled;
+- there were 64 resisted mobility selections;
+- no qualifying hit lacked an eligible component and no qualifying hit lacked
+  a selection.
+
+Component event rounds were:
+
+- healthy-to-damaged:
+  `1:2, 2:3, 3:5, 4:5, 5:5, 6:9, 7:7, 8:3, 9:2, 10:2, 11:1, 12:8, 13:3, 14:4, 15:6, 16:7, 17:2, 18:3, 19:2, 20:2`;
+- resistance:
+  `1:10, 2:3, 3:4, 4:7, 5:1, 6:8, 7:1, 8:2, 9:3, 10:1, 11:6, 12:6, 13:2, 14:3, 16:1, 17:3, 19:2, 20:1`;
+- damaged-to-disabled:
+  `6:1, 9:1, 10:3, 11:1, 12:3, 13:2, 14:1, 15:1, 16:1, 17:2, 19:2, 20:1`.
+
+Four disables occurred on their match's last round. All four were mobility
+disables and caused the four immobilisation results, so zero recorded disables
+are provably too late to affect the result. The stream can identify a
+non-mobility disable after the final attack at the cap, but it cannot prove a
+broader causal claim such as whether an earlier weapon disable changed the
+eventual judge decision without a counterfactual simulation. No such final-cap
+non-mobility disable occurred.
+
+### 22.3 Reinforced-drive effect
+
+| Guard fact                               | Count |
+| ---------------------------------------- | ----: |
+| Guards available at match start          |   160 |
+| Guards spent                             |    64 |
+| Guards lost through a utility transition |     0 |
+| Guards still available at match end      |    96 |
+| Matches spending no guard                |    30 |
+| Matches spending one guard               |    36 |
+| Matches spending both guards             |    14 |
+| Qualifying mobility selections blocked   |    64 |
+
+Every resistance replaced what would otherwise have been a healthy-to-damaged
+mobility transition, so 64 immediate mobility-damaged transitions were blocked.
+From the persisted selection sequences, 64 fighters received at least one
+mobility selection, 25 received at least two, and 4 received the three required
+under reinforced drive.
+
+If the same selections are replayed analytically with the guard removed, 21
+additional fighters would reach mobility disabled and 19 additional matches
+would acquire a mobility-disable outcome. Together with the four observed
+outcomes, at most 23/80 (28.75%) matches would contain a mobility disable on the
+persisted paths. That is not a guaranteed immobilisation rate: simultaneous
+double disables and earlier match endings can change the method. The four
+observed mobility disables would have happened 2, 5, 5, and 6 rounds earlier.
+This is not a simulated no-utility benchmark because an earlier ending would
+change later events and PRNG consumption.
+
+The Bulwark mirror therefore tests the component lifecycle plus two defensive
+utilities, not the component lifecycle alone. A fixed no-utility Bulwark mirror
+is required as a separate lifecycle diagnostic. The already-valid
+heavy/tracks/ram/`none` configuration in the simulation-batch fixtures can be
+the basis; no public opponent is needed.
+
+### 22.4 Structural-destruction feasibility
+
+Both fighters start at 150 integrity. Across all 1,255 successful attacks:
+
+- raw damage was 12 minimum, 19 median, 19.253 mean, and 25 maximum;
+- effective integrity damage was exactly 1 on all 1,255 hits;
+- per-fighter total integrity damage was 3 minimum, 8 median, 7.844 mean, and
+  14 maximum;
+- final integrity was 136 minimum, 142 median, 142.156 mean, and 147 maximum.
+
+No match had either fighter within 10, 25, or 50 integrity of destruction. With
+at most one attack per fighter per round, even 20 successful maximum-raw-damage
+hits deal only 20 integrity damage to a Bulwark: `25 - 60 * 0.5` is still below
+the one-damage clamp. The pairing can therefore deal at most 20 damage to each
+fighter, or 40 combined, within 20 rounds.
+
+Structural destruction is mathematically impossible in this fixture under the
+frozen damage, armour, build, policy, and round cap. It is not merely
+statistically unlikely. The minimum-one-damage clamp dominates 100% of
+successful hits. The `structural destruction >= 10%` gate cannot be repaired by
+component qualification tuning.
+
+### 22.5 Round cap and judges
+
+Match-ending rounds were `10:1, 14:1, 19:1, 20:77`. Thus 77/80 (96.25%) reached
+round 20. Of those, 76 ended with judges and one ended by immobilisation; the
+other three immobilisations occurred in rounds 10, 14, and 19.
+
+The following categories overlap but isolate the mechanisms:
+
+- 52 matches had fewer than three total qualifying hits, the absolute minimum
+  needed to disable one guarded mobility component;
+- 48 matches produced at least one damaged component but no disabled component;
+- 50 matches spent at least one guard and therefore had lifecycle progression
+  delayed;
+- 55 matches damaged a weapon, and 53 of those had a later successful hit by
+  that fighter;
+- damaged weapons made 205 successful hits in later rounds and none qualified;
+  integrity damage nevertheless remained one because the minimum clamp was
+  already dominant;
+- all 80 matches were structurally unable to remove 150 integrity within the
+  cap;
+- zero terminal disables were provably too late to affect the result.
+
+Judges must be below 45%, so at most 35 of 80 matches may go to judges. With
+destruction impossible, 41 currently judged matches would need a new
+match-ending mobility disable. This would raise immobilisation from 4 to 45
+matches (56.25%), inside the 40%-75% range. The immobilisation lower bound alone
+would require 28 additional matches.
+
+Qualification-only tuning cannot reach the judge target safely. The bounded
+model in the next section estimates about 8.2 qualifying hits per match are
+needed for 56% immobilisation, but that produces about 93% terminal-disable
+incidence and violates the `< 85%` gate. First-round immobilisation remains
+structurally zero in this mirror because each fighter can receive at most one
+component selection in round one and no healthy-to-disabled transition exists.
+The limiting conflict is renewed terminal-component dominance, not the
+first-round gate.
+
+### 22.6 Bounded qualification-incidence sensitivity
+
+This analytical model treats qualifying hits per match as Poisson with mean
+`lambda`. Front hits are independently split across the two target fighters and
+the two selectable components, giving each target/component stream mean
+`lambda / 4`. Mobility needs three selections (resisted, damaged, disabled);
+weapon needs two (damaged, disabled). The model does not rerun combat, model
+state-dependent weight renormalisation, or change constants.
+
+It is well calibrated at the current incidence: for `lambda = 2`, it estimates
+0.79 resistances, 0.97 damaged transitions, 0.21 terminal disables, 2.86%
+immobilisation, and 19.59% terminal-disable incidence per match. Observed values
+at 2.05 qualifications per match are 0.80, 1.01, 0.24, 5.00%, and 22.50%.
+
+| Qualifying hits/match | Resistances/match | Damaged/match | Terminal disables/match | Mobility disables/match | Likely immobilisation | Any terminal disable | Any qualification |
+| --------------------: | ----------------: | ------------: | ----------------------: | ----------------------: | --------------------: | -------------------: | ----------------: |
+|                   2.0 |              0.79 |          0.97 |                    0.21 |                    0.03 |                 2.86% |               19.59% |            86.47% |
+|                   3.0 |              1.06 |          1.40 |                    0.43 |                    0.08 |                 7.94% |               37.09% |            95.02% |
+|                   4.0 |              1.26 |          1.79 |                    0.69 |                    0.16 |                15.42% |               54.21% |            98.17% |
+|                   5.0 |              1.43 |          2.14 |                    0.97 |                    0.26 |                24.58% |               68.66% |            99.33% |
+
+Even five qualifying hits per match does not reach the 40% immobilisation
+floor or the judge gate, while almost every match already contains a lifecycle
+event. Extending the same model only to locate the conflict gives about 8.2
+qualifications per match for 56.02% immobilisation and 93.22% terminal-disable
+incidence. No reasonable incidence in the bounded range satisfies all current
+gates simultaneously. Because first-round immobilisation is structurally zero,
+the growing risks are near-universal lifecycle incidence and terminal-disable
+dominance.
+
+### 22.7 Critical-rate separation
+
+The observed critical rate was 907/1,255 (72.27%), close to the nominal 70%.
+All 164 qualifying hits were critical-qualified. Only two were also
+high-impact-qualified, and there were zero high-only qualifications. The
+high-impact branch therefore added no qualifying hits in this fixture.
+
+Component impact had a boundary cliff: 135 hits had impact 10, 126 had impact
+11, 78 had impact 12, and 2 had impact 13. Holding the high threshold at 13,
+lowering only the critical threshold from 11 to 10 would raise qualifications
+from 164 to 259; raising it from 11 to 12 would lower them to 59. Moving both
+thresholds down one point to 10/12 would produce 280 qualifications, a 70.73%
+jump. This is strong one-point sensitivity caused by discrete damage and the
+high critical rate.
+
+The critical probability is frozen for 0.2B. Its interaction with discrete
+impact thresholds should become a separate future ADR or balance task, not part
+of C1 completion.
+
+### 22.8 Gate classification
+
+| Current hard gate          | Classification                  | Reason                                                                                                                   |
+| -------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| First-round immobilisation | Component-lifecycle gate        | Directly guards against healthy-to-disabled volatility; structurally zero under the accepted two-stage mirror lifecycle. |
+| Overall immobilisation     | Opponent-fixture-dependent gate | Depends on component weights, utility, armour, policies, and pairing.                                                    |
+| Terminal-disable incidence | Component-lifecycle gate        | Directly measures whether lifecycle terminals dominate matches.                                                          |
+| Structural destruction     | Whole-combat-balance gate       | Controlled by integrity, armour absorption, weapon damage, attack cadence, and cap; impossible here.                     |
+| Judges decisions           | Whole-combat-balance gate       | Remainder of all finish mechanics and the match cap.                                                                     |
+| Draw rate                  | Opponent-fixture-dependent gate | Especially sensitive to an identical mirror and judge tie-break symmetry.                                                |
+| Finish-method dominance    | Whole-combat-balance gate       | Couples destruction, immobilisation, judges, and cap mechanics.                                                          |
+| Average rounds             | Whole-combat-balance gate       | Depends on every finish path and attack cadence.                                                                         |
+| Maximum rounds             | Whole-combat-balance gate       | Primarily the engine cap and non-component finish paths.                                                                 |
+| Round-cap incidence        | Opponent-fixture-dependent gate | Measures whether this build/policy pairing can finish under the global cap.                                              |
+
+A component-lifecycle milestone must not fail solely because an unrelated
+integrity finish is impossible. Option A, keeping the gates unchanged, is
+rejected. Option C, changing only the fixture suite, still makes lifecycle
+acceptance depend on whole-combat balance. Option B correctly separates scope,
+but does not by itself expose guard interference or low-armour over-aggression.
+
+Select **Option D: combined split and fixture suite**. Apply hard lifecycle gates
+to fixed lifecycle fixtures and retain whole-combat finish-distribution metrics
+as diagnostics until a later balance milestone evaluates a representative
+suite.
+
+### 22.9 Proposed 0.2B lifecycle acceptance and diagnostics
+
+Proposed hard gates:
+
+- first-round immobilisation remains below 13.2%;
+- matches with any terminal disable remain below 85%;
+- zero state transitions is failure and zero terminal disables is failure;
+- no event may transition healthy directly to disabled;
+- damaged mobility does not end a match and disabled mobility does;
+- damaged mobility and weapon penalties are observable in deterministic facts
+  or focused tests;
+- reinforced-drive resistance occurs at least once but on fewer than 100% of
+  qualifying mobility selections;
+- in the front-zone Bulwark stress fixture, neither selectable component may
+  exceed 85% of terminal disables once at least ten exist; broader component
+  mix remains a pooled-suite diagnostic until multi-zone fixtures exist;
+- historical v1/v2 replay compatibility and deterministic checksums pass;
+- every transition is factually reconstructable without current constants or
+  catalogue inference.
+
+Provisional investigation bands, not hard gates:
+
+| Diagnostic                               | Investigation band                         |              C1 Bulwark mirror |
+| ---------------------------------------- | ------------------------------------------ | -----------------------------: |
+| Qualifying hits/match                    | 1-5; 2-4 preferred                         |                           2.05 |
+| Matches with any lifecycle event         | 50%-99%                                    |                         95.00% |
+| Matches with a state transition          | 25%-95%                                    |                         82.50% |
+| Healthy-to-damaged transitions/match     | 0.5-2.5                                    |                           1.01 |
+| Damaged-to-disabled transitions/match    | 0.1-0.8                                    |                           0.24 |
+| Resistance/qualifying mobility selection | 10%-75%                                    |                         68.82% |
+| Terminal mix in the front stress fixture | each selectable category 15%-85%           | mobility 21.05%, weapon 78.95% |
+| Immobilisation                           | 0%-35% in the guarded stress fixture       |                          5.00% |
+| Average match length                     | 12-20 rounds in the guarded stress fixture |                          19.79 |
+
+These bands identify null, universal, or sharply skewed behaviour. They are not
+substitutes for later whole-combat finish targets.
+
+### 22.10 Fixture strategy
+
+| Fixture                          | Role in 0.2B                                       | Recommendation                                                                                                                                                                                       |
+| -------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bulwark mirror                   | High-armour plus reinforced-drive stress           | Hard lifecycle acceptance fixture. Do not use its destruction or judge rate as a lifecycle gate.                                                                                                     |
+| Bulwark without reinforced drive | High-armour progression without guard interference | Add as a benchmark-only fixture using the existing valid heavy/tracks/ram/`none` configuration; make its transition semantics hard after the fixture is frozen and keep its finish rates diagnostic. |
+| Glass Cannon mirror              | Low-armour transition and over-aggression check    | Diagnostic fixture using the committed integration-test build and policy.                                                                                                                            |
+| Role-swapped heavy versus light  | Armour differentiation and fairness                | Defer formal acceptance to Milestone 0.2D; it may be explored diagnostically only after a fixed benchmark fixture is documented.                                                                     |
+
+Fixture expansion is required before a permanent constants decision, but no new
+public opponent is required for 0.2B.
+
+### 22.11 Decision
+
+Supported statements:
+
+- **A is partially supported:** C1 is conservative for match-ending mobility in
+  a guarded Bulwark mirror, but the observed lifecycle is neither null nor
+  universally dominant. This does not justify C2 because qualification tuning
+  cannot repair the destruction gate and the judge target conflicts with the
+  terminal-disable gate.
+- **B is supported:** the Bulwark mirror is a stress fixture combining high
+  armour with two defensive utilities and is unsuitable as the sole acceptance
+  fixture.
+- **C is supported:** structural destruction, judges, finish dominance, average
+  rounds, and cap incidence require mechanics or balance inputs outside
+  qualification-only 0.2B scope.
+
+The required outcome is:
+
+> **B. Candidate C1 is viable, but the 0.2B gates must be split or re-scoped
+> before acceptance.**
+
+C1 is retained pending revised gates and fixed diagnostic fixtures. It is not
+permanently accepted or rejected. Another constant candidate is not justified
+by this evidence. The next task is a documentation/benchmark-fixture task to
+approve the split gates and freeze the no-utility and Glass Cannon diagnostics;
+it must not combine critical-rate review or C2 tuning. Milestone 0.2B remains
+incomplete.
