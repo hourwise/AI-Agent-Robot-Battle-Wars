@@ -31,11 +31,13 @@ function matchResultToRecordV1(
     rulesetVersion: result.config.rulesetVersion,
     catalogueVersion: result.config.catalogueVersion,
     simulatorVersion: SIMULATOR_VERSION,
+    componentQualificationId: result.config.componentQualificationId,
     seed: result.config.seed,
     config: {
       seed: result.config.seed,
       rulesetVersion: result.config.rulesetVersion,
       catalogueVersion: result.config.catalogueVersion,
+      componentQualificationId: result.config.componentQualificationId,
       fighterA: {
         build: result.config.fighterA.build,
         policy: result.config.fighterA.policy,
@@ -67,11 +69,13 @@ function matchResultToRecordV2(
     rulesetVersion: result.config.rulesetVersion,
     catalogueVersion: result.config.catalogueVersion,
     simulatorVersion: SIMULATOR_VERSION,
+    componentQualificationId: result.config.componentQualificationId,
     seed: result.config.seed,
     config: {
       seed: result.config.seed,
       rulesetVersion: result.config.rulesetVersion,
       catalogueVersion: result.config.catalogueVersion,
+      componentQualificationId: result.config.componentQualificationId,
       fighterA: {
         build: result.config.fighterA.build,
         policy: result.config.fighterA.policy,

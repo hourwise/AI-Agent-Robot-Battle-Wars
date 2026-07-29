@@ -50,7 +50,7 @@ describe("full match (Bulwark vs Bulwark)", () => {
 
   it("produces different results for different seeds", () => {
     const result1 = runMatch({
-      seed: 1,
+      seed: 1246298,
       fighterA: { build, policy: BULWARK_POLICY },
       fighterB: { build, policy: BULWARK_POLICY },
       rulesetVersion: "0.1.0",

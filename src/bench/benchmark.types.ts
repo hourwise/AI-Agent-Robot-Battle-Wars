@@ -69,6 +69,11 @@ export interface PerMatchResult {
   readonly criticalHits: number;
   readonly attacksAttempted: number;
   readonly attacksHit: number;
+  readonly qualifyingHits: number;
+  readonly criticalQualifiedHits: number;
+  readonly highImpactQualifiedHits: number;
+  readonly hitsSatisfyingBothConditions: number;
+  readonly nonQualifyingSuccessfulHits: number;
   /** v2: component transition counts */
   readonly componentDamagedTransitions: number;
   readonly componentDisabledTransitions: number;
@@ -82,6 +87,7 @@ export interface PerMatchResult {
   readonly mobilityDisabledCount: number;
   readonly weaponDisabledCount: number;
   readonly utilityDisabledCount: number;
+  readonly terminalDisable: boolean;
 }
 
 export interface SlotOutcomes {
@@ -135,6 +141,15 @@ export interface AggregateMetrics {
   readonly totalAttacks: number;
   readonly totalHits: number;
   readonly hitRate: number;
+  readonly totalQualifyingHits: number;
+  readonly totalCriticalQualifiedHits: number;
+  readonly totalHighImpactQualifiedHits: number;
+  readonly totalHitsSatisfyingBothConditions: number;
+  readonly totalNonQualifyingSuccessfulHits: number;
+  readonly qualificationRate: number;
+  readonly matchesWithAtLeastOneQualifyingHit: number;
+  readonly matchesWithAtLeastTwoQualifyingHits: number;
+  readonly matchesWithAtLeastThreeQualifyingHits: number;
   /** v2: component transition metrics */
   readonly totalDamagedTransitions: number;
   readonly totalDisabledTransitions: number;
@@ -161,6 +176,13 @@ export interface BenchmarkReport {
   readonly simulatorVersion: string;
   readonly rulesetVersion: string;
   readonly catalogueVersion: string;
+  readonly componentQualificationId: string;
+  readonly qualificationConstants: {
+    readonly armourFactor: number;
+    readonly minimumImpact: number;
+    readonly criticalThreshold: number;
+    readonly highImpactThreshold: number;
+  };
   readonly fighterX: {
     readonly machineName: string;
     readonly buildFingerprint: string;

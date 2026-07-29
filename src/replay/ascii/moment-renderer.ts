@@ -33,15 +33,24 @@ function describeEvent(event: SimulationEvent, state: CompetitionState): string 
 
     case "component_damaged": {
       const component = event.data.component as string;
+      if (event.data.componentImpact !== undefined) {
+        return `${targetName}'s ${component} system is damaged at component impact ${event.data.componentImpact}.`;
+      }
       return `${targetName}'s ${component} system is damaged.`;
     }
 
     case "component_damage_resisted": {
+      if (event.data.componentImpact !== undefined) {
+        return `${targetName}'s reinforced drive absorbs component impact ${event.data.componentImpact}.`;
+      }
       return `${targetName}'s reinforced drive absorbs the impact.`;
     }
 
     case "component_disabled": {
       const component = event.data.component as string;
+      if (event.data.componentImpact !== undefined) {
+        return `${targetName}'s ${component} system is disabled at component impact ${event.data.componentImpact}.`;
+      }
       return `${targetName}'s ${component} system is disabled.`;
     }
 

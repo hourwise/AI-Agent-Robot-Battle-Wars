@@ -11,6 +11,15 @@ import { computeMetrics } from "../bench/metrics.js";
 import { renderTextReport } from "../bench/report-renderer.js";
 import { createBulwarkBuild, BULWARK_POLICY } from "../agents/scripted/bulwark-agent.js";
 import type { BenchmarkReport, SeedPartition } from "../bench/benchmark.types.js";
+import {
+  SIMULATOR_VERSION,
+  RULESET_VERSION,
+  COMPONENT_QUALIFICATION_ID,
+  COMPONENT_ARMOUR_FACTOR,
+  COMPONENT_MIN_IMPACT,
+  CRITICAL_COMPONENT_IMPACT_THRESHOLD,
+  HIGH_COMPONENT_IMPACT_THRESHOLD,
+} from "../simulator/constants.js";
 
 const SEED_BANK_PATH = join("data", "seeds", "benchmark-100-v1.json");
 
@@ -105,9 +114,16 @@ function main() {
     benchmarkId: `bulwark-mirror-${partition}`,
     seedBankId: bank.bankId,
     partition,
-    simulatorVersion: bank.simulatorVersion,
-    rulesetVersion: bank.rulesetVersion,
+    simulatorVersion: SIMULATOR_VERSION,
+    rulesetVersion: RULESET_VERSION,
     catalogueVersion: bank.catalogueVersion,
+    componentQualificationId: COMPONENT_QUALIFICATION_ID,
+    qualificationConstants: {
+      armourFactor: COMPONENT_ARMOUR_FACTOR,
+      minimumImpact: COMPONENT_MIN_IMPACT,
+      criticalThreshold: CRITICAL_COMPONENT_IMPACT_THRESHOLD,
+      highImpactThreshold: HIGH_COMPONENT_IMPACT_THRESHOLD,
+    },
     fighterX: {
       machineName: "The Bulwark",
       buildFingerprint: fingerprintBuild(buildA),

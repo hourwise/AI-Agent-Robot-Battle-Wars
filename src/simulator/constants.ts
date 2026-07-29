@@ -1,9 +1,12 @@
 export const SIMULATOR_VERSION = "0.2.0" as const;
 export const RULESET_VERSION = "0.2.0" as const;
 
-// 0.2B component qualification candidate set A (benchmark-tuned, not permanent)
-export const CRITICAL_COMPONENT_DAMAGE_THRESHOLD = 10 as const;
-export const HIGH_DAMAGE_COMPONENT_THRESHOLD = 35 as const;
+// 0.2B Candidate C1 component-impact qualification.
+export const COMPONENT_QUALIFICATION_ID = "component-impact-c1" as const;
+export const COMPONENT_ARMOUR_FACTOR = 0.2 as const;
+export const COMPONENT_MIN_IMPACT = 0 as const;
+export const CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11 as const;
+export const HIGH_COMPONENT_IMPACT_THRESHOLD = 13 as const;
 // Proportion of base damage when weapon component is damaged
 export const DAMAGED_WEAPON_MULTIPLIER = 0.75 as const;
 // Speed penalty when mobility component is damaged

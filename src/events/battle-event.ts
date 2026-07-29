@@ -5,6 +5,7 @@ export type CompetitionStartedData = {
   rulesetVersion: string;
   catalogueVersion: string;
   simulatorVersion: string;
+  componentQualificationId?: string;
   fighterA: { id: string; build: unknown };
   fighterB: { id: string; build: unknown };
 };
@@ -32,7 +33,16 @@ export type AttackHitData = {
   hitZone: string;
   rawDamage: number;
   effectiveDamage: number;
+  integrityEffectiveDamage?: number;
   isCritical: boolean;
+  armourAtHitZone?: number;
+  componentImpact?: number;
+  componentQualificationId?: string;
+  componentArmourFactor?: number;
+  componentMinimumImpact?: number;
+  criticalComponentImpactThreshold?: number;
+  highComponentImpactThreshold?: number;
+  qualificationReason?: string | null;
 };
 
 export type IntegrityDamagedData = {
@@ -40,9 +50,29 @@ export type IntegrityDamagedData = {
   remaining: number;
 };
 
-export type ComponentDisabledData = {
+export type ComponentTransitionData = {
   component: string;
+  previousState: string;
+  newState: string;
+  sourceAttack: { weapon: string; isCritical: boolean };
+  rawDamage: number;
+  armourAtHitZone: number;
+  integrityEffectiveDamage: number;
+  componentImpact: number;
+  componentQualificationId: string;
+  componentArmourFactor: number;
+  componentMinimumImpact: number;
+  criticalComponentImpactThreshold: number;
+  highComponentImpactThreshold: number;
+  qualificationReason: string | null;
+  hitZone: string;
+  reason: string;
+  guardStateBefore?: string;
+  guardStateAfter?: string;
+  utilityRuntimeChange?: Record<string, string>;
 };
+
+export type ComponentDisabledData = ComponentTransitionData;
 
 export type RobotOverturnedData = Record<string, never>;
 

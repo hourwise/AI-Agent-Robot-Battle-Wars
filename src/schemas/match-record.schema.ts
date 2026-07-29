@@ -3,6 +3,8 @@ import { machineBuildProposalSchema } from "./build.schema.js";
 import { actionPolicySchema } from "./policy.schema.js";
 import { MatchReviewSchema } from "./review.schema.js";
 
+const componentQualificationIdSchema = z.literal("component-impact-c1");
+
 const validatedBuildSchema = z.object({
   proposal: machineBuildProposalSchema,
   totalCost: z.number().int().nonnegative(),
@@ -107,6 +109,7 @@ const matchConfigSchema = z.object({
   fighterB: z.object({ build: validatedBuildSchema, policy: actionPolicySchema }),
   rulesetVersion: z.string(),
   catalogueVersion: z.string(),
+  componentQualificationId: componentQualificationIdSchema.optional(),
 });
 
 const agentUsageRecordSchema = z.object({
@@ -144,6 +147,7 @@ export const MatchRecordV1Schema = z.object({
   rulesetVersion: z.string(),
   catalogueVersion: z.string(),
   simulatorVersion: z.string(),
+  componentQualificationId: componentQualificationIdSchema.optional(),
   seed: z.number().int().nonnegative(),
   config: matchConfigSchema,
   initialState: z.object({
@@ -164,6 +168,7 @@ export const MatchRecordV2Schema = z.object({
   rulesetVersion: z.string(),
   catalogueVersion: z.string(),
   simulatorVersion: z.string(),
+  componentQualificationId: componentQualificationIdSchema.optional(),
   seed: z.number().int().nonnegative(),
   config: matchConfigSchema,
   initialState: z.object({

@@ -78,17 +78,26 @@ export function describeEvent(event: SimulationEvent, result: MatchResult): stri
       const component = event.data.component as string;
       const prev = event.data.previousState as string;
       const next = event.data.newState as string;
+      if (event.data.componentImpact !== undefined) {
+        return `${target}'s ${component} is damaged at component impact ${event.data.componentImpact} (${String(event.data.qualificationReason ?? "unknown")}).`;
+      }
       return `${target}'s ${component} is damaged (${prev} → ${next}).`;
     }
 
     case "component_damage_resisted": {
       const guardBefore = event.data.guardStateBefore as string;
       const guardAfter = event.data.guardStateAfter as string;
+      if (event.data.componentImpact !== undefined) {
+        return `${target}'s reinforced drive absorbs component impact ${event.data.componentImpact} (guard: ${guardBefore} to ${guardAfter}).`;
+      }
       return `${target}'s reinforced drive absorbs the hit (guard: ${guardBefore} → ${guardAfter}).`;
     }
 
     case "component_disabled": {
       const component = event.data.component as string;
+      if (event.data.componentImpact !== undefined) {
+        return `${target}'s ${component} system is disabled at component impact ${event.data.componentImpact}!`;
+      }
       return `${target}'s ${component} system is disabled!`;
     }
 

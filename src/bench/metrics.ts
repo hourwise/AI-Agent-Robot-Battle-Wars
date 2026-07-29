@@ -142,6 +142,11 @@ export function computeMetrics(
   const totalCriticalHits = results.reduce((s, r) => s + r.criticalHits, 0);
   const totalAttacks = results.reduce((s, r) => s + r.attacksAttempted, 0);
   const totalHits = results.reduce((s, r) => s + r.attacksHit, 0);
+  const totalQualifyingHits = results.reduce((s, r) => s + r.qualifyingHits, 0);
+  const totalCriticalQualifiedHits = results.reduce((s, r) => s + r.criticalQualifiedHits, 0);
+  const totalHighImpactQualifiedHits = results.reduce((s, r) => s + r.highImpactQualifiedHits, 0);
+  const totalHitsSatisfyingBothConditions = results.reduce((s, r) => s + r.hitsSatisfyingBothConditions, 0);
+  const totalNonQualifyingSuccessfulHits = results.reduce((s, r) => s + r.nonQualifyingSuccessfulHits, 0);
 
   // v2: component transition metrics
   const totalDamagedTransitions = results.reduce((s, r) => s + (r.componentDamagedTransitions ?? 0), 0);
@@ -195,6 +200,15 @@ export function computeMetrics(
     totalAttacks,
     totalHits,
     hitRate: totalAttacks > 0 ? totalHits / totalAttacks : 0,
+    totalQualifyingHits,
+    totalCriticalQualifiedHits,
+    totalHighImpactQualifiedHits,
+    totalHitsSatisfyingBothConditions,
+    totalNonQualifyingSuccessfulHits,
+    qualificationRate: totalHits > 0 ? totalQualifyingHits / totalHits : 0,
+    matchesWithAtLeastOneQualifyingHit: results.filter((r) => r.qualifyingHits >= 1).length,
+    matchesWithAtLeastTwoQualifyingHits: results.filter((r) => r.qualifyingHits >= 2).length,
+    matchesWithAtLeastThreeQualifyingHits: results.filter((r) => r.qualifyingHits >= 3).length,
     totalDamagedTransitions,
     totalDisabledTransitions,
     totalResistedTransitions,

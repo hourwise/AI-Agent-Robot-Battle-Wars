@@ -10,8 +10,11 @@ import {
   DAMAGED_WEAPON_MULTIPLIER,
   DAMAGED_COOLING_BONUS,
   COOLING_BONUS,
-  CRITICAL_COMPONENT_DAMAGE_THRESHOLD,
-  HIGH_DAMAGE_COMPONENT_THRESHOLD,
+  COMPONENT_ARMOUR_FACTOR,
+  COMPONENT_MIN_IMPACT,
+  COMPONENT_QUALIFICATION_ID,
+  CRITICAL_COMPONENT_IMPACT_THRESHOLD,
+  HIGH_COMPONENT_IMPACT_THRESHOLD,
 } from "./constants.js";
 import type { SeededRandom } from "./seeded-random.js";
 
@@ -90,22 +93,71 @@ export function createInitialUtilityState(utilityId: string): UtilityRuntimeStat
 
 // ── Qualification ──
 
+export interface ComponentImpactInput {
+  readonly rawDamage: number;
+  readonly armourAtHitZone: number;
+}
+
+export interface ComponentImpactResult {
+  readonly rawDamage: number;
+  readonly armourAtHitZone: number;
+  readonly armourFactor: number;
+  readonly minimumImpact: number;
+  readonly componentImpact: number;
+}
+
 export interface QualificationResult {
-  qualifies: boolean;
-  reason: "critical_effective_damage" | "high_effective_damage" | null;
+  readonly qualifies: boolean;
+  readonly qualificationId: typeof COMPONENT_QUALIFICATION_ID;
+  readonly componentImpact: number;
+  readonly criticalThreshold: number;
+  readonly highImpactThreshold: number;
+  readonly reason: "critical_component_impact" | "high_component_impact" | null;
+}
+
+export function calculateComponentImpact(input: ComponentImpactInput): ComponentImpactResult {
+  if (!Number.isFinite(input.rawDamage) || input.rawDamage < 0) {
+    throw new Error("rawDamage must be a finite non-negative number");
+  }
+  if (!Number.isFinite(input.armourAtHitZone) || input.armourAtHitZone < 0) {
+    throw new Error("armourAtHitZone must be a finite non-negative number");
+  }
+  return {
+    rawDamage: Math.trunc(input.rawDamage),
+    armourAtHitZone: Math.trunc(input.armourAtHitZone),
+    armourFactor: COMPONENT_ARMOUR_FACTOR,
+    minimumImpact: COMPONENT_MIN_IMPACT,
+    componentImpact: Math.max(
+      COMPONENT_MIN_IMPACT,
+      Math.round(Math.trunc(input.rawDamage) - Math.trunc(input.armourAtHitZone) * COMPONENT_ARMOUR_FACTOR),
+    ),
+  };
 }
 
 export function checkComponentQualification(
   isCritical: boolean,
-  effectiveDamage: number,
+  componentImpact: number,
 ): QualificationResult {
-  if (isCritical && effectiveDamage >= CRITICAL_COMPONENT_DAMAGE_THRESHOLD) {
-    return { qualifies: true, reason: "critical_effective_damage" };
+  if (!Number.isFinite(componentImpact) || componentImpact < COMPONENT_MIN_IMPACT) {
+    return {
+      qualifies: false,
+      qualificationId: COMPONENT_QUALIFICATION_ID,
+      componentImpact: COMPONENT_MIN_IMPACT,
+      criticalThreshold: CRITICAL_COMPONENT_IMPACT_THRESHOLD,
+      highImpactThreshold: HIGH_COMPONENT_IMPACT_THRESHOLD,
+      reason: null,
+    };
   }
-  if (effectiveDamage >= HIGH_DAMAGE_COMPONENT_THRESHOLD) {
-    return { qualifies: true, reason: "high_effective_damage" };
-  }
-  return { qualifies: false, reason: null };
+  const criticalQualifies = isCritical && componentImpact >= CRITICAL_COMPONENT_IMPACT_THRESHOLD;
+  const highImpactQualifies = componentImpact >= HIGH_COMPONENT_IMPACT_THRESHOLD;
+  return {
+    qualifies: criticalQualifies || highImpactQualifies,
+    qualificationId: COMPONENT_QUALIFICATION_ID,
+    componentImpact,
+    criticalThreshold: CRITICAL_COMPONENT_IMPACT_THRESHOLD,
+    highImpactThreshold: HIGH_COMPONENT_IMPACT_THRESHOLD,
+    reason: criticalQualifies ? "critical_component_impact" : highImpactQualifies ? "high_component_impact" : null,
+  };
 }
 
 // ── Component selection ──
@@ -133,7 +185,8 @@ export function selectComponentForTransition(
 
   if (eligible.length === 0) return null;
 
-  const weights = ZONE_WEIGHTS[hitZone] ?? ZONE_WEIGHTS.front!;
+  const weights = ZONE_WEIGHTS[hitZone];
+  if (!weights) return null;
   const entryWeights = eligible.map((k) => weights[k] ?? 0);
   const total = entryWeights.reduce((a, b) => a + b, 0);
   if (total <= 0) return eligible[0]!;
@@ -160,10 +213,12 @@ export interface TransitionResult {
 export function transitionComponentState(
   comps: ComponentStates,
   component: ComponentKind,
-  isCritical: boolean,
-  effectiveDamage: number,
+  qualificationOrCritical: QualificationResult | boolean,
+  impactOrLegacyDamage: number = 0,
 ): TransitionResult {
-  const qual = checkComponentQualification(isCritical, effectiveDamage);
+  const qual = typeof qualificationOrCritical === "boolean"
+    ? checkComponentQualification(qualificationOrCritical, impactOrLegacyDamage)
+    : qualificationOrCritical;
   if (!qual.qualifies) {
     return {
       transitionOccurred: false,

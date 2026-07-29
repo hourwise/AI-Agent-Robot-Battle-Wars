@@ -27,6 +27,7 @@ export interface AttackResult {
   hit: boolean;
   hitZone: keyof ArmourState;
   rawDamage: number;
+  armourAtHitZone: number;
   effectiveDamage: number;
   isCritical: boolean;
   overturnSuccess: boolean;
@@ -52,6 +53,7 @@ export function calculateAttack(
       hit: false,
       hitZone: "front",
       rawDamage: 0,
+      armourAtHitZone: 0,
       effectiveDamage: 0,
       isCritical: false,
       overturnSuccess: false,
@@ -105,6 +107,7 @@ export function calculateAttack(
     hit: true,
     hitZone,
     rawDamage: Math.round(rawDamage),
+    armourAtHitZone: armourValue,
     effectiveDamage,
     isCritical,
     overturnSuccess,

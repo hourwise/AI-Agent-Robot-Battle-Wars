@@ -484,3 +484,13 @@ The future implementation task must:
 - inspect held-out seeds only after the development gates pass.
 
 This amendment does not implement any of these changes.
+
+## 21. Candidate C1 implementation result (2026-07-29)
+
+Candidate C1 is implemented under `component-impact-c1`. The authoritative calculation in `src/simulator/component-state.ts` is `max(0, round(rawDamage - armourAtHitZone * 0.20))`; integrity effective damage remains separate. Qualification now precedes weighted component selection, so non-qualifying hits consume no component-selection PRNG draw.
+
+Transition events persist raw damage, struck-zone armour, integrity damage, component impact, constants, thresholds, reason, hit facts, and candidate identity. Match records and benchmark reports persist the identity. Historical records without it remain compatible and are not interpreted as C1; unknown identifiers are rejected by the strict match-record schema.
+
+The unchanged development partition produced 80 Bulwark mirror matches, 1,255 successful hits, 164 qualifying hits, 164 critical-qualified hits, 2 high-impact-qualified hits, 2 hits satisfying both conditions, 81 damaged transitions, 19 disabled transitions, and 64 resisted events. Checksums: outcomes `6d5ccc01ddc76064`; report `2df267be422b70ab`.
+
+C1 fails development hard gates: destruction 0%, judges 95%, average rounds 19.79, and round-cap incidence exceeds the limit. No tuning or C2 was attempted, held-out seeds remain untouched, and Milestone 0.2B remains incomplete.

@@ -8,6 +8,7 @@ import {
   STARTING_ENERGY,
   STARTING_HEAT,
   SIMULATOR_VERSION,
+  COMPONENT_QUALIFICATION_ID,
 } from "./constants.js";
 import {
   createInitialComponentStates,
@@ -15,6 +16,7 @@ import {
 } from "./component-state.js";
 
 export function runMatch(config: MatchConfig): MatchResult {
+  const resolvedConfig = { ...config, componentQualificationId: config.componentQualificationId ?? COMPONENT_QUALIFICATION_ID };
   const rng = new SeededRandom(config.seed);
   const stateA = createFighterState(
     config.fighterA.build,
@@ -63,10 +65,11 @@ export function runMatch(config: MatchConfig): MatchResult {
 
   const startTs = 0;
   emit("competition_started", 0, startTs, undefined, undefined, {
-    seed: config.seed,
-    rulesetVersion: config.rulesetVersion,
-    catalogueVersion: config.catalogueVersion,
+    seed: resolvedConfig.seed,
+    rulesetVersion: resolvedConfig.rulesetVersion,
+    catalogueVersion: resolvedConfig.catalogueVersion,
     simulatorVersion: SIMULATOR_VERSION,
+    componentQualificationId: resolvedConfig.componentQualificationId,
     fighterA: { id: stateA.fighterId, build: stateA.build.proposal },
     fighterB: { id: stateB.fighterId, build: stateB.build.proposal },
   });
@@ -160,7 +163,7 @@ export function runMatch(config: MatchConfig): MatchResult {
   }
 
   return {
-    config,
+    config: resolvedConfig,
     events: roundState.events,
     result: finalResult,
     rounds:

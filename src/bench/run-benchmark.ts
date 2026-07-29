@@ -3,6 +3,11 @@ import { runMatch } from "../simulator/simulator.js";
 import { CATALOGUE_V1 } from "../catalogue/catalogue.v1.js";
 import type { BenchmarkConfig, PerMatchResult } from "./benchmark.types.js";
 import { getSeedsForPartition } from "./seed-bank.js";
+import {
+  RULESET_VERSION,
+  CRITICAL_COMPONENT_IMPACT_THRESHOLD,
+  HIGH_COMPONENT_IMPACT_THRESHOLD,
+} from "../simulator/constants.js";
 
 export function fingerprintBuild(build: BenchmarkConfig["fighterA"]["build"]): string {
   const canonical = JSON.stringify(build.proposal, Object.keys(build.proposal).sort());
@@ -31,7 +36,7 @@ function extractPerMatch(
     seed,
     fighterA: { build: aBuild, policy: aPolicy },
     fighterB: { build: bBuild, policy: bPolicy },
-    rulesetVersion: config.seedBank.rulesetVersion,
+    rulesetVersion: RULESET_VERSION,
     catalogueVersion: CATALOGUE_V1.version,
   });
 
@@ -56,6 +61,10 @@ function extractPerMatch(
   let criticalHits = 0;
   let attacksHit = 0;
   let attacksMissed = 0;
+  let qualifyingHits = 0;
+  let criticalQualifiedHits = 0;
+  let highImpactQualifiedHits = 0;
+  let hitsSatisfyingBothConditions = 0;
   // v2 transition counters
   let componentDamagedTransitions = 0;
   let componentDisabledTransitions = 0;
@@ -127,6 +136,14 @@ function extractPerMatch(
     if (event.type === "attack_hit") {
       attacksHit++;
       if (event.data.isCritical) criticalHits++;
+      const impact = Number(event.data.componentImpact ?? 0);
+      const critical = Boolean(event.data.isCritical);
+      const criticalQualified = critical && impact >= CRITICAL_COMPONENT_IMPACT_THRESHOLD;
+      const highQualified = impact >= HIGH_COMPONENT_IMPACT_THRESHOLD;
+      if (criticalQualified || highQualified) qualifyingHits++;
+      if (criticalQualified) criticalQualifiedHits++;
+      if (highQualified) highImpactQualifiedHits++;
+      if (criticalQualified && highQualified) hitsSatisfyingBothConditions++;
     }
     if (event.type === "attack_missed") {
       attacksMissed++;
@@ -182,6 +199,11 @@ function extractPerMatch(
     criticalHits,
     attacksAttempted,
     attacksHit,
+    qualifyingHits,
+    criticalQualifiedHits,
+    highImpactQualifiedHits,
+    hitsSatisfyingBothConditions,
+    nonQualifyingSuccessfulHits: attacksHit - qualifyingHits,
     componentDamagedTransitions,
     componentDisabledTransitions,
     componentResistedTransitions,
@@ -193,6 +215,7 @@ function extractPerMatch(
     mobilityDisabledCount,
     weaponDisabledCount,
     utilityDisabledCount,
+    terminalDisable: disabledA.length > 0 || disabledB.length > 0,
   };
 }
 

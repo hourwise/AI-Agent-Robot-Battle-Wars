@@ -89,16 +89,25 @@ function formatEventData(event: SimulationEvent): string {
       const component = String(data.component ?? "unknown");
       const prev = String(data.previousState ?? "");
       const next = String(data.newState ?? "");
+      if (data.componentImpact !== undefined) {
+        return `${target ?? actor}'s ${component} damaged at component impact ${data.componentImpact} (${String(data.qualificationReason ?? "unknown")})`;
+      }
       return `${target ?? actor}'s ${component} damaged (${prev} → ${next})`;
     }
     case "component_damage_resisted": {
       const guardAfter = String(data.guardStateAfter ?? "unknown");
+      if (data.componentImpact !== undefined) {
+        return `${target ?? actor}'s reinforced drive absorbs component impact ${data.componentImpact} (guard: ${guardAfter})`;
+      }
       return `${target ?? actor}'s reinforced drive absorbs impact (guard: ${guardAfter})`;
     }
     case "component_disabled": {
       const component = String(data.component ?? "unknown");
       const prev = String(data.previousState ?? "");
       const next = String(data.newState ?? "");
+      if (data.componentImpact !== undefined) {
+        return `${target ?? actor}'s ${component} disabled at component impact ${data.componentImpact}`;
+      }
       return `${target ?? actor}'s ${component} disabled (${prev} → ${next})`;
     }
     case "robot_overturned":

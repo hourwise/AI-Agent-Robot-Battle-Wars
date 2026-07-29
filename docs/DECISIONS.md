@@ -2,7 +2,13 @@
 
 ## D24: Candidate C component-impact qualification
 
-Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation and benchmark confirmation remain outstanding, so Milestone 0.2B is not complete.
+Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.
+
+Implementation is complete but development benchmark confirmation failed, so Milestone 0.2B is not complete and held-out confirmation remains prohibited.
+
+### D25: Candidate C1 development result
+
+Candidate C1 ran against the unchanged 80-seed development partition only. It produced 164 qualifying hits versus the analytical estimate of 161, 81 damaged transitions, 19 disabled transitions, 64 resisted events, 0% destruction, 95% judges, and 19.79 average rounds. The small qualification-count divergence is expected from live combat paths and qualification-before-selection PRNG consumption. Hard gates failed; no automatic tuning or held-out execution is authorised.
 
 | Date       | Decision                                                                              | Rationale                                                                                                                                                                                                                                   | Alternatives considered                                                                                                                                        |
 | ---------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |

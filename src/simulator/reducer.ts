@@ -8,7 +8,7 @@ import type {
 } from "./types.js";
 import type { SeededRandom } from "./seeded-random.js";
 import { resolveMovement } from "./movement.js";
-import { calculateAttack } from "./damage.js";
+import { calculateAttack, type AttackResult } from "./damage.js";
 import {
   STARTING_ENERGY,
   MAX_HEAT,
@@ -26,7 +26,21 @@ import {
   transitionComponentState,
   applyTransition,
   deriveBinaryComponents,
+  calculateComponentImpact,
+  checkComponentQualification,
 } from "./component-state.js";
+
+function getComponentQualificationFacts(attack: AttackResult) {
+  const impact = calculateComponentImpact({
+    rawDamage: attack.rawDamage,
+    armourAtHitZone: attack.armourAtHitZone,
+  });
+  return {
+    ...impact,
+    integrityEffectiveDamage: attack.effectiveDamage,
+    qualification: checkComponentQualification(attack.isCritical, impact.componentImpact),
+  };
+}
 
 function getWeaponCooldown(weaponId: string): number {
   const weapon = CATALOGUE_V1.weapons.find((w) => w.id === weaponId);
@@ -169,11 +183,21 @@ export function applyRound(
         weapon: a.build.proposal.weaponId,
       });
     } else {
+      const facts = getComponentQualificationFacts(attackResultA);
       emit("attack_hit", a.fighterId, b.fighterId, {
         weapon: a.build.proposal.weaponId,
         hitZone: attackResultA.hitZone,
         rawDamage: attackResultA.rawDamage,
         effectiveDamage: attackResultA.effectiveDamage,
+        integrityEffectiveDamage: attackResultA.effectiveDamage,
+        armourAtHitZone: attackResultA.armourAtHitZone,
+        componentImpact: facts.componentImpact,
+        componentQualificationId: facts.qualification.qualificationId,
+        criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
+        highComponentImpactThreshold: facts.qualification.highImpactThreshold,
+        componentArmourFactor: facts.armourFactor,
+        componentMinimumImpact: facts.minimumImpact,
+        qualificationReason: facts.qualification.reason,
         isCritical: attackResultA.isCritical,
       });
 
@@ -205,13 +229,14 @@ export function applyRound(
       }
 
       // 0.2B: qualification-based component lifecycle
-      const component = selectComponentForTransition(b.comps, attackResultA.hitZone, rng);
+      const component = facts.qualification.qualifies
+        ? selectComponentForTransition(b.comps, attackResultA.hitZone, rng)
+        : null;
       if (component) {
         const transition = transitionComponentState(
           b.comps,
           component,
-          attackResultA.isCritical,
-          attackResultA.effectiveDamage,
+          facts.qualification,
         );
         if (transition.transitionOccurred) {
           b = {
@@ -230,6 +255,16 @@ export function applyRound(
                 isCritical: attackResultA.isCritical,
               },
               effectiveDamage: attackResultA.effectiveDamage,
+              integrityEffectiveDamage: facts.integrityEffectiveDamage,
+              rawDamage: facts.rawDamage,
+              armourAtHitZone: facts.armourAtHitZone,
+              componentImpact: facts.componentImpact,
+              componentQualificationId: facts.qualification.qualificationId,
+              componentArmourFactor: facts.armourFactor,
+              componentMinimumImpact: facts.minimumImpact,
+              criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
+              highComponentImpactThreshold: facts.qualification.highImpactThreshold,
+              qualificationReason: facts.qualification.reason,
               hitZone: attackResultA.hitZone,
               reason: "reinforced_drive",
               guardStateBefore: transition.guardStateBefore,
@@ -249,6 +284,16 @@ export function applyRound(
                 isCritical: attackResultA.isCritical,
               },
               effectiveDamage: attackResultA.effectiveDamage,
+              integrityEffectiveDamage: facts.integrityEffectiveDamage,
+              rawDamage: facts.rawDamage,
+              armourAtHitZone: facts.armourAtHitZone,
+              componentImpact: facts.componentImpact,
+              componentQualificationId: facts.qualification.qualificationId,
+              componentArmourFactor: facts.armourFactor,
+              componentMinimumImpact: facts.minimumImpact,
+              criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
+              highComponentImpactThreshold: facts.qualification.highImpactThreshold,
+              qualificationReason: facts.qualification.reason,
               hitZone: attackResultA.hitZone,
               reason: transition.reason,
             };
@@ -266,6 +311,16 @@ export function applyRound(
                 isCritical: attackResultA.isCritical,
               },
               effectiveDamage: attackResultA.effectiveDamage,
+              integrityEffectiveDamage: facts.integrityEffectiveDamage,
+              rawDamage: facts.rawDamage,
+              armourAtHitZone: facts.armourAtHitZone,
+              componentImpact: facts.componentImpact,
+              componentQualificationId: facts.qualification.qualificationId,
+              componentArmourFactor: facts.armourFactor,
+              componentMinimumImpact: facts.minimumImpact,
+              criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
+              highComponentImpactThreshold: facts.qualification.highImpactThreshold,
+              qualificationReason: facts.qualification.reason,
               hitZone: attackResultA.hitZone,
               reason: transition.reason,
             };
@@ -305,11 +360,21 @@ export function applyRound(
         weapon: b.build.proposal.weaponId,
       });
     } else {
+      const facts = getComponentQualificationFacts(attackResultB);
       emit("attack_hit", b.fighterId, a.fighterId, {
         weapon: b.build.proposal.weaponId,
         hitZone: attackResultB.hitZone,
         rawDamage: attackResultB.rawDamage,
         effectiveDamage: attackResultB.effectiveDamage,
+        integrityEffectiveDamage: attackResultB.effectiveDamage,
+        armourAtHitZone: attackResultB.armourAtHitZone,
+        componentImpact: facts.componentImpact,
+        componentQualificationId: facts.qualification.qualificationId,
+        criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
+        highComponentImpactThreshold: facts.qualification.highImpactThreshold,
+        componentArmourFactor: facts.armourFactor,
+        componentMinimumImpact: facts.minimumImpact,
+        qualificationReason: facts.qualification.reason,
         isCritical: attackResultB.isCritical,
       });
 
@@ -341,13 +406,14 @@ export function applyRound(
       }
 
       // 0.2B: qualification-based component lifecycle
-      const component = selectComponentForTransition(a.comps, attackResultB.hitZone, rng);
+      const component = facts.qualification.qualifies
+        ? selectComponentForTransition(a.comps, attackResultB.hitZone, rng)
+        : null;
       if (component) {
         const transition = transitionComponentState(
           a.comps,
           component,
-          attackResultB.isCritical,
-          attackResultB.effectiveDamage,
+          facts.qualification,
         );
         if (transition.transitionOccurred) {
           a = {
@@ -366,6 +432,16 @@ export function applyRound(
                 isCritical: attackResultB.isCritical,
               },
               effectiveDamage: attackResultB.effectiveDamage,
+              integrityEffectiveDamage: facts.integrityEffectiveDamage,
+              rawDamage: facts.rawDamage,
+              armourAtHitZone: facts.armourAtHitZone,
+              componentImpact: facts.componentImpact,
+              componentQualificationId: facts.qualification.qualificationId,
+              componentArmourFactor: facts.armourFactor,
+              componentMinimumImpact: facts.minimumImpact,
+              criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
+              highComponentImpactThreshold: facts.qualification.highImpactThreshold,
+              qualificationReason: facts.qualification.reason,
               hitZone: attackResultB.hitZone,
               reason: "reinforced_drive",
               guardStateBefore: transition.guardStateBefore,
@@ -385,6 +461,16 @@ export function applyRound(
                 isCritical: attackResultB.isCritical,
               },
               effectiveDamage: attackResultB.effectiveDamage,
+              integrityEffectiveDamage: facts.integrityEffectiveDamage,
+              rawDamage: facts.rawDamage,
+              armourAtHitZone: facts.armourAtHitZone,
+              componentImpact: facts.componentImpact,
+              componentQualificationId: facts.qualification.qualificationId,
+              componentArmourFactor: facts.armourFactor,
+              componentMinimumImpact: facts.minimumImpact,
+              criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
+              highComponentImpactThreshold: facts.qualification.highImpactThreshold,
+              qualificationReason: facts.qualification.reason,
               hitZone: attackResultB.hitZone,
               reason: transition.reason,
             };
@@ -402,6 +488,16 @@ export function applyRound(
                 isCritical: attackResultB.isCritical,
               },
               effectiveDamage: attackResultB.effectiveDamage,
+              integrityEffectiveDamage: facts.integrityEffectiveDamage,
+              rawDamage: facts.rawDamage,
+              armourAtHitZone: facts.armourAtHitZone,
+              componentImpact: facts.componentImpact,
+              componentQualificationId: facts.qualification.qualificationId,
+              componentArmourFactor: facts.armourFactor,
+              componentMinimumImpact: facts.minimumImpact,
+              criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
+              highComponentImpactThreshold: facts.qualification.highImpactThreshold,
+              qualificationReason: facts.qualification.reason,
               hitZone: attackResultB.hitZone,
               reason: transition.reason,
             };

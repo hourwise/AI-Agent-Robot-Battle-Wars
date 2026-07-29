@@ -418,6 +418,12 @@ Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are ind
 
 ---
 
+## Candidate C1 implementation status (2026-07-29)
+
+Candidate C1 (`component-impact-c1`) is implemented with armour factor `0.20`, minimum impact `0`, critical threshold `11`, and high-impact threshold `13`. Qualification uses canonical raw damage and struck-zone armour before component selection. Facts are persisted in attack/component events, match metadata, replay/report output, and benchmark metadata.
+
+The unchanged development partition produced 80 simulations, 1,255 successful hits, 164 qualifying hits, 81 damaged transitions, 19 disabled transitions, 64 resisted events, 0% destruction, 5% immobilisation, 95% judges, 15 draws, 19.79 average rounds, and a 20-round maximum. It fails the destruction, judges, average-round, and round-cap hard gates. No constants were tuned, no C2 was created, and held-out seeds were not inspected. Milestone 0.2B remains incomplete.
+
 ## 9. Final Recommendation
 
 ### First Milestone: 0.2A — Benchmark Harness

@@ -96,6 +96,8 @@ export interface MatchConfig {
   fighterB: { build: ValidatedBuild; policy: ActionPolicy };
   rulesetVersion: string;
   catalogueVersion: string;
+  /** Explicit qualification rule identity; optional only for historical inputs. */
+  componentQualificationId?: "component-impact-c1";
 }
 
 export type VictoryMethod = "destruction" | "immobilisation" | "judges" | "draw";
