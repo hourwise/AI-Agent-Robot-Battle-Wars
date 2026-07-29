@@ -169,6 +169,49 @@ The current hit-zone type is a closed set. Candidate B must fail closed for miss
 
 Reinforced drive evaluates this same `qualifies` result. It consumes its one guard only when mobility is selected, mobility is healthy, the utility is installed and healthy, and the guard is available. It does not alter `componentImpact`, thresholds, or component selection probabilities.
 
+### 7.1 Pre-implementation Candidate B1 viability analysis
+
+The frozen 80 development seeds were replayed with the current simulator and Bulwark build/policy. This analysis read existing `attack_hit` events only; it did not alter rules, consume a different random stream, inspect held-out seeds, or implement Candidate B. The current v2 Candidate A path produced no component transition events in this mirror, so all three installed components remained eligible for every successful hit.
+
+| Zone      | Successful hits | Critical hits |   Armour encountered | Raw damage distribution                                                                         | B1 component impact |
+| --------- | --------------: | ------------: | -------------------: | ----------------------------------------------------------------------------------------------- | ------------------- |
+| front     |           1,280 |           908 |                   60 | 16-25, mean 19.95; `16:82, 17:148, 18:171, 19:175, 20:169, 21:152, 22:160, 23:137, 24:84, 25:2` | 0-7, mean 2.20      |
+| left      |               0 |             0 |      not encountered | none                                                                                            | none                |
+| right     |               0 |             0 |      not encountered | none                                                                                            | none                |
+| rear      |               0 |             0 |      not encountered | none                                                                                            | none                |
+| top       |               0 |             0 |      not encountered | none                                                                                            | none                |
+| **Total** |       **1,280** |       **908** | **60 for every hit** | -                                                                                               | -                   |
+
+Under B1 (`factor 0.30`, critical threshold `16`, high threshold `30`):
+
+```text
+critical-threshold hits: 0
+high-impact-threshold hits: 0
+qualifying hits: 0
+matches with at least one qualifying hit: 0/80 (0%)
+matches with at least two qualifying hits: 0/80 (0%)
+```
+
+Every successful hit had mobility, weapon, and installed reinforced-drive utility eligible under the current state. This is an eligibility observation, not a prediction of which component a future post-qualification weighted selection would choose. The qualifying-hit sample is empty, so no component-specific qualification distribution exists.
+
+The same hit facts were evaluated analytically under the two limited alternatives named in the amendment request:
+
+| Set | Factor | Critical threshold | High threshold | Impact range on observed hits | Qualifying hits | Matches with any | Matches with two or more |
+| --- | -----: | -----------------: | -------------: | ----------------------------: | --------------: | ---------------: | -----------------------: |
+| B1  |   0.30 |                 16 |             30 |                           0-7 |               0 |             0/80 |                     0/80 |
+| B2  |   0.25 |                 14 |             28 |                          1-10 |               0 |             0/80 |                     0/80 |
+| B3  |   0.20 |                 14 |             28 |                          4-13 |               0 |             0/80 |                     0/80 |
+
+B1 is automatically unsuitable under the pre-implementation guideposts. B2 and B3 are also unsuitable at their proposed thresholds; even the lowest observed B3 impact is below its critical threshold and every observed impact is below its high threshold. The result is caused by the current fixture's complete front-hit concentration and 60 armour, not by an event-detection or lifecycle defect. The separate impact formula remains coherent because it preserves a monotonic armour relationship and a non-constant raw-damage signal; the selected thresholds are too conservative for the observed population.
+
+**Decision: B. Candidate B1 requires revised constants before implementation.** The B1 values remain an analysed, rejected baseline, not an implementation approval. No replacement constants are selected by this analysis: selecting them requires a new documented candidate record and must not exceed the three-set comparison already completed here. Candidate B implementation must wait for that revised decision.
+
+#### Random-consumption and checksum implications
+
+The current 0.2B reducer calls `selectComponentForTransition()` before qualification on every successful hit, so the existing implementation consumes a weighted-selection PRNG draw even when Candidate A does not qualify. Candidate B requires qualification first; non-qualifying hits consume no component-selection draw, while qualifying hits consume one draw after qualification. Therefore Candidate B necessarily changes later random values and is expected to change outcome and report checksums, even if a particular match eventually has no component transition. This is acceptable within the pre-release 0.2.0 candidate boundary, provided the candidate identifier is persisted in benchmark/report/match metadata.
+
+Persisted v1 and v2 replays remain unaffected because they replay stored events through their version-aware readers rather than rerunning the simulator. Re-running an old configuration under Candidate B is a new simulation and must not be expected to reproduce its old checksum.
+
 ## 8. Worked catalogue examples
 
 These examples use the current catalogue ranges and the Candidate Set B formula. Critical status does not change raw damage. They are worked calculations, not new simulator output.
@@ -360,7 +403,7 @@ This amendment proposes Candidate Set B but does not accept it as a final tuning
 
 1. Option 2 is selected.
 2. Component impact is `max(0, round(rawDamage - armourAtHitZone * 0.30))`.
-3. Candidate Set B is `0.30 / 0 / 16 / 30` for factor, minimum, critical threshold, and high threshold.
+3. The analysed B1 baseline is `0.30 / 0 / 16 / 30` for factor, minimum, critical threshold, and high threshold, but it is rejected as implementation-ready. A revised constant set is required and has not been selected.
 4. No additional critical damage multiplier is used.
 5. Simulator/ruleset remain 0.2.0 during pre-release tuning, with an explicit candidate identifier.
 

@@ -293,7 +293,7 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
 - Candidate threshold set A: `10` critical / `35` normal (benchmark-tuned, not permanent).
 - The accepted 0.2B lifecycle implementation is complete in the current repository.
 - Candidate Set A failed qualification in the Bulwark mirror benchmark: zero component state transitions.
-- Candidate B amendment: `docs/ADR-002-tuning-amendment-candidate-B.md` (Proposed; implementation not started).
+- Candidate B amendment: `docs/ADR-002-tuning-amendment-candidate-B.md` (Proposed; B1 requires revised constants; implementation not started).
 
 ---
 
