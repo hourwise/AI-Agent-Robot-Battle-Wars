@@ -118,7 +118,7 @@ export function auditLifecycleExecutions(
       ) {
         factualCompletenessErrors.push(`${label} missing sourceAttack.isCritical`);
       }
-      if (data.componentQualificationId !== "component-impact-c1") {
+      if (data.componentQualificationId !== "component-impact-c2") {
         factualCompletenessErrors.push(
           `${label} has Candidate C identity ${String(data.componentQualificationId)}`,
         );

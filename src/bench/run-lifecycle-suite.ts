@@ -78,15 +78,15 @@ function decide(
   if (
     allGates.some(
       (gate) =>
-        gate.status === "fail" && gate.gateId === "candidate-c1-factual-completeness",
+        gate.status === "fail" && gate.gateId === "candidate-c2-factual-completeness",
     )
   ) {
     return "D. Fixture suite implementation is insufficient to make a decision.";
   }
   if (allGates.some((gate) => gate.status === "fail")) {
-    return "B. Candidate C1 fails revised lifecycle gates and requires one bounded tuning candidate.";
+    return "B. Candidate C2 fails revised lifecycle gates and requires no further automatic tuning.";
   }
-  return "A. Candidate C1 passes revised 0.2B lifecycle gates.";
+  return "A. Candidate C2 passes revised 0.2B lifecycle gates.";
 }
 
 export function runBenchmarkSuite(

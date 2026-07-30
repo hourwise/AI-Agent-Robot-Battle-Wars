@@ -56,7 +56,7 @@ export const lifecycleFixtureSuiteSchema = z
   .object({
     schemaVersion: z.literal("1"),
     suiteId: z.literal("component-lifecycle-v1"),
-    componentQualificationId: z.literal("component-impact-c1"),
+    componentQualificationId: z.literal("component-impact-c2"),
     simulatorVersion: z.literal("0.2.0"),
     rulesetVersion: z.literal("0.2.0"),
     catalogueVersion: z.literal("1"),

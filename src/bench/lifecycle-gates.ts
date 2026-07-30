@@ -126,9 +126,9 @@ export function evaluateFixtureGates(
       undefined,
     ],
     [
-      "candidate-c1-factual-completeness",
+      "candidate-c2-factual-completeness",
       audit.factualCompletenessErrors,
-      "zero missing Candidate C1 facts",
+      "zero missing Candidate C2 facts",
       undefined,
     ],
     [
@@ -279,7 +279,7 @@ export function evaluateSuiteGates(
       "pass",
       true,
       "historical v1 and Candidate A v2 replay regression tests pass",
-      "Compatibility is asserted by the existing version-gated schemas and replay regression suite; Candidate C1 audits do not reinterpret legacy events.",
+      "Compatibility is asserted by the existing version-gated schemas and replay regression suite; Candidate C2 audits do not reinterpret legacy C1 events.",
     ),
   ];
 }

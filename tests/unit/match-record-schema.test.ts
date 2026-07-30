@@ -200,6 +200,19 @@ describe("validateMatchRecord", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("accepts explicit historical C1 and active C2 qualification identities", () => {
+    expect(validateMatchRecord({ ...makeValidRecord(), componentQualificationId: "component-impact-c1" }).ok).toBe(true);
+    expect(validateMatchRecord({ ...makeValidRecord(), componentQualificationId: "component-impact-c2" }).ok).toBe(true);
+  });
+
+  it("rejects an unknown qualification identity", () => {
+    const result = validateMatchRecord({
+      ...makeValidRecord(),
+      componentQualificationId: "component-impact-unknown",
+    });
+    expect(result.ok).toBe(false);
+  });
+
   it("rejects unknown schema version 3", () => {
     const record = { ...makeValidRecord(), schemaVersion: "3" };
     const result = validateMatchRecord(record);

@@ -126,7 +126,7 @@ describe("synthetic benchmark — v2 transition detection", () => {
     expect(totalDamaged).toBeGreaterThan(0);
   });
 
-  it("benchmark reports Candidate C1 transitions for an all-Bulwark mirror", () => {
+  it("benchmark keeps below-threshold Bulwark impacts transition-free", () => {
     const bulwarkBuild = createBulwarkBuild();
     const match = runMatch({
       seed: 42,
@@ -143,11 +143,10 @@ describe("synthetic benchmark — v2 transition detection", () => {
     // With Bulwark 60 front armour, effective damage = 1 for all hits
     // 1 < 10 (critical threshold) and 1 < 35 (high-damage threshold)
     // Therefore zero transitions are expected — this is the CORRECT candidate-A result
-    expect(damagedEvents.length + disabledEvents.length + resistedEvents.length).toBeGreaterThan(0);
-    for (const event of [...damagedEvents, ...disabledEvents, ...resistedEvents]) {
-      expect(event.data.componentQualificationId).toBe("component-impact-c1");
-      expect(typeof event.data.componentImpact).toBe("number");
-    }
+    expect(damagedEvents.length + disabledEvents.length + resistedEvents.length).toBe(0);
+    const attackHits = match.events.filter((event) => event.type === "attack_hit");
+    expect(attackHits.length).toBeGreaterThan(0);
+    expect(attackHits.every((event) => event.data.componentQualificationId === "component-impact-c2")).toBe(true);
     // Resisted events also require qualification, so 0 expected
   });
 

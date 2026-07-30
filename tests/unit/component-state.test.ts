@@ -40,26 +40,26 @@ function makeRng(seed = 1): SeededRandom {
 // Qualification threshold boundary tests
 // ═══════════════════════════════════════════════════════════════════
 
-describe("checkComponentQualification — Candidate C1 thresholds", () => {
-  it("qualifies at critical threshold 11", () => {
-    const result = checkComponentQualification(true, 11);
+describe("checkComponentQualification — Candidate C2 thresholds", () => {
+  it("qualifies at critical threshold 13", () => {
+    const result = checkComponentQualification(true, 13);
     expect(result.qualifies).toBe(true);
     expect(result.reason).toBe("critical_component_impact");
   });
 
   it("qualifies at high-damage threshold 35", () => {
-    const result = checkComponentQualification(false, 13);
+    const result = checkComponentQualification(false, 15);
     expect(result.qualifies).toBe(true);
     expect(result.reason).toBe("high_component_impact");
   });
 
   it("does NOT qualify at critical threshold minus 1 (9)", () => {
-    const result = checkComponentQualification(true, 10);
+    const result = checkComponentQualification(true, 12);
     expect(result.qualifies).toBe(false);
   });
 
   it("does NOT qualify at high-damage threshold minus 1 (34)", () => {
-    const result = checkComponentQualification(false, 12);
+    const result = checkComponentQualification(false, 14);
     expect(result.qualifies).toBe(false);
   });
 
@@ -71,7 +71,7 @@ describe("checkComponentQualification — Candidate C1 thresholds", () => {
 
   it("critical takes precedence over high-damage when both satisfied", () => {
     // critical=true, damage=40 → satisfies both, should pick critical
-    const result = checkComponentQualification(true, 13);
+    const result = checkComponentQualification(true, 15);
     expect(result.qualifies).toBe(true);
     expect(result.reason).toBe("critical_component_impact");
   });
@@ -84,7 +84,7 @@ describe("checkComponentQualification — Candidate C1 thresholds", () => {
 describe("transitionComponentState — healthy → damaged", () => {
   it("transitions healthy mobility to damaged on qualified hit", () => {
     const comps = makeComps();
-    const result = transitionComponentState(comps, "mobility", true, 11);
+    const result = transitionComponentState(comps, "mobility", true, 13);
     expect(result.transitionOccurred).toBe(true);
     expect(result.component).toBe("mobility");
     expect(result.previousState).toBe("healthy");
@@ -93,14 +93,14 @@ describe("transitionComponentState — healthy → damaged", () => {
 
   it("transitions healthy weapon to damaged on qualified hit", () => {
     const comps = makeComps();
-    const result = transitionComponentState(comps, "weapon", false, 13);
+    const result = transitionComponentState(comps, "weapon", false, 15);
     expect(result.transitionOccurred).toBe(true);
     expect(result.newState).toBe("damaged");
   });
 
   it("transitions healthy utility to damaged on qualified hit", () => {
     const comps = makeComps();
-    const result = transitionComponentState(comps, "utility", true, 11);
+    const result = transitionComponentState(comps, "utility", true, 13);
     expect(result.transitionOccurred).toBe(true);
     expect(result.component).toBe("utility");
     expect(result.newState).toBe("damaged");
@@ -120,7 +120,7 @@ describe("transitionComponentState — healthy → damaged", () => {
 describe("transitionComponentState — damaged → disabled", () => {
   it("transitions damaged mobility to disabled on qualified hit", () => {
     const comps = makeComps({ mobilityState: "damaged" });
-    const result = transitionComponentState(comps, "mobility", true, 11);
+    const result = transitionComponentState(comps, "mobility", true, 13);
     expect(result.transitionOccurred).toBe(true);
     expect(result.previousState).toBe("damaged");
     expect(result.newState).toBe("disabled");
@@ -128,7 +128,7 @@ describe("transitionComponentState — damaged → disabled", () => {
 
   it("transitions damaged weapon to disabled on qualified hit", () => {
     const comps = makeComps({ weaponState: "damaged" });
-    const result = transitionComponentState(comps, "weapon", false, 13);
+    const result = transitionComponentState(comps, "weapon", false, 15);
     expect(result.transitionOccurred).toBe(true);
     expect(result.newState).toBe("disabled");
   });
@@ -177,7 +177,7 @@ describe("transitionComponentState — reinforced-drive guard", () => {
   it("consumes guard on qualified mobility hit when guard is available", () => {
     const comps = createInitialComponentStates("reinforced_drive");
     // Mobility healthy, utility healthy, guard available
-    const result = transitionComponentState(comps, "mobility", true, 11);
+    const result = transitionComponentState(comps, "mobility", true, 13);
     expect(result.transitionOccurred).toBe(true);
     expect(result.reason).toBe("reinforced_drive");
     expect(result.guardStateBefore).toBe("available");
@@ -192,7 +192,7 @@ describe("transitionComponentState — reinforced-drive guard", () => {
   it("does not consume guard when guard is already spent", () => {
     const comps = createInitialComponentStates("reinforced_drive");
     comps.utility.reinforcedDriveGuard = "spent";
-    const result = transitionComponentState(comps, "mobility", true, 11);
+    const result = transitionComponentState(comps, "mobility", true, 13);
     expect(result.transitionOccurred).toBe(true);
     expect(result.reason).not.toBe("reinforced_drive");
     expect(result.newState).toBe("damaged"); // normal transition
@@ -200,7 +200,7 @@ describe("transitionComponentState — reinforced-drive guard", () => {
 
   it("does not consume guard for non-mobility components", () => {
     const comps = createInitialComponentStates("reinforced_drive");
-    const result = transitionComponentState(comps, "weapon", true, 11);
+    const result = transitionComponentState(comps, "weapon", true, 13);
     expect(result.transitionOccurred).toBe(true);
     expect(result.reason).not.toBe("reinforced_drive");
   });
@@ -208,7 +208,7 @@ describe("transitionComponentState — reinforced-drive guard", () => {
   it("does not consume guard when utility is damaged", () => {
     const comps = createInitialComponentStates("reinforced_drive");
     comps.utility.state = "damaged";
-    const result = transitionComponentState(comps, "mobility", true, 11);
+    const result = transitionComponentState(comps, "mobility", true, 13);
     expect(result.transitionOccurred).toBe(true);
     expect(result.reason).not.toBe("reinforced_drive");
   });
@@ -221,7 +221,7 @@ describe("transitionComponentState — reinforced-drive guard", () => {
 describe("applyTransition — guard persistence", () => {
   it("spends guard on reinforced-drive resistance", () => {
     const comps = createInitialComponentStates("reinforced_drive");
-    const result = transitionComponentState(comps, "mobility", true, 11);
+    const result = transitionComponentState(comps, "mobility", true, 13);
     const next = applyTransition(comps, result);
     expect(next.utility.reinforcedDriveGuard).toBe("spent");
     expect(next.mobility.state).toBe("healthy");
@@ -229,7 +229,7 @@ describe("applyTransition — guard persistence", () => {
 
   it("loses guard when utility becomes damaged", () => {
     const comps = createInitialComponentStates("reinforced_drive");
-    const result = transitionComponentState(comps, "utility", true, 11);
+    const result = transitionComponentState(comps, "utility", true, 13);
     expect(result.utilityRuntimeChange).toEqual({
       reinforcedDriveGuardBefore: "available",
       reinforcedDriveGuardAfter: "lost",
@@ -242,7 +242,7 @@ describe("applyTransition — guard persistence", () => {
   it("loses guard when utility becomes disabled", () => {
     const comps = createInitialComponentStates("reinforced_drive");
     comps.utility.state = "damaged";
-    const result = transitionComponentState(comps, "utility", true, 11);
+    const result = transitionComponentState(comps, "utility", true, 13);
     expect(result.utilityRuntimeChange).toEqual({
       reinforcedDriveGuardBefore: "available",
       reinforcedDriveGuardAfter: "lost",
@@ -254,7 +254,7 @@ describe("applyTransition — guard persistence", () => {
 
   it("does not create utilityRuntimeChange when no guard is present", () => {
     const comps = createInitialComponentStates("cooling");
-    const result = transitionComponentState(comps, "utility", true, 11);
+    const result = transitionComponentState(comps, "utility", true, 13);
     expect(result.utilityRuntimeChange).toBeUndefined();
     const next = applyTransition(comps, result);
     expect(next.utility.state).toBe("damaged");

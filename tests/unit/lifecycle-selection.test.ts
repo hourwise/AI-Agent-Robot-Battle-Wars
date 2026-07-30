@@ -32,7 +32,7 @@ describe("qualification-before-selection randomness", () => {
       return items[0]!;
     };
     const selected = selectQualifiedComponentForTransition(
-      checkComponentQualification(true, 11),
+      checkComponentQualification(true, 13),
       makeTestComponentStates(),
       "front",
       rng,

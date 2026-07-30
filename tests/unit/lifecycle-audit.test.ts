@@ -10,32 +10,40 @@ const suite = loadLifecycleFixtureSuite();
 const fixture = suite.fixtures.find(
   (candidate) => candidate.fixtureId === "bulwark-guarded-mirror",
 )!;
+const transitionFixture = suite.fixtures.find(
+  (candidate) => candidate.fixtureId === "glass-cannon-mirror",
+)!;
 const bank = loadSeedBank(seedFixture);
-const executions = runBenchmarkDetailed({
-  label: fixture.fixtureId,
-  seedBank: { ...bank, developmentSeeds: bank.developmentSeeds.slice(0, 10) },
-  partition: "development",
-  fighterA: {
-    build: fixture.fighterX.build,
-    policy: fixture.fighterX.policy,
-    machineName: fixture.fighterX.build.proposal.machineName,
-  },
-  fighterB: {
-    build: fixture.fighterY.build,
-    policy: fixture.fighterY.policy,
-    machineName: fixture.fighterY.build.proposal.machineName,
-  },
-  roleSwapped: false,
-});
+function executionsFor(selectedFixture: typeof fixture) {
+  return runBenchmarkDetailed({
+    label: selectedFixture.fixtureId,
+    seedBank: bank,
+    partition: "development",
+    fighterA: {
+      build: selectedFixture.fighterX.build,
+      policy: selectedFixture.fighterX.policy,
+      machineName: selectedFixture.fighterX.build.proposal.machineName,
+    },
+    fighterB: {
+      build: selectedFixture.fighterY.build,
+      policy: selectedFixture.fighterY.policy,
+      machineName: selectedFixture.fighterY.build.proposal.machineName,
+    },
+    roleSwapped: false,
+  });
+}
+const executions = executionsFor(fixture);
+const transitionExecutions = executionsFor(transitionFixture);
 
 function mutateFirstEvent(
   type: string,
   mutate: (
     event: BenchmarkExecution["match"]["events"][number],
   ) => BenchmarkExecution["match"]["events"][number],
+  source = transitionExecutions,
 ): BenchmarkExecution[] {
   let changed = false;
-  return executions.map((execution) => ({
+  return source.map((execution) => ({
     ...execution,
     match: {
       ...execution.match,
@@ -51,7 +59,7 @@ function mutateFirstEvent(
 }
 
 describe("lifecycle event audit", () => {
-  it("accepts deterministic Candidate C1 transitions and separates resistance", () => {
+  it("accepts deterministic Candidate C2 transitions and separates resistance", () => {
     const audit = auditLifecycleExecutions(fixture.fixtureId, executions);
     expect(audit.invalidTransitions).toEqual([]);
     expect(audit.guardErrors).toEqual([]);
@@ -83,7 +91,7 @@ describe("lifecycle event audit", () => {
       },
     }));
     expect(
-      auditLifecycleExecutions(fixture.fixtureId, changed).invalidTransitions.length,
+      auditLifecycleExecutions(transitionFixture.fixtureId, changed).invalidTransitions.length,
     ).toBeGreaterThan(0);
   });
 
@@ -91,20 +99,20 @@ describe("lifecycle event audit", () => {
     const changed = mutateFirstEvent("component_damage_resisted", (event) => ({
       ...event,
       data: { ...event.data, guardStateAfter: "available" },
-    }));
+    }), executions);
     expect(
       auditLifecycleExecutions(fixture.fixtureId, changed).guardErrors.length,
     ).toBeGreaterThan(0);
   });
 
-  it("rejects missing Candidate C1 facts instead of filling defaults", () => {
+  it("rejects missing Candidate C2 facts instead of filling defaults", () => {
     const changed = mutateFirstEvent("component_damaged", (event) => {
       const data = { ...event.data };
       delete data.rawDamage;
       return { ...event, data };
     });
     expect(
-      auditLifecycleExecutions(fixture.fixtureId, changed).factualCompletenessErrors,
+      auditLifecycleExecutions(transitionFixture.fixtureId, changed).factualCompletenessErrors,
     ).toEqual(expect.arrayContaining([expect.stringContaining("rawDamage")]));
   });
 });

@@ -4,7 +4,7 @@ import {
   checkComponentQualification,
 } from "../../src/simulator/component-state.js";
 
-describe("Candidate C1 component impact", () => {
+describe("Candidate C2 component impact", () => {
   it.each([
     [16, 4],
     [22, 10],
@@ -15,12 +15,12 @@ describe("Candidate C1 component impact", () => {
     expect(calculateComponentImpact({ rawDamage: raw, armourAtHitZone: 60 }).componentImpact).toBe(expected);
   });
 
-  it("uses critical precedence and exact boundaries", () => {
-    expect(checkComponentQualification(true, 10).qualifies).toBe(false);
-    expect(checkComponentQualification(true, 11).reason).toBe("critical_component_impact");
-    expect(checkComponentQualification(false, 12).qualifies).toBe(false);
-    expect(checkComponentQualification(false, 13).reason).toBe("high_component_impact");
+  it("uses C2 critical precedence and exact boundaries", () => {
+    expect(checkComponentQualification(true, 12).qualifies).toBe(false);
     expect(checkComponentQualification(true, 13).reason).toBe("critical_component_impact");
+    expect(checkComponentQualification(false, 14).qualifies).toBe(false);
+    expect(checkComponentQualification(false, 15).reason).toBe("high_component_impact");
+    expect(checkComponentQualification(true, 15).reason).toBe("critical_component_impact");
   });
 
   it("clamps high armour to zero and keeps the minimum at zero", () => {

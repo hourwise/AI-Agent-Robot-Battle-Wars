@@ -35,7 +35,7 @@ export interface LifecycleFixtureDefinition {
 export interface LifecycleFixtureSuiteDefinition {
   readonly schemaVersion: "1";
   readonly suiteId: "component-lifecycle-v1";
-  readonly componentQualificationId: "component-impact-c1";
+  readonly componentQualificationId: "component-impact-c2";
   readonly simulatorVersion: "0.2.0";
   readonly rulesetVersion: "0.2.0";
   readonly catalogueVersion: "1";
@@ -149,8 +149,8 @@ export interface LifecycleSuiteReport {
   readonly aggregateLifecycleSummary: AggregateLifecycleSummary;
   readonly suiteGates: readonly GateResult[];
   readonly decision:
-    | "A. Candidate C1 passes revised 0.2B lifecycle gates."
-    | "B. Candidate C1 fails revised lifecycle gates and requires one bounded tuning candidate."
+    | "A. Candidate C2 passes revised 0.2B lifecycle gates."
+    | "B. Candidate C2 fails revised lifecycle gates and requires no further automatic tuning."
     | "C. Fixture suite exposes a lifecycle-design defect rather than a tuning issue."
     | "D. Fixture suite implementation is insufficient to make a decision.";
   readonly suiteChecksum: string;

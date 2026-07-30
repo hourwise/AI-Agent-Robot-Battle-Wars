@@ -978,3 +978,36 @@ review and the deferred whole-combat gates remain separate. Milestone 0.2B is
 not complete.
 
 The deterministic suite checksum is `04fe9aeb6cd48dbe`.
+
+## 24. Candidate C2 bounded cross-fixture analysis and result (2026-07-30)
+
+The C1 diagnosis used only immutable C1 `attack_hit` facts from the fixed development suite. The hard-fixture distributions were:
+
+| Fixture | Successful hits; armour | Raw damage distribution | Component-impact distribution | C1 qualification cross-tab |
+| --- | --- | --- | --- | --- |
+| Guarded Bulwark | 1,255; armour 60 | 16:74, 17:152, 18:187, 19:154, 20:182, 21:149, 22:152, 23:163, 24:88, 25:2 | 4:74, 5:152, 6:187, 7:154, 8:182, 9:149, 10:152, 11:163, 12:88, 13:2 | critical-qualified 164; high-impact 2; non-critical 0; both 2 |
+| Unguarded Bulwark | 1,074; armour 60 | 16:72, 17:147, 18:179, 19:142, 20:171, 21:144, 22:148, 23:155, 24:84, 25:2 | 4:72, 5:147, 6:179, 7:142, 8:171, 9:144, 10:148, 11:155, 12:84, 13:2 | critical-qualified 147; high-impact 2; non-critical 0; both 2 |
+| Glass Cannon | 355; armour 5 | 12:18, 13:28, 14:21, 15:25, 16:31, 17:53, 18:44, 19:26, 20:26, 21:27, 22:43, 23:26, 24:21, 25:2 | 11:18, 12:28, 13:21, 14:25, 15:31, 16:53, 17:44, 18:26, 19:26, 20:27, 21:43, 22:26, 23:21, 24:2 | critical-qualified 264; high-impact 320; non-critical 81; both 239 |
+
+C1 qualification per match was 0–5, median 2, mean 2.05 for guarded Bulwark; 0–5, median 2, mean 1.84 for unguarded Bulwark; and at least one in every Glass Cannon match, with mean 4.31 and median 4. Glass Cannon's 100% terminal incidence was therefore caused by repeated moderate qualifications over short aggressive matches, not by every hit qualifying: 345/355 hits qualified, including 81 non-critical qualifications.
+
+Three analytical C2 sets were compared without rerunning altered gameplay:
+
+| Candidate | Factor / critical / high | Guarded q; 1+/2+/3+; mean | Unguarded q; 1+/2+/3+; mean | Glass q; 1+/2+/3+; mean |
+| --- | --- | --- | --- | --- |
+| C2-A | 0.20 / 12 / 14 | 59; 43/13/2; 0.74 | 54; 43/11/0; 0.68 | 333; 80/80/73; 4.16 |
+| C2-B selected | 0.20 / 13 / 15 | 2; 2/0/0; 0.03 | 2; 2/0/0; 0.03 | 312; 80/80/72; 3.90 |
+| C2-C | 0.20 / 12 / 15 | 59; 43/13/2; 0.74 | 54; 43/11/0; 0.68 | 328; 80/80/73; 4.10 |
+
+An armour factor of 0.30 with the C1 thresholds was rejected analytically because both Bulwark fixtures fell to zero qualifying hits. Global threshold tuning remains understandable and viable for a bounded experiment, but no analytical set guarantees the Glass Cannon terminal gate; C2-B was selected because it gives the largest bounded reduction while retaining positive qualification in every hard fixture.
+
+Candidate C2 is implemented as `component-impact-c2` with `0.20 / 0 / 13 / 15`. The fixed development suite result is:
+
+| Fixture | Hits | Qualifying; rate | Damaged / disabled / resisted | Terminal incidence | First-round terminal | Ending damaged | Outcome checksum |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Guarded Bulwark | 1,303 | 2; 0.2% | 0 / 0 / 2 | 0.0% | 0.0% | 0.0% | `8d102dba45ac9eab` |
+| Unguarded Bulwark | 1,244 | 2; 0.2% | 2 / 0 / 0 | 0.0% | 0.0% | 2.5% | `6bc03ef696d68955` |
+| Glass Cannon | 391 | 333; 85.2% | 214 / 119 / 0 | 97.5% | 0.0% | 76.3% | `dc9194c55baebc4f` |
+| Bulwark vs Glass diagnostic | 924 | 519; 56.2% | 285 / 233 / 1 | diagnostic | 0.0% | 31.9% | `4a36189adcfda57f` |
+
+Suite checksum: `7c734547c93214f5`. Failing lifecycle gates are guarded-Bulwark healthy-to-damaged progression and Glass Cannon terminal-disable incidence. All factual, lifecycle legality, guard, first-round, dominance, and historical compatibility gates pass. Decision: **B. Candidate C2 improves Glass Cannon but still fails one or more lifecycle gates.** No C3 or automatic retuning is authorised; held-out confirmation remains prohibited.

@@ -97,7 +97,7 @@ export interface MatchConfig {
   rulesetVersion: string;
   catalogueVersion: string;
   /** Explicit qualification rule identity; optional only for historical inputs. */
-  componentQualificationId?: "component-impact-c1";
+  componentQualificationId?: "component-impact-c1" | "component-impact-c2";
 }
 
 export type VictoryMethod = "destruction" | "immobilisation" | "judges" | "draw";

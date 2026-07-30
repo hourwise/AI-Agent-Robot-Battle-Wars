@@ -571,6 +571,16 @@ critical-rate review remain separate.
 
 Suite checksum: `04fe9aeb6cd48dbe`.
 
+## Candidate C2 bounded tuning result (2026-07-30)
+
+The C1 fixture diagnosis confirmed a qualification-density failure in the low-armour fixture: Glass Cannon had 345/355 qualifying hits (97.2%), 81 non-critical qualifications, and 100% terminal-disable incidence, while guarded and unguarded Bulwark had 13.1% and 13.7% qualification rates with 22.5% and 42.5% terminal incidence. The failure was not caused by every successful hit qualifying.
+
+Three immutable-fact hypotheses were compared: C2-A (`0.20 / 12 / 14`) gave Glass Cannon 333/355 qualifications; C2-B (`0.20 / 13 / 15`) gave 312/355; C2-C (`0.20 / 12 / 15`) gave 328/355. An armour factor of `0.30` with C1 thresholds collapsed both Bulwark fixtures to zero qualifications. C2-B was selected as the strongest bounded threshold increase that retained positive qualification in every hard fixture.
+
+C2 is `component-impact-c2`, with armour factor `0.20`, minimum `0`, critical threshold `13`, and high-impact threshold `15`. The unchanged development suite produced 400 simulations: guarded Bulwark 2 qualifying hits and 2 resisted events but zero damaged transitions; unguarded Bulwark 2 qualifying hits and 2 damaged transitions; Glass Cannon 333 qualifying hits, 214 damaged transitions, 119 disabled transitions, and 97.5% terminal incidence; the diagnostic asymmetric fixture produced 519 qualifying hits and 233 disabled transitions. Suite checksum: `7c734547c93214f5`.
+
+Decision: **B. Candidate C2 improves Glass Cannon but still fails one or more lifecycle gates.** The guarded progression and Glass Cannon terminal gates fail; all factual, lifecycle legality, guard, first-round, dominance, and historical compatibility gates pass. No C3, automatic retuning, or held-out execution is permitted. Milestone 0.2B remains incomplete.
+
 ## 9. Final Recommendation
 
 ### First Milestone: 0.2A — Benchmark Harness

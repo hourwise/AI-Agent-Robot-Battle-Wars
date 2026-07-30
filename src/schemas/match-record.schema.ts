@@ -3,7 +3,7 @@ import { machineBuildProposalSchema } from "./build.schema.js";
 import { actionPolicySchema } from "./policy.schema.js";
 import { MatchReviewSchema } from "./review.schema.js";
 
-const componentQualificationIdSchema = z.literal("component-impact-c1");
+const componentQualificationIdSchema = z.enum(["component-impact-c1", "component-impact-c2"]);
 
 const validatedBuildSchema = z.object({
   proposal: machineBuildProposalSchema,

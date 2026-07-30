@@ -13,9 +13,9 @@ import {
 const suite = loadLifecycleFixtureSuite();
 
 describe("component lifecycle fixture suite", () => {
-  it("validates the fixed Candidate C1 suite and unique fixture IDs", () => {
+  it("validates the fixed Candidate C2 suite and unique fixture IDs", () => {
     expect(suite.suiteId).toBe("component-lifecycle-v1");
-    expect(suite.componentQualificationId).toBe("component-impact-c1");
+    expect(suite.componentQualificationId).toBe("component-impact-c2");
     expect(suite.seedPartition).toBe("development");
     expect(suite.fixtures).toHaveLength(4);
     expect(new Set(suite.fixtures.map((fixture) => fixture.fixtureId)).size).toBe(4);

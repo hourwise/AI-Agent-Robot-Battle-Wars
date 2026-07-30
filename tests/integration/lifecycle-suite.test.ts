@@ -34,14 +34,14 @@ describe("component lifecycle suite runner", () => {
     const fixture = fullReport.fixtureReports.find(
       (candidate) => candidate.fixtureId === "bulwark-guarded-mirror",
     )!;
-    expect(fixture.benchmark.outcomesChecksum).toBe("6d5ccc01ddc76064");
-    expect(fixture.benchmark.reportChecksum).toBe("2df267be422b70ab");
+    expect(fixture.benchmark.outcomesChecksum).toBe("8d102dba45ac9eab");
+    expect(fixture.benchmark.reportChecksum).toBe("a53007c2eb60b09a");
   });
 
   it("has a stable full-suite checksum and explicit decision", () => {
-    expect(fullReport.suiteChecksum).toBe("04fe9aeb6cd48dbe");
+    expect(fullReport.suiteChecksum).toBe("7c734547c93214f5");
     expect(fullReport.decision).toBe(
-      "B. Candidate C1 fails revised lifecycle gates and requires one bounded tuning candidate.",
+      "B. Candidate C2 fails revised lifecycle gates and requires no further automatic tuning.",
     );
   });
 
