@@ -581,6 +581,30 @@ C2 is `component-impact-c2`, with armour factor `0.20`, minimum `0`, critical th
 
 Decision: **B. Candidate C2 improves Glass Cannon but still fails one or more lifecycle gates.** The guarded progression and Glass Cannon terminal gates fail; all factual, lifecycle legality, guard, first-round, dominance, and historical compatibility gates pass. No C3, automatic retuning, or held-out execution is permitted. Milestone 0.2B remains incomplete.
 
+## Candidate C2 cross-armour scaling diagnosis (2026-07-30)
+
+The C1/C2 evidence is preserved in ADR-002. The global linear signal leaves
+Bulwark impacts at 4-13 and Glass Cannon impacts at 11-24. C2's critical
+threshold 13 yields two guarded-Bulwark qualifications; threshold 12 would
+analytically expose 67. Glass remains densely qualified because its high branch
+alone covers 299/391 C2 hits. A bounded 0-25 static threshold enumeration does
+not prove every pair impossible, but it leaves no demonstrated safe global
+solution and must not be used to select a lucky C3.
+
+Glass Cannon's 97.5% terminal incidence is accumulated across rounds, not
+same-round double progression: C2 observed at most one component transition
+per fighter per round. Its two selectable front components, no guard, short
+lifecycle, and repeated qualifying attacks make it an extreme diagnostic,
+despite its useful over-aggression signal.
+
+Decision **C**: both qualification shape and fixture strategy require
+amendment. A future approved task must separate fixture identity from an
+immutable runtime qualification registry, add a representative light-armour
+hard fixture, and retain Glass Cannon as an anti-instant-volatility diagnostic.
+No runtime constants, fixtures, seeds, gates, lifecycle states, held-out
+partition, or external API use changed here. No C3 is authorised; Milestone
+0.2B remains incomplete.
+
 ## 9. Final Recommendation
 
 ### First Milestone: 0.2A — Benchmark Harness

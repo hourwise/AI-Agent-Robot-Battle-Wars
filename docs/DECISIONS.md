@@ -105,6 +105,33 @@ Candidate C2-B was selected from three immutable-fact analyses: `COMPONENT_ARMOU
 
 The implementation uses `component-impact-c2` and leaves damage, armour absorption, critical probability, selection, guard, lifecycle, match cap, fixtures, and seed bank unchanged. The development suite result was guarded `2` qualifying / `0` damaged / `2` resisted, unguarded `2` / `2` / `0`, and Glass Cannon `333` / `214` / `119` with 97.5% terminal incidence. The guarded progression and Glass Cannon terminal gates failed; factual completeness, lifecycle legality, guard semantics, first-round, dominance, and historical replay gates passed. Decision B: no C3 or automatic retuning; held-out confirmation remains prohibited. Suite checksum: `7c734547c93214f5`.
 
+### D29: Cross-armour qualification architecture and fixture strategy
+
+Preserve C1 (`component-impact-c1`, suite `04fe9aeb6cd48dbe`) and C2
+(`component-impact-c2`, suite `7c734547c93214f5`) as auditable historical
+configurations. Their fixture and seed-bank identities remain unchanged.
+
+**Decision C:** both qualification shape and fixture strategy require
+amendment. The current monotonic linear impact thresholds leave high-armour
+Bulwark at impacts 4-13 and low-armour Glass Cannon at 11-24. The bounded
+development-fact analysis identifies severe one-point cliffs but does not
+authorise an unrestricted search or C3. An armour-sensitive qualification shape
+requires a separate ADR amendment before implementation.
+
+Glass Cannon remains evidence of over-aggression (C1 100%, C2 97.5% terminal
+incidence), but its original guaranteed-transition, no-utility, 5-front-armour
+mirror role makes it an extreme diagnostic rather than the sole representative
+light-armour hard fixture. Future strategy: add a representative light-armour
+hard fixture and retain Glass Cannon with an anti-instant-volatility diagnostic
+gate; do not weaken current gates automatically.
+
+Future configuration architecture is an immutable runtime registry selected by
+ID, with fixture manifests describing only competitors and policies. The future
+CLI shape is `benchmark:lifecycle --partition development --qualification
+component-impact-c1`; reports must carry a canonical configuration checksum.
+That work, fixture approval, and any later candidate are separate tasks.
+Held-out execution remains prohibited and Milestone 0.2B remains incomplete.
+
 | Date       | Decision                                                                              | Rationale                                                                                                                                                                                                                                   | Alternatives considered                                                                                                                                        |
 | ---------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-07-26 | D1: Five-zone ring arena with derived distance                                        | Positional play, circling, flanking and knockback are core to the concept. Distance derived from zones prevents state contradictions.                                                                                                       | Distance-bands only (simpler but removes spatial tactics)                                                                                                      |

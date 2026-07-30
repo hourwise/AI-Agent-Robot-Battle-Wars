@@ -1011,3 +1011,191 @@ Candidate C2 is implemented as `component-impact-c2` with `0.20 / 0 / 13 / 15`. 
 | Bulwark vs Glass diagnostic | 924 | 519; 56.2% | 285 / 233 / 1 | diagnostic | 0.0% | 31.9% | `4a36189adcfda57f` |
 
 Suite checksum: `7c734547c93214f5`. Failing lifecycle gates are guarded-Bulwark healthy-to-damaged progression and Glass Cannon terminal-disable incidence. All factual, lifecycle legality, guard, first-round, dominance, and historical compatibility gates pass. Decision: **B. Candidate C2 improves Glass Cannon but still fails one or more lifecycle gates.** No C3 or automatic retuning is authorised; held-out confirmation remains prohibited.
+
+## 25. Candidate C2 Cross-Armour Scaling Diagnosis (2026-07-30)
+
+### 25.1 Scope and preserved evidence
+
+This is a design diagnosis only. It neither changes runtime constants nor creates
+Candidate C3. It uses the frozen development partition only; held-out and
+all-partition execution remain prohibited. Fixture builds, policies, and
+`prototype-0.2-baseline-v1` seed-bank identity are unchanged.
+
+Candidate C1 remains the historical configuration
+`component-impact-c1 = 0.20 / 0 / 11 / 13` (factor, minimum, critical,
+high). Its suite checksum is `04fe9aeb6cd48dbe`; its per-fixture outcome
+checksums and lifecycle results are retained in Sections 23.3 and 24. C1
+failed the revised hard Glass Cannon terminal-disable gate (`100.0%` versus
+`<85%`). Its earlier single-mirror result also failed the then-active
+whole-combat destruction, judge, average-round, and round-cap gates; those are
+now diagnostics, not lifecycle acceptance gates.
+
+Candidate C2 remains the historical configuration
+`component-impact-c2 = 0.20 / 0 / 13 / 15`. Its suite checksum is
+`7c734547c93214f5`; its guarded, unguarded, Glass, and asymmetric results are
+retained in Section 24. C2 failed exactly two revised hard gates: guarded
+Bulwark had no healthy-to-damaged transition, and Glass Cannon had `97.5%`
+terminal-disable incidence. C1/C2 records retain their explicit identifiers;
+old records are not reinterpreted with either configuration.
+
+### 25.2 Linear-signal limitation
+
+The active family is monotonic in a single integer signal:
+
+```text
+impact = round(rawDamage - armourAtHitZone * 0.20)
+qualifies = (critical && impact >= criticalThreshold)
+         || impact >= highImpactThreshold
+```
+
+The armour separation is `round(60 * 0.20) - round(5 * 0.20) = 11` impact
+points. The hard fixtures therefore overlap at the top of the Bulwark range
+and the bottom of the Glass range rather than sharing a broad tunable middle.
+The following development facts are immutable event facts, not new candidate
+runs.
+
+| Fixture           | C1 raw / armour / impact frequency                                                                                                   | C1 critical qualification facts                                     | C2 raw / armour / impact frequency                                                                                                   | C2 critical facts and density                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Guarded Bulwark   | raw 16-25; armour 60; impact 4-13: `4:74, 5:152, 6:187, 7:154, 8:182, 9:149, 10:152, 11:163, 12:88, 13:2`                            | 907/1,255 critical (72.27%); 164 critical-qualified, 2 high, 2 both | raw 16-25; armour 60; impact 4-13: `4:74, 5:152, 6:187, 7:154, 8:182, 9:149, 10:152, 11:163, 12:88, 13:2`                            | 928/1,303 critical (71.22%); only the two impact-13 critical hits qualify at C2              |
+| Unguarded Bulwark | raw 16-25; armour 60; impact 4-13: `4:72, 5:147, 6:179, 7:142, 8:171, 9:144, 10:148, 11:155, 12:84, 13:2`                            | 147 critical-qualified, 2 high, 2 both                              | raw 16-25; armour 60; impact 4-13: `4:72, 5:147, 6:179, 7:142, 8:171, 9:144, 10:148, 11:155, 12:84, 13:2`                            | 895/1,244 critical (71.95%); only the two impact-13 critical hits qualify at C2              |
+| Glass Cannon      | raw 12-25; armour 5; impact 11-24: `11:18, 12:28, 13:21, 14:25, 15:31, 16:53, 17:44, 18:26, 19:26, 20:27, 21:43, 22:26, 23:21, 24:2` | 264 critical-qualified, 320 high, 81 non-critical, 239 both         | raw 12-25; armour 5; impact 11-24: `11:18, 12:28, 13:21, 14:25, 15:31, 16:53, 17:44, 18:26, 19:26, 20:27, 21:43, 22:26, 23:21, 24:2` | 288/391 critical (73.66%); 255 critical-only-or-first, 78 high-only; 333/391 (85.2%) qualify |
+
+The C2 threshold cliffs make the problem concrete. In guarded Bulwark,
+critical threshold 13 observes two potential qualifications; moving only to 12
+observes 67, and moving to 11 observes 197. The first one-point move adds 65
+potential qualifications before state dynamics. In Glass Cannon, C2 still
+qualifies every impact 15-24 through the
+high branch (299/391 hits) and every critical impact 13-14 through the critical
+branch. Raising the critical threshold cannot remove that high branch; raising
+the high threshold leaves the 255 critical impacts at 13-24.
+
+A bounded analytical enumeration of all 676 integer threshold pairs from 0-25
+over the frozen C2 `attack_hit` facts does **not** prove that every pair is
+impossible. A
+critical threshold of 12 with a very high high-impact threshold has 67
+Bulwark critical opportunities and a Glass lower bound of 274/391 (70.1%) from
+critical hits alone. It is an unresolved corridor, not an implementation
+candidate: state changes alter later PRNG consumption and match length, so
+static reclassification cannot establish either hard gate. Conversely,
+thresholds at or above 13 on both branches reproduce C2's near-zero Bulwark
+progression. Thresholds at or below 12 on the high branch immediately make at
+least 90 Bulwark hits eligible but qualify 373/391 Glass hits (95.4%).
+
+Therefore the linear model has no demonstrated global passing pair, and its
+only analytically plausible corridor remains highly exposed to the same
+low-armour accumulation mechanism. An unrestricted search for a lucky pair is
+not authorised. This is a feasibility limitation, not proof that arithmetic
+alone forbids every possible pair.
+
+### 25.3 Per-hit qualification versus match accumulation
+
+C2 Glass Cannon had 333 qualifications in 391 successful attacks (85.2%),
+but its terminal result is a match property: 78/80 matches (97.5%) contained a
+disabled component. Qualification counts per match were `2:7, 3:13, 4:26,
+5:28, 6:6`; no match had fewer than two. Per defender, qualifying counts were
+`0:17, 1:40, 2:42, 3:23, 4:35` across 160 fighters. The fixture has exactly
+two front-zone selectable components (mobility and weapon, each 50%), no
+utility, no reinforced-drive guard, and the common two-transition lifecycle.
+Two selections of the same component can therefore produce a terminal state;
+three selections guarantee one under the 50/50 two-component model.
+
+The event sequence establishes that same-round accumulation is not the cause:
+every fighter/round pair had at most one component transition. The cause is
+repeated qualifying attacks over several rounds, concentrated on two
+components, before matches end. The low armour creates a wide 11-24 impact
+range and the 70% critical rate adds a broad critical path.
+
+For orientation only, an independent homogeneous two-component model on the
+observed C2 hit-count distribution predicts terminal incidence from binomial
+qualifications and 50/50 selection. It predicts 80.5% at the observed 85.2%
+per-hit rate and permits up to about 91.9% before its `<85%` boundary. The
+actual 97.5% result falsifies that model as a safety estimator: hit/critical
+dependence, state-dependent selection, and terminal timing are material. The
+only sound quantitative bound is at the outcome level: if the two defenders
+were independent and symmetric, a match ceiling of 85% requires a per-defender
+terminal probability below `1 - sqrt(0.15) = 61.27%`. C2's 119 disabled
+component events demonstrate substantial exposure, but are not themselves a
+per-defender probability because one fighter can have two disabled components.
+No evidence-backed maximum
+per-hit rate can be certified from this pathological fixture alone; it must be
+substantially below the observed 85.2% and verified against a representative
+light-armour fixture.
+
+### 25.4 Qualification-shape assessment
+
+| Option                             | Assessment                                                                                                                                                                                                                                                            | Result                                                |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| A. Saturation                      | A cap above a qualification threshold changes no incidence; a cap at or below it merely relocates the threshold cliff. It cannot separate Bulwark 12-13 from Glass 15-24 while preserving monotonic qualification.                                                    | Reject.                                               |
+| B. Impact bands                    | Readable bands improve event explanations, but bands derived only from the same scalar impact are fixed thresholds under new names. They help only when paired with an independently meaningful armour-sensitive rule.                                                | Insufficient alone.                                   |
+| C. Relative penetration plus floor | `rawDamage / armour` explodes at zero/low armour. A denominator floor hides rather than removes the discontinuity and adds coupled constants.                                                                                                                         | Reject for this milestone.                            |
+| D. Armour protection bands         | Explicit armour-sensitive thresholds can address the disjoint ranges and are replayable, but hard classes create arbitrary future-build cliffs. It is the most transparent shape direction only if classes, boundaries, and fixture coverage are separately approved. | Retain for design amendment; do not implement values. |
+| E. Raw transfer factor             | For threshold `T`, Bulwark requires `transfer * raw - 12 >= T`; lowering transfer to suppress Glass also lowers the already marginal Bulwark term. There is no transfer factor that selectively attenuates low armour in this linear form.                            | Reject.                                               |
+| F. Critical impact window          | Making an impact above an upper bound less likely to progress is counterintuitive unless a distinct severe rule restores qualification, which returns the accumulation issue.                                                                                         | Reject.                                               |
+| G. Per-component/round cooldown    | Exact C2 event analysis found zero same-fighter multiple transitions in a round. A limit would not address the observed mechanism and would change lifecycle semantics.                                                                                               | Reject.                                               |
+| H. Match exposure budget           | Visible counters would be new accumulation state; unrecorded counters would be hidden trauma. Both conflict with the accepted simple lifecycle and require new factual events.                                                                                        | Reject.                                               |
+
+The preferred investigation is therefore a transparent armour-sensitive
+qualification shape, most likely published protection bands with explicit
+boundary rationale, not a renamed global impact threshold. This is a design
+direction, not a C3 configuration.
+
+### 25.5 Lifecycle and fixture semantics
+
+The evidence does not justify reopening the common
+`healthy -> damaged -> disabled` lifecycle. A deeper weapon lifecycle could
+reduce Glass terminal incidence, but it changes ADR-002's accepted state model,
+event schemas, replay semantics, and component balance. Qualification-shape
+and fixture strategy must be exhausted first.
+
+Glass Cannon's original rationale says “guaranteed transitions.” It is a
+near-unarmoured, no-utility, maximum-aggression mirror, so it is a valuable
+upper-bound stress test but not a representative light-armour acceptance
+fixture. C1's 100.0% and C2's 97.5% remain clear over-aggression evidence; a
+90% ceiling would conceal rather than explain the defect. The selected fixture
+strategy is **Strategy 4**: add a representative light-armour hard fixture in
+a later approved fixture task, and retain Glass Cannon as a diagnostic extreme
+with a separate anti-instant-volatility gate. The current fixture and its gate
+are not changed by this amendment.
+
+### 25.6 Candidate configuration architecture
+
+Select **Option C: an immutable runtime qualification registry**. The fixture
+manifest must describe who fights and under which policy only; it must not be
+rewritten to switch qualification rules. The registry retains C1 and C2 by ID
+and immutable rule object, validates requested IDs, provides a canonical
+qualification-config checksum, and is included in match/benchmark metadata.
+
+Future command shape:
+
+```bash
+npm run benchmark:lifecycle -- --partition development --qualification component-impact-c1
+```
+
+This gives historical reproducibility without checkout, strict runtime safety,
+simple CLI selection, and no duplicated fixture/configuration source of truth.
+The future implementation must preserve C1/C2 registry entries indefinitely,
+reject unknown IDs, and make checksum identity part of reports. It must not
+retroactively change existing C1/C2 reports or current fixture data.
+
+### 25.7 Decision, consequences, and boundary
+
+**Decision C: both the qualification shape and fixture strategy require
+amendment.** The linear global-threshold family has not supplied a demonstrated
+cross-armour solution; Glass Cannon is also too extreme to be the sole
+light-armour hard acceptance fixture. No C3, automatic threshold search,
+lifecycle-depth change, or gate weakening is authorised.
+
+The next implementation boundary is a separate architecture-and-fixture task:
+
+1. introduce the immutable qualification registry and selection CLI without
+   changing C1/C2 behaviour;
+2. propose and freeze a representative light-armour fixture and the revised
+   Strategy-4 gate roles;
+3. amend ADR-002 with an armour-sensitive shape before any new runtime
+   candidate is implemented.
+
+Rollback is configuration selection, not history rewrite: C1/C2 remain
+replayable through their IDs and facts, while an unaccepted future rule is not
+made the default. Compatibility requires schema support for historical C1/C2
+identifiers and reports; legacy identifier-absent records retain their existing
+replay path. Milestone 0.2B remains incomplete.
