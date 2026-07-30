@@ -4,11 +4,7 @@ import { CATALOGUE_V1 } from "../catalogue/catalogue.v1.js";
 import type { BenchmarkConfig, PerMatchResult } from "./benchmark.types.js";
 import type { BenchmarkExecution } from "./lifecycle-suite.types.js";
 import { getSeedsForPartition } from "./seed-bank.js";
-import {
-  RULESET_VERSION,
-  CRITICAL_COMPONENT_IMPACT_THRESHOLD,
-  HIGH_COMPONENT_IMPACT_THRESHOLD,
-} from "../simulator/constants.js";
+import { RULESET_VERSION } from "../simulator/constants.js";
 
 export function fingerprintBuild(build: BenchmarkConfig["fighterA"]["build"]): string {
   const canonical = JSON.stringify(build.proposal, Object.keys(build.proposal).sort());
@@ -39,6 +35,7 @@ function extractPerMatch(
     fighterB: { build: bBuild, policy: bPolicy },
     rulesetVersion: RULESET_VERSION,
     catalogueVersion: CATALOGUE_V1.version,
+    componentQualificationId: config.componentQualificationId,
   });
 
   const finalA = result.initialState.fighterA;
@@ -185,8 +182,14 @@ function extractPerMatch(
       if (event.data.isCritical) criticalHits++;
       const impact = Number(event.data.componentImpact ?? 0);
       const critical = Boolean(event.data.isCritical);
-      const criticalQualified = critical && impact >= CRITICAL_COMPONENT_IMPACT_THRESHOLD;
-      const highQualified = impact >= HIGH_COMPONENT_IMPACT_THRESHOLD;
+      const criticalThreshold = Number(
+        event.data.criticalComponentImpactThreshold ?? Number.POSITIVE_INFINITY,
+      );
+      const highImpactThreshold = Number(
+        event.data.highComponentImpactThreshold ?? Number.POSITIVE_INFINITY,
+      );
+      const criticalQualified = critical && impact >= criticalThreshold;
+      const highQualified = impact >= highImpactThreshold;
       if (criticalQualified || highQualified) qualifyingHits++;
       if (criticalQualified) criticalQualifiedHits++;
       if (highQualified) highImpactQualifiedHits++;

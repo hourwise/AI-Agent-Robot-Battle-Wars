@@ -32,12 +32,14 @@ function matchResultToRecordV1(
     catalogueVersion: result.config.catalogueVersion,
     simulatorVersion: SIMULATOR_VERSION,
     componentQualificationId: result.config.componentQualificationId,
+    componentQualification: result.config.componentQualification,
     seed: result.config.seed,
     config: {
       seed: result.config.seed,
       rulesetVersion: result.config.rulesetVersion,
       catalogueVersion: result.config.catalogueVersion,
       componentQualificationId: result.config.componentQualificationId,
+      componentQualification: result.config.componentQualification,
       fighterA: {
         build: result.config.fighterA.build,
         policy: result.config.fighterA.policy,
@@ -70,12 +72,14 @@ function matchResultToRecordV2(
     catalogueVersion: result.config.catalogueVersion,
     simulatorVersion: SIMULATOR_VERSION,
     componentQualificationId: result.config.componentQualificationId,
+    componentQualification: result.config.componentQualification,
     seed: result.config.seed,
     config: {
       seed: result.config.seed,
       rulesetVersion: result.config.rulesetVersion,
       catalogueVersion: result.config.catalogueVersion,
       componentQualificationId: result.config.componentQualificationId,
+      componentQualification: result.config.componentQualification,
       fighterA: {
         build: result.config.fighterA.build,
         policy: result.config.fighterA.policy,

@@ -1,13 +1,10 @@
 import { createHash } from "node:crypto";
+import { RULESET_VERSION, SIMULATOR_VERSION } from "../simulator/constants.js";
 import {
-  COMPONENT_ARMOUR_FACTOR,
-  COMPONENT_MIN_IMPACT,
-  COMPONENT_QUALIFICATION_ID,
-  CRITICAL_COMPONENT_IMPACT_THRESHOLD,
-  HIGH_COMPONENT_IMPACT_THRESHOLD,
-  RULESET_VERSION,
-  SIMULATOR_VERSION,
-} from "../simulator/constants.js";
+  DEFAULT_COMPONENT_QUALIFICATION_ID,
+  getComponentQualificationConfig,
+  getComponentQualificationMetadata,
+} from "../simulator/component-qualification-registry.js";
 import type {
   BenchmarkConfig,
   BenchmarkReport,
@@ -21,6 +18,10 @@ export function createBenchmarkReport(
   config: BenchmarkConfig,
   results: readonly PerMatchResult[],
 ): BenchmarkReport {
+  const qualificationConfig = getComponentQualificationConfig(
+    config.componentQualificationId ?? DEFAULT_COMPONENT_QUALIFICATION_ID,
+  );
+  const componentQualification = getComponentQualificationMetadata(qualificationConfig);
   const sortedResults = [...results].sort(
     (a, b) => a.seed - b.seed || (a.roleSwapped ? 1 : 0) - (b.roleSwapped ? 1 : 0),
   );
@@ -40,12 +41,13 @@ export function createBenchmarkReport(
     simulatorVersion: SIMULATOR_VERSION,
     rulesetVersion: RULESET_VERSION,
     catalogueVersion: config.seedBank.catalogueVersion,
-    componentQualificationId: COMPONENT_QUALIFICATION_ID,
+    componentQualificationId: qualificationConfig.id,
+    componentQualification,
     qualificationConstants: {
-      armourFactor: COMPONENT_ARMOUR_FACTOR,
-      minimumImpact: COMPONENT_MIN_IMPACT,
-      criticalThreshold: CRITICAL_COMPONENT_IMPACT_THRESHOLD,
-      highImpactThreshold: HIGH_COMPONENT_IMPACT_THRESHOLD,
+      armourFactor: qualificationConfig.armourFactor,
+      minimumImpact: qualificationConfig.minimumImpact,
+      criticalThreshold: qualificationConfig.criticalThreshold,
+      highImpactThreshold: qualificationConfig.highImpactThreshold,
     },
     fighterX: {
       machineName: config.fighterA.machineName,

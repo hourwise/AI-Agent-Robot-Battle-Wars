@@ -6,6 +6,11 @@ export type CompetitionStartedData = {
   catalogueVersion: string;
   simulatorVersion: string;
   componentQualificationId?: string;
+  componentQualification?: {
+    id: string;
+    configChecksum: string;
+    model: string;
+  };
   fighterA: { id: string; build: unknown };
   fighterB: { id: string; build: unknown };
 };
@@ -38,6 +43,8 @@ export type AttackHitData = {
   armourAtHitZone?: number;
   componentImpact?: number;
   componentQualificationId?: string;
+  componentQualificationConfigChecksum?: string;
+  componentQualificationModel?: string;
   componentArmourFactor?: number;
   componentMinimumImpact?: number;
   criticalComponentImpactThreshold?: number;
@@ -60,6 +67,8 @@ export type ComponentTransitionData = {
   integrityEffectiveDamage: number;
   componentImpact: number;
   componentQualificationId: string;
+  componentQualificationConfigChecksum: string;
+  componentQualificationModel: string;
   componentArmourFactor: number;
   componentMinimumImpact: number;
   criticalComponentImpactThreshold: number;

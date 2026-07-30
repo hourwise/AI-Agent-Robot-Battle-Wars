@@ -4,6 +4,11 @@ import type {
   LifecycleAudit,
   TransitionAuditRecord,
 } from "./lifecycle-suite.types.js";
+import {
+  getDefaultComponentQualificationConfig,
+  getComponentQualificationMetadata,
+  type ComponentQualificationMetadata,
+} from "../simulator/component-qualification-registry.js";
 
 const COMPONENT_EVENT_TYPES = new Set([
   "component_damaged",
@@ -13,6 +18,8 @@ const COMPONENT_EVENT_TYPES = new Set([
 
 const REQUIRED_FACTS = [
   "componentQualificationId",
+  "componentQualificationConfigChecksum",
+  "componentQualificationModel",
   "rawDamage",
   "armourAtHitZone",
   "integrityEffectiveDamage",
@@ -56,6 +63,9 @@ function fighterKey(roleSwapped: boolean, fighterId: string): string {
 export function auditLifecycleExecutions(
   fixtureId: string,
   executions: readonly BenchmarkExecution[],
+  expectedQualification: ComponentQualificationMetadata = getComponentQualificationMetadata(
+    getDefaultComponentQualificationConfig(),
+  ),
 ): LifecycleAudit {
   const transitionRecords: TransitionAuditRecord[] = [];
   const invalidTransitions: string[] = [];
@@ -118,9 +128,21 @@ export function auditLifecycleExecutions(
       ) {
         factualCompletenessErrors.push(`${label} missing sourceAttack.isCritical`);
       }
-      if (data.componentQualificationId !== "component-impact-c2") {
+      if (data.componentQualificationId !== expectedQualification.id) {
         factualCompletenessErrors.push(
-          `${label} has Candidate C identity ${String(data.componentQualificationId)}`,
+          `${label} has qualification identity ${String(data.componentQualificationId)}; expected ${expectedQualification.id}`,
+        );
+      }
+      if (
+        data.componentQualificationConfigChecksum !== expectedQualification.configChecksum
+      ) {
+        factualCompletenessErrors.push(
+          `${label} has qualification checksum ${String(data.componentQualificationConfigChecksum)}; expected ${expectedQualification.configChecksum}`,
+        );
+      }
+      if (data.componentQualificationModel !== expectedQualification.model) {
+        factualCompletenessErrors.push(
+          `${label} has qualification model ${String(data.componentQualificationModel)}; expected ${expectedQualification.model}`,
         );
       }
 

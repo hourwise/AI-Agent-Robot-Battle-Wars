@@ -5,6 +5,11 @@ import { loadLifecycleFixtureSuite } from "../../src/bench/lifecycle-fixture-sch
 import { runBenchmarkDetailed } from "../../src/bench/run-benchmark.js";
 import { auditLifecycleExecutions } from "../../src/bench/lifecycle-audit.js";
 import type { BenchmarkExecution } from "../../src/bench/lifecycle-suite.types.js";
+import {
+  getComponentQualificationConfig,
+  getComponentQualificationMetadata,
+  type ComponentQualificationId,
+} from "../../src/simulator/component-qualification-registry.js";
 
 const suite = loadLifecycleFixtureSuite();
 const fixture = suite.fixtures.find(
@@ -14,7 +19,10 @@ const transitionFixture = suite.fixtures.find(
   (candidate) => candidate.fixtureId === "glass-cannon-mirror",
 )!;
 const bank = loadSeedBank(seedFixture);
-function executionsFor(selectedFixture: typeof fixture) {
+function executionsFor(
+  selectedFixture: typeof fixture,
+  componentQualificationId?: ComponentQualificationId,
+) {
   return runBenchmarkDetailed({
     label: selectedFixture.fixtureId,
     seedBank: bank,
@@ -30,10 +38,12 @@ function executionsFor(selectedFixture: typeof fixture) {
       machineName: selectedFixture.fighterY.build.proposal.machineName,
     },
     roleSwapped: false,
+    componentQualificationId,
   });
 }
 const executions = executionsFor(fixture);
 const transitionExecutions = executionsFor(transitionFixture);
+const c1TransitionExecutions = executionsFor(transitionFixture, "component-impact-c1");
 
 function mutateFirstEvent(
   type: string,
@@ -80,6 +90,23 @@ describe("lifecycle event audit", () => {
     );
   });
 
+  it("accepts persisted C1 facts while C2 remains the registry default", () => {
+    const expected = getComponentQualificationMetadata(
+      getComponentQualificationConfig("component-impact-c1"),
+    );
+    const audit = auditLifecycleExecutions(
+      transitionFixture.fixtureId,
+      c1TransitionExecutions,
+      expected,
+    );
+    expect(audit.factualCompletenessErrors).toEqual([]);
+    expect(
+      audit.transitionRecords.every(
+        (record) => record.componentQualificationId === "component-impact-c1",
+      ),
+    ).toBe(true);
+  });
+
   it("rejects a healthy-to-disabled transition", () => {
     const changed = mutateFirstEvent("component_damaged", (event) => ({
       ...event,
@@ -91,15 +118,20 @@ describe("lifecycle event audit", () => {
       },
     }));
     expect(
-      auditLifecycleExecutions(transitionFixture.fixtureId, changed).invalidTransitions.length,
+      auditLifecycleExecutions(transitionFixture.fixtureId, changed).invalidTransitions
+        .length,
     ).toBeGreaterThan(0);
   });
 
   it("rejects invalid resistance guard state", () => {
-    const changed = mutateFirstEvent("component_damage_resisted", (event) => ({
-      ...event,
-      data: { ...event.data, guardStateAfter: "available" },
-    }), executions);
+    const changed = mutateFirstEvent(
+      "component_damage_resisted",
+      (event) => ({
+        ...event,
+        data: { ...event.data, guardStateAfter: "available" },
+      }),
+      executions,
+    );
     expect(
       auditLifecycleExecutions(fixture.fixtureId, changed).guardErrors.length,
     ).toBeGreaterThan(0);
@@ -112,7 +144,22 @@ describe("lifecycle event audit", () => {
       return { ...event, data };
     });
     expect(
-      auditLifecycleExecutions(transitionFixture.fixtureId, changed).factualCompletenessErrors,
+      auditLifecycleExecutions(transitionFixture.fixtureId, changed)
+        .factualCompletenessErrors,
     ).toEqual(expect.arrayContaining([expect.stringContaining("rawDamage")]));
+  });
+
+  it("rejects a mismatched persisted qualification checksum", () => {
+    const changed = mutateFirstEvent("component_damaged", (event) => ({
+      ...event,
+      data: {
+        ...event.data,
+        componentQualificationConfigChecksum: "0000000000000000",
+      },
+    }));
+    expect(
+      auditLifecycleExecutions(transitionFixture.fixtureId, changed)
+        .factualCompletenessErrors,
+    ).toEqual(expect.arrayContaining([expect.stringContaining("checksum")]));
   });
 });

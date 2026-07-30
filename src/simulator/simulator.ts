@@ -8,15 +8,27 @@ import {
   STARTING_ENERGY,
   STARTING_HEAT,
   SIMULATOR_VERSION,
-  COMPONENT_QUALIFICATION_ID,
 } from "./constants.js";
+import {
+  DEFAULT_COMPONENT_QUALIFICATION_ID,
+  getComponentQualificationConfig,
+  getComponentQualificationMetadata,
+} from "./component-qualification-registry.js";
 import {
   createInitialComponentStates,
   deriveBinaryComponents,
 } from "./component-state.js";
 
 export function runMatch(config: MatchConfig): MatchResult {
-  const resolvedConfig = { ...config, componentQualificationId: config.componentQualificationId ?? COMPONENT_QUALIFICATION_ID };
+  const qualificationConfig = getComponentQualificationConfig(
+    config.componentQualificationId ?? DEFAULT_COMPONENT_QUALIFICATION_ID,
+  );
+  const componentQualification = getComponentQualificationMetadata(qualificationConfig);
+  const resolvedConfig = {
+    ...config,
+    componentQualificationId: qualificationConfig.id,
+    componentQualification,
+  };
   const rng = new SeededRandom(config.seed);
   const stateA = createFighterState(
     config.fighterA.build,
@@ -70,6 +82,7 @@ export function runMatch(config: MatchConfig): MatchResult {
     catalogueVersion: resolvedConfig.catalogueVersion,
     simulatorVersion: SIMULATOR_VERSION,
     componentQualificationId: resolvedConfig.componentQualificationId,
+    componentQualification: resolvedConfig.componentQualification,
     fighterA: { id: stateA.fighterId, build: stateA.build.proposal },
     fighterB: { id: stateB.fighterId, build: stateB.build.proposal },
   });
@@ -108,6 +121,7 @@ export function runMatch(config: MatchConfig): MatchResult {
       roundTs,
       config.fighterA.policy,
       config.fighterB.policy,
+      qualificationConfig,
     );
 
     emit("round_ended", round, roundTs, undefined, undefined, {

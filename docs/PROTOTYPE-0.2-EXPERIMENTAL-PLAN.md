@@ -605,6 +605,44 @@ No runtime constants, fixtures, seeds, gates, lifecycle states, held-out
 partition, or external API use changed here. No C3 is authorised; Milestone
 0.2B remains incomplete.
 
+## Qualification registry and Strategy-4 fixture architecture (2026-07-30)
+
+The architecture step is complete. The immutable runtime registry preserves C1
+(`component-impact-c1`, checksum `2a40a56f97062ca3`) and C2
+(`component-impact-c2`, checksum `13548462df34a183`), with C2 remaining the
+default. Match events, benchmark reports, lifecycle reports, and factual
+metadata identify the selected configuration and checksum. Fixture manifests
+no longer select qualification behavior.
+
+The frozen development fixture definition now has checksum
+`ffc11deb47e6049f`. It adds the hard `representative-light-mirror` fixture:
+two Light Vanguard builds with 50 total armour, wheels, a ram, no utility, and
+a restrained rush policy. Glass Cannon remains unchanged but is reclassified
+as an extreme diagnostic; its anti-instant-volatility first-round gate remains
+hard.
+
+Both registered configurations were run over the five-fixture development
+suite, 480 simulations each:
+
+| Qualification | Representative qualifying | Damaged / disabled | Terminal incidence | Suite checksum   |
+| ------------- | -------------------------: | -----------------: | -----------------: | ---------------- |
+| C1            |                  292 / 362 |          188 / 104 |              92.5% | `3289f1c9e4ab8398` |
+| C2            |                  271 / 402 |           176 / 95 |              87.5% | `801981a42474b5b6` |
+
+The historical guarded, unguarded, Glass Cannon, and asymmetric outcome
+checksums are unchanged under their respective C1/C2 configurations. Neither
+registered configuration passes the revised hard suite: representative-light
+terminal incidence is too high, and guarded Bulwark still lacks
+healthy-to-damaged progression.
+
+Decision **A** for this architecture step: use fixed struck-zone armour bands
+as the implementation-ready shape for a future qualification candidate:
+exposed `0-9`, light `10-24`, protected `25-49`, and heavy `50+`. Impact
+remains linear inside each band; thresholds are band data, not fixture,
+chassis, or competitor exceptions. This is a Proposed design only. No C3 or
+active armour-band configuration exists, held-out execution remains
+prohibited, and Milestone 0.2B remains incomplete.
+
 ## 9. Final Recommendation
 
 ### First Milestone: 0.2A — Benchmark Harness

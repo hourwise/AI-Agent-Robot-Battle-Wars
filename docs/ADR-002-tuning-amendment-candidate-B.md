@@ -1199,3 +1199,186 @@ replayable through their IDs and facts, while an unaccepted future rule is not
 made the default. Compatibility requires schema support for historical C1/C2
 identifiers and reports; legacy identifier-absent records retain their existing
 replay path. Milestone 0.2B remains incomplete.
+
+## 26. Qualification Registry, Strategy-4 Fixture, and Armour-Band Design Gate (2026-07-30)
+
+### 26.1 Implemented registry architecture
+
+Qualification configuration is now independent of fixture configuration.
+`src/simulator/component-qualification-registry.ts` is the sole authoritative
+source for registered candidate constants. It contains two immutable entries:
+
+| ID | Model | Factor / minimum / critical / high | Config checksum |
+| --- | --- | --- | --- |
+| `component-impact-c1` | `linear-component-impact` | `0.20 / 0 / 11 / 13` | `2a40a56f97062ca3` |
+| `component-impact-c2` | `linear-component-impact` | `0.20 / 0 / 13 / 15` | `13548462df34a183` |
+
+C2 remains the explicit default. Unknown IDs fail before fighter state, events,
+or RNG consumption. Returned entries and the registry list are frozen. The
+canonical checksum includes schema version, ID, model, armour factor, minimum,
+critical threshold, and high-impact threshold in stable key order.
+
+Match requests may select a registered ID. The resolved ID, model, and checksum
+are persisted in the competition-start event, match config/record, benchmark
+report, lifecycle-suite report, and factual report. Attack and component events
+also persist the checksum/model alongside the existing ID, raw damage, struck
+armour, impact, constants, thresholds, and reason. Historical replay continues
+to use persisted events; it does not reconstruct transitions from the registry.
+Legacy identifier-absent records remain valid and are not assigned C2.
+
+The lifecycle CLI now accepts:
+
+```text
+npm run benchmark:lifecycle -- --partition development --qualification component-impact-c1
+npm run benchmark:lifecycle -- --partition development --qualification component-impact-c2
+npm run benchmark:lifecycle -- --list-qualifications
+```
+
+Only registered IDs are accepted. Arbitrary constants, environment-based
+selection, held-out, and all-partition execution remain prohibited.
+
+### 26.2 Fixture/configuration separation
+
+`component-lifecycle-v1/suite.json` no longer contains a qualification ID or
+constants. Its canonical fixture-only checksum is `ffc11deb47e6049f`. The
+suite checksum separately incorporates that fixture checksum and the selected
+qualification metadata.
+
+The same manifest now runs both C1 and C2. Existing fixture gameplay is exactly
+reproduced: the four historical outcome checksums remain unchanged.
+
+| Fixture | Historical C1 outcome | Registry C1 outcome | Historical C2 outcome | Registry C2 outcome |
+| --- | --- | --- | --- | --- |
+| Guarded Bulwark | `6d5ccc01ddc76064` | same | `8d102dba45ac9eab` | same |
+| Unguarded Bulwark | `8b182f2598cad6d6` | same | `6bc03ef696d68955` | same |
+| Glass Cannon | `07154dc578aa035f` | same | `dc9194c55baebc4f` | same |
+| Bulwark vs Glass | `af4a1c74f7dce919` | same | `4a36189adcfda57f` | same |
+
+The historical suite checksums remain `04fe9aeb6cd48dbe` for C1 and
+`7c734547c93214f5` for C2. They map to revised architecture/suite checksums
+`3289f1c9e4ab8398` and `801981a42474b5b6`, respectively. The new checksums
+are intentionally different because they include canonical qualification
+metadata, a fixture checksum, revised gate applicability, and the additional
+representative fixture. This is not a gameplay migration of the historical
+fixtures.
+
+### 26.3 Representative-light selection
+
+Three benchmark-only designs were compared:
+
+| Candidate | Build and armour | Policy | Decision |
+| --- | --- | --- | --- |
+| L1 | light/wheels/ram/none; `20/10/10/5/5` | rush/close, aggression 50, front then left, retreat 30, heat 75, defend | Selected: familiar equipment, real protection, and non-pathological engagement. |
+| L2 | L1 plus traction boost | same | Rejected: the catalogue utility has no specific current defensive runtime behavior, so it adds a target without the advertised control. |
+| L3 | existing light/wheels/grappler/none; `5/5/5/5/5` pattern | flank/close, aggression 70 | Rejected: armour remains near Glass Cannon and weapon/targeting changes confound the armour comparison. |
+
+Selected competitor `representative-light` (“Light Vanguard”) costs 42, has
+60 integrity and 50 total armour, and uses only catalogue v1 items. No utility
+is deliberate: it is an unguarded baseline without reinforced-drive
+interference. Its aggression of 50 permits deterministic seeded attack/defend
+choice; aggression above 50 attacks whenever the weapon is ready.
+
+Compared with Glass Cannon, it retains light/wheels/ram/none but changes front
+armour 5 to 20, side armour 0/0 to 10/10, rear/top 0/0 to 5/5, total armour 5
+to 50, aggression 100 to 50, retreat 0 to 30, heat threshold 100 to 75,
+secondary target front to left, and fallback desperate attack to defend.
+
+`representative-light-mirror` is a hard, one-assignment, 80-development-seed
+fixture. Glass Cannon is now `diagnostic-extreme`; the asymmetric fixture
+remains an unchanged role-swapped diagnostic. Revised roles are:
+
+- hard: guarded Bulwark, unguarded Bulwark, representative light;
+- diagnostic: Glass Cannon extreme and Bulwark versus Glass Cannon.
+
+Glass full-match terminal incidence is superseded as a representative hard
+gate, not deleted. It is always reported diagnostically. Its first-round
+terminal-disable ceiling remains a hard `<25%` anti-instant-volatility check.
+All legality, factual, guard, replay, and qualification-before-selection
+invariants remain hard.
+
+### 26.4 Representative-light development evidence
+
+Only the development partition was executed. Struck armour was 20 on every
+successful hit in both candidates.
+
+| Fact | C1 | C2 |
+| --- | --- | --- |
+| Hits | 362 | 402 |
+| Raw damage distribution | `12:11, 13:17, 14:23, 15:16, 16:34, 17:46, 18:44, 19:31, 20:30, 21:23, 22:28, 23:34, 24:22, 25:3` | `12:10, 13:18, 14:23, 15:17, 16:41, 17:42, 18:53, 19:36, 20:39, 21:28, 22:33, 23:36, 24:23, 25:3` |
+| Impact distribution | `8:11, 9:17, 10:23, 11:16, 12:34, 13:46, 14:44, 15:31, 16:30, 17:23, 18:28, 19:34, 20:22, 21:3` | `8:10, 9:18, 10:23, 11:17, 12:41, 13:42, 14:53, 15:36, 16:39, 17:28, 18:33, 19:36, 20:23, 21:3` |
+| Qualifying; rate | 292; 80.7% | 271; 67.4% |
+| Matches with 1+/2+/3+ | 80/79/67 | 80/79/65 |
+| Damaged / disabled | 188 / 104 | 176 / 95 |
+| Damaged M/W/U | 111/77/0 | 106/70/0 |
+| Disabled M/W/U | 61/43/0 | 57/38/0 |
+| Terminal / first-round terminal | 92.5% / 0% | 87.5% / 0% |
+| Average / maximum rounds | 12.86 / 20 | 13.96 / 20 |
+| Outcome / report checksum | `80500d22a280e588` / `9fc3aa64da8be76f` | `44520ac0dfddb326` / `3c2f98ed3acf2c44` |
+
+The fixture is suitable: it engages reliably, has meaningful progression,
+differentiates C1 from C2, avoids first-round terminal volatility, and is less
+extreme than Glass Cannon. Its C1/C2 terminal rates also confirm that neither
+historical global-threshold candidate is accepted by the new fixture.
+
+### 26.5 Proposed armour-band model
+
+**Status: Proposed for a future bounded candidate; not implemented.**
+
+Select Option A, fixed struck-zone armour bands with band-specific thresholds:
+
+| Band | Struck-zone armour |
+| --- | --- |
+| `exposed` | 0-9 inclusive |
+| `light` | 10-24 inclusive |
+| `protected` | 25-49 inclusive |
+| `heavy` | 50 and above |
+
+The authoritative input is the armour value at the resolved hit zone. Chassis,
+fixture ID, competitor name, total armour, and build identity have no effect.
+Zero belongs to `exposed`; 9/10, 24/25, and 49/50 have deterministic ownership.
+Inside every band, impact remains
+`max(minimumImpact, round(rawDamage - struckArmour * armourFactor))`. Only the
+critical and high-impact thresholds vary by band.
+
+The relationship is intentionally protective rather than punitive: exposed
+armour already yields large component-impact values, so it needs higher
+thresholds to avoid near-universal qualification. Heavy armour compresses
+impact into a narrow low range, so lower thresholds retain rare component
+progression. The thresholds remain monotonic within each band.
+
+Evidence-bounded ranges for the next candidate-selection task are:
+
+| Band | Critical range | High-impact range | Evidence boundary |
+| --- | ---: | ---: | --- |
+| `exposed` | 15-17 | 18-20 | Glass impact 11-24 remains diagnostic; thresholds must materially exceed C2. |
+| `light` | 14-15 | 16-18 | Armour-20 C2 at 13/15 still yields 67.4% qualification and 87.5% terminal incidence. |
+| `protected` | 12-14 | 14-16 | Interpolation only; no acceptance claim until a future representative protected fixture exists. |
+| `heavy` | 11-12 | 13-14 | Armour-60 C1 progresses at 11/13; C2 collapses guarded progression at 13/15. |
+
+These are search bounds, not Candidate C3 constants. A future task must compare
+a small declared set across all five fixtures and may conclude that the
+protected range needs more evidence.
+
+Events for the future model must persist registry ID, model, config checksum,
+band ID, inclusive band bounds, struck armour, raw damage, impact, selected
+thresholds, critical fact, and reason. The canonical checksum must include
+ordered band definitions. Registry validation requires bands to start at zero,
+be ordered, gap-free and non-overlapping, have unique IDs, give the final band
+an open maximum, and keep high threshold at or above critical threshold.
+
+Option B, a continuous armour-adjusted threshold, is rejected because it hides
+the balance rule in another coupled equation. Option C, bands plus interpolation,
+adds complexity before boundary evidence exists. Option D, fixture/build-specific
+thresholds, is rejected because runtime rules must not know benchmark or
+opponent identities.
+
+### 26.6 Outcome and next boundary
+
+**Outcome A: registry and Strategy-4 fixture architecture are complete, and
+the armour-band design is implementation-ready for a future candidate.**
+
+No armour-band candidate, Candidate C3, lifecycle change, gate weakening,
+critical-rate change, damage change, selection-weight change, seed change, or
+held-out execution is authorised here. The next task is bounded armour-band
+candidate selection and implementation using the published ranges. Milestone
+0.2B remains incomplete.

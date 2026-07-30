@@ -1,14 +1,12 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { CATALOGUE_V1 } from "../catalogue/catalogue.v1.js";
 import { createBulwarkBuild, BULWARK_POLICY } from "../agents/scripted/bulwark-agent.js";
 import { machineBuildProposalSchema } from "../schemas/build.schema.js";
 import { actionPolicySchema } from "../schemas/policy.schema.js";
-import {
-  COMPONENT_QUALIFICATION_ID,
-  RULESET_VERSION,
-  SIMULATOR_VERSION,
-} from "../simulator/constants.js";
+import { RULESET_VERSION, SIMULATOR_VERSION } from "../simulator/constants.js";
+import { canonicalStringify } from "../simulator/component-qualification-registry.js";
 import { validateBuild } from "../validation/build-validator.js";
 import type {
   LifecycleFixtureSuiteDefinition,
@@ -35,7 +33,8 @@ const competitorSchema = z
 const purposeSchema = z.enum([
   "high-armour plus reinforced-drive stress test",
   "high-armour lifecycle progression without guard interference",
-  "low-armour over-aggression and transition-density test",
+  "representative low-armour lifecycle acceptance without pathological guaranteed-transition design",
+  "upper-bound low-armour transition-density and anti-instant-volatility stress test",
   "armour differentiation and role-swapped behaviour",
 ]);
 
@@ -48,7 +47,7 @@ const fixtureSchema = z
     fighterYCompetitorId: z.string().min(1),
     roleSwapped: z.boolean(),
     seedPartition: z.literal("development"),
-    classification: z.enum(["hard", "diagnostic"]),
+    classification: z.enum(["hard", "diagnostic", "diagnostic-extreme"]),
   })
   .strict();
 
@@ -56,7 +55,6 @@ export const lifecycleFixtureSuiteSchema = z
   .object({
     schemaVersion: z.literal("1"),
     suiteId: z.literal("component-lifecycle-v1"),
-    componentQualificationId: z.literal("component-impact-c2"),
     simulatorVersion: z.literal("0.2.0"),
     rulesetVersion: z.literal("0.2.0"),
     catalogueVersion: z.literal("1"),
@@ -99,9 +97,6 @@ export function parseLifecycleFixtureSuite(
   }
 
   const definition = parsed.data as LifecycleFixtureSuiteDefinition;
-  if (definition.componentQualificationId !== COMPONENT_QUALIFICATION_ID) {
-    throw new Error("Fixture suite component qualification identity does not match C1");
-  }
   if (definition.simulatorVersion !== SIMULATOR_VERSION) {
     throw new Error("Fixture suite simulator version does not match the simulator");
   }
@@ -162,7 +157,12 @@ export function parseLifecycleFixtureSuite(
   }
   assertOnlyUtilityDiffers(guarded, unguarded);
 
-  return { ...definition, competitors, fixtures };
+  const fixtureChecksum = createHash("sha256")
+    .update(canonicalStringify(definition))
+    .digest("hex")
+    .slice(0, 16);
+
+  return { ...definition, competitors, fixtures, fixtureChecksum };
 }
 
 export function loadLifecycleFixtureSuite(

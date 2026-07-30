@@ -55,6 +55,13 @@ const fighterMatchSummarySchema = z.object({
 export const FactualMatchReportSchema = z.object({
   schemaVersion: z.literal("1"),
   matchId: z.string(),
+  componentQualification: z
+    .object({
+      id: z.enum(["component-impact-c1", "component-impact-c2"]),
+      configChecksum: z.string().regex(/^[a-f0-9]{16}$/),
+      model: z.literal("linear-component-impact"),
+    })
+    .optional(),
   seed: z.number().int().nonnegative(),
   rounds: z.number().int().nonnegative(),
   winner: z.string().nullable(),

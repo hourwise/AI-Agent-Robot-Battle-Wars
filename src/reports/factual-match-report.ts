@@ -252,6 +252,7 @@ export function buildFactualReport(result: MatchResult): FactualMatchReport {
   return {
     schemaVersion: "1",
     matchId: "pending",
+    componentQualification: config.componentQualification,
     seed: config.seed,
     rounds,
     winner: competitionResult.winner,

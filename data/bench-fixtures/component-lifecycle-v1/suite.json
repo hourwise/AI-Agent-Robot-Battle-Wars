@@ -1,7 +1,6 @@
 {
   "schemaVersion": "1",
   "suiteId": "component-lifecycle-v1",
-  "componentQualificationId": "component-impact-c2",
   "simulatorVersion": "0.2.0",
   "rulesetVersion": "0.2.0",
   "catalogueVersion": "1",
@@ -96,6 +95,36 @@
         "heatThreshold": 100,
         "fallback": "desperate_attack"
       }
+    },
+    {
+      "competitorId": "representative-light",
+      "source": "benchmark-only",
+      "build": {
+        "machineName": "Light Vanguard",
+        "chassisId": "light",
+        "mobilityId": "wheels",
+        "weaponId": "ram",
+        "utilityId": "none",
+        "armour": {
+          "front": 20,
+          "left": 10,
+          "right": 10,
+          "rear": 5,
+          "top": 5
+        },
+        "designSummary": "A mobile light rammer with practical frontal and all-round protection.",
+        "designRationale": "Use speed and deliberate close engagement while carrying enough armour to survive ordinary exchanges without component transitions being intentionally guaranteed."
+      },
+      "policy": {
+        "opening": "rush",
+        "preferredRange": "close",
+        "aggression": 50,
+        "primaryTarget": "front",
+        "secondaryTarget": "left",
+        "retreatThreshold": 30,
+        "heatThreshold": 75,
+        "fallback": "defend"
+      }
     }
   ],
   "fixtures": [
@@ -120,14 +149,24 @@
       "classification": "hard"
     },
     {
+      "fixtureId": "representative-light-mirror",
+      "benchmarkId": "representative-light-mirror",
+      "purpose": "representative low-armour lifecycle acceptance without pathological guaranteed-transition design",
+      "fighterXCompetitorId": "representative-light",
+      "fighterYCompetitorId": "representative-light",
+      "roleSwapped": false,
+      "seedPartition": "development",
+      "classification": "hard"
+    },
+    {
       "fixtureId": "glass-cannon-mirror",
       "benchmarkId": "glass-cannon-mirror",
-      "purpose": "low-armour over-aggression and transition-density test",
+      "purpose": "upper-bound low-armour transition-density and anti-instant-volatility stress test",
       "fighterXCompetitorId": "glass-cannon",
       "fighterYCompetitorId": "glass-cannon",
       "roleSwapped": false,
       "seedPartition": "development",
-      "classification": "hard"
+      "classification": "diagnostic-extreme"
     },
     {
       "fixtureId": "bulwark-vs-glass-cannon",

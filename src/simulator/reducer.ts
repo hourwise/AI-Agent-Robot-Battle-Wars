@@ -29,16 +29,30 @@ import {
   calculateComponentImpact,
   checkComponentQualification,
 } from "./component-state.js";
+import {
+  getDefaultComponentQualificationConfig,
+  type LinearComponentQualificationConfig,
+} from "./component-qualification-registry.js";
 
-function getComponentQualificationFacts(attack: AttackResult) {
-  const impact = calculateComponentImpact({
-    rawDamage: attack.rawDamage,
-    armourAtHitZone: attack.armourAtHitZone,
-  });
+function getComponentQualificationFacts(
+  attack: AttackResult,
+  config: LinearComponentQualificationConfig,
+) {
+  const impact = calculateComponentImpact(
+    {
+      rawDamage: attack.rawDamage,
+      armourAtHitZone: attack.armourAtHitZone,
+    },
+    config,
+  );
   return {
     ...impact,
     integrityEffectiveDamage: attack.effectiveDamage,
-    qualification: checkComponentQualification(attack.isCritical, impact.componentImpact),
+    qualification: checkComponentQualification(
+      attack.isCritical,
+      impact.componentImpact,
+      config,
+    ),
   };
 }
 
@@ -63,6 +77,7 @@ export function applyRound(
   timestampMs: number,
   policyA?: ActionPolicy,
   policyB?: ActionPolicy,
+  qualificationConfig: LinearComponentQualificationConfig = getDefaultComponentQualificationConfig(),
 ): RoundState {
   let a = { ...state.fighterA };
   let b = { ...state.fighterB };
@@ -183,7 +198,7 @@ export function applyRound(
         weapon: a.build.proposal.weaponId,
       });
     } else {
-      const facts = getComponentQualificationFacts(attackResultA);
+      const facts = getComponentQualificationFacts(attackResultA, qualificationConfig);
       emit("attack_hit", a.fighterId, b.fighterId, {
         weapon: a.build.proposal.weaponId,
         hitZone: attackResultA.hitZone,
@@ -193,6 +208,9 @@ export function applyRound(
         armourAtHitZone: attackResultA.armourAtHitZone,
         componentImpact: facts.componentImpact,
         componentQualificationId: facts.qualification.qualificationId,
+        componentQualificationConfigChecksum:
+          facts.qualification.qualificationConfigChecksum,
+        componentQualificationModel: facts.qualification.qualificationModel,
         criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
         highComponentImpactThreshold: facts.qualification.highImpactThreshold,
         componentArmourFactor: facts.armourFactor,
@@ -263,6 +281,9 @@ export function applyRound(
               armourAtHitZone: facts.armourAtHitZone,
               componentImpact: facts.componentImpact,
               componentQualificationId: facts.qualification.qualificationId,
+              componentQualificationConfigChecksum:
+                facts.qualification.qualificationConfigChecksum,
+              componentQualificationModel: facts.qualification.qualificationModel,
               componentArmourFactor: facts.armourFactor,
               componentMinimumImpact: facts.minimumImpact,
               criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
@@ -292,6 +313,9 @@ export function applyRound(
               armourAtHitZone: facts.armourAtHitZone,
               componentImpact: facts.componentImpact,
               componentQualificationId: facts.qualification.qualificationId,
+              componentQualificationConfigChecksum:
+                facts.qualification.qualificationConfigChecksum,
+              componentQualificationModel: facts.qualification.qualificationModel,
               componentArmourFactor: facts.armourFactor,
               componentMinimumImpact: facts.minimumImpact,
               criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
@@ -319,6 +343,9 @@ export function applyRound(
               armourAtHitZone: facts.armourAtHitZone,
               componentImpact: facts.componentImpact,
               componentQualificationId: facts.qualification.qualificationId,
+              componentQualificationConfigChecksum:
+                facts.qualification.qualificationConfigChecksum,
+              componentQualificationModel: facts.qualification.qualificationModel,
               componentArmourFactor: facts.armourFactor,
               componentMinimumImpact: facts.minimumImpact,
               criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
@@ -363,7 +390,7 @@ export function applyRound(
         weapon: b.build.proposal.weaponId,
       });
     } else {
-      const facts = getComponentQualificationFacts(attackResultB);
+      const facts = getComponentQualificationFacts(attackResultB, qualificationConfig);
       emit("attack_hit", b.fighterId, a.fighterId, {
         weapon: b.build.proposal.weaponId,
         hitZone: attackResultB.hitZone,
@@ -373,6 +400,9 @@ export function applyRound(
         armourAtHitZone: attackResultB.armourAtHitZone,
         componentImpact: facts.componentImpact,
         componentQualificationId: facts.qualification.qualificationId,
+        componentQualificationConfigChecksum:
+          facts.qualification.qualificationConfigChecksum,
+        componentQualificationModel: facts.qualification.qualificationModel,
         criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
         highComponentImpactThreshold: facts.qualification.highImpactThreshold,
         componentArmourFactor: facts.armourFactor,
@@ -443,6 +473,9 @@ export function applyRound(
               armourAtHitZone: facts.armourAtHitZone,
               componentImpact: facts.componentImpact,
               componentQualificationId: facts.qualification.qualificationId,
+              componentQualificationConfigChecksum:
+                facts.qualification.qualificationConfigChecksum,
+              componentQualificationModel: facts.qualification.qualificationModel,
               componentArmourFactor: facts.armourFactor,
               componentMinimumImpact: facts.minimumImpact,
               criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
@@ -472,6 +505,9 @@ export function applyRound(
               armourAtHitZone: facts.armourAtHitZone,
               componentImpact: facts.componentImpact,
               componentQualificationId: facts.qualification.qualificationId,
+              componentQualificationConfigChecksum:
+                facts.qualification.qualificationConfigChecksum,
+              componentQualificationModel: facts.qualification.qualificationModel,
               componentArmourFactor: facts.armourFactor,
               componentMinimumImpact: facts.minimumImpact,
               criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
@@ -499,6 +535,9 @@ export function applyRound(
               armourAtHitZone: facts.armourAtHitZone,
               componentImpact: facts.componentImpact,
               componentQualificationId: facts.qualification.qualificationId,
+              componentQualificationConfigChecksum:
+                facts.qualification.qualificationConfigChecksum,
+              componentQualificationModel: facts.qualification.qualificationModel,
               componentArmourFactor: facts.armourFactor,
               componentMinimumImpact: facts.minimumImpact,
               criticalComponentImpactThreshold: facts.qualification.criticalThreshold,

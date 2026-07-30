@@ -13,12 +13,14 @@ import {
 const suite = loadLifecycleFixtureSuite();
 
 describe("component lifecycle fixture suite", () => {
-  it("validates the fixed Candidate C2 suite and unique fixture IDs", () => {
+  it("validates the qualification-independent suite and unique fixture IDs", () => {
     expect(suite.suiteId).toBe("component-lifecycle-v1");
-    expect(suite.componentQualificationId).toBe("component-impact-c2");
     expect(suite.seedPartition).toBe("development");
-    expect(suite.fixtures).toHaveLength(4);
-    expect(new Set(suite.fixtures.map((fixture) => fixture.fixtureId)).size).toBe(4);
+    expect(suite.fixtures).toHaveLength(5);
+    expect(new Set(suite.fixtures.map((fixture) => fixture.fixtureId)).size).toBe(5);
+    const raw = JSON.parse(readFileSync(LIFECYCLE_SUITE_PATH, "utf8"));
+    expect(raw).not.toHaveProperty("componentQualificationId");
+    expect(suite.fixtureChecksum).toMatch(/^[a-f0-9]{16}$/);
   });
 
   it("uses valid builds and policies without API-backed agent references", () => {
@@ -75,6 +77,36 @@ describe("component lifecycle fixture suite", () => {
       heatThreshold: 100,
       fallback: "desperate_attack",
     });
+    const glassFixture = suite.fixtures.find(
+      (fixture) => fixture.fixtureId === "glass-cannon-mirror",
+    )!;
+    expect(glassFixture.classification).toBe("diagnostic-extreme");
+  });
+
+  it("validates a materially distinct representative light hard fixture", () => {
+    const representative = suite.competitors.find(
+      (competitor) => competitor.competitorId === "representative-light",
+    )!;
+    const glass = suite.competitors.find(
+      (competitor) => competitor.competitorId === "glass-cannon",
+    )!;
+    expect(representative.build.proposal).toMatchObject({
+      machineName: "Light Vanguard",
+      chassisId: "light",
+      mobilityId: "wheels",
+      weaponId: "ram",
+      utilityId: "none",
+      armour: { front: 20, left: 10, right: 10, rear: 5, top: 5 },
+    });
+    expect(representative.build.totalArmourPoints).toBe(50);
+    expect(representative.policy.aggression).toBe(50);
+    expect(representative.build.proposal.armour).not.toEqual(glass.build.proposal.armour);
+    expect(representative.policy).not.toEqual(glass.policy);
+    const fixture = suite.fixtures.find(
+      (candidate) => candidate.fixtureId === "representative-light-mirror",
+    )!;
+    expect(fixture.classification).toBe("hard");
+    expect(fixture.roleSwapped).toBe(false);
   });
 
   it("uses valid identities and role swapping for the asymmetric fixture", () => {

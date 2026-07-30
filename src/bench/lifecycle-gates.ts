@@ -23,7 +23,7 @@ function thresholdStatus(
   fixture: ResolvedLifecycleFixture,
   passes: boolean,
 ): GateResult["status"] {
-  if (fixture.classification === "diagnostic") return "diagnostic";
+  if (fixture.classification !== "hard") return "diagnostic";
   return passes ? "pass" : "fail";
 }
 
@@ -126,9 +126,9 @@ export function evaluateFixtureGates(
       undefined,
     ],
     [
-      "candidate-c2-factual-completeness",
+      "qualification-factual-completeness",
       audit.factualCompletenessErrors,
-      "zero missing Candidate C2 facts",
+      "zero missing selected-qualification facts",
       undefined,
     ],
     [
@@ -213,6 +213,17 @@ export function evaluateFixtureGates(
         "A 25% regression ceiling prevents a return to immediate terminal volatility; the development baseline is reported rather than assumed.",
       ),
     );
+  } else if (fixture.fixtureId === "representative-light-mirror") {
+    gates.push(
+      result(
+        fixture.fixtureId,
+        "representative-light-first-round-terminal-disable",
+        diagnostics.firstRoundTerminalDisableRate < 0.25 ? "pass" : "fail",
+        diagnostics.firstRoundTerminalDisableRate,
+        "< 0.25 of simulations",
+        "Representative light acceptance includes an explicit anti-instant-volatility ceiling.",
+      ),
+    );
   } else {
     gates.push(
       result(
@@ -220,7 +231,7 @@ export function evaluateFixtureGates(
         "glass-first-round-terminal-disable",
         "not-applicable",
         diagnostics.firstRoundTerminalDisableRate,
-        "Glass Cannon mirror only",
+        "Glass Cannon or representative-light mirror only",
       ),
     );
   }
@@ -279,7 +290,7 @@ export function evaluateSuiteGates(
       "pass",
       true,
       "historical v1 and Candidate A v2 replay regression tests pass",
-      "Compatibility is asserted by the existing version-gated schemas and replay regression suite; Candidate C2 audits do not reinterpret legacy C1 events.",
+      "Compatibility is asserted by the existing version-gated schemas and replay regression suite; selected-qualification audits do not reinterpret legacy events.",
     ),
   ];
 }

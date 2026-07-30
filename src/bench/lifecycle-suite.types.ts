@@ -5,8 +5,12 @@ import type {
   ValidatedBuild,
 } from "../validation/validation.types.js";
 import type { ActionPolicy } from "../simulator/types.js";
+import type {
+  ComponentQualificationId,
+  ComponentQualificationMetadata,
+} from "../simulator/component-qualification-registry.js";
 
-export type FixtureClassification = "hard" | "diagnostic";
+export type FixtureClassification = "hard" | "diagnostic" | "diagnostic-extreme";
 export type GateStatus = "pass" | "fail" | "diagnostic" | "not-applicable";
 
 export interface LifecycleCompetitorDefinition {
@@ -23,7 +27,8 @@ export interface LifecycleFixtureDefinition {
   readonly purpose:
     | "high-armour plus reinforced-drive stress test"
     | "high-armour lifecycle progression without guard interference"
-    | "low-armour over-aggression and transition-density test"
+    | "representative low-armour lifecycle acceptance without pathological guaranteed-transition design"
+    | "upper-bound low-armour transition-density and anti-instant-volatility stress test"
     | "armour differentiation and role-swapped behaviour";
   readonly fighterXCompetitorId: string;
   readonly fighterYCompetitorId: string;
@@ -35,7 +40,6 @@ export interface LifecycleFixtureDefinition {
 export interface LifecycleFixtureSuiteDefinition {
   readonly schemaVersion: "1";
   readonly suiteId: "component-lifecycle-v1";
-  readonly componentQualificationId: "component-impact-c2";
   readonly simulatorVersion: "0.2.0";
   readonly rulesetVersion: "0.2.0";
   readonly catalogueVersion: "1";
@@ -60,6 +64,7 @@ export interface ResolvedLifecycleFixtureSuite extends Omit<
   LifecycleFixtureSuiteDefinition,
   "competitors" | "fixtures"
 > {
+  readonly fixtureChecksum: string;
   readonly competitors: readonly ResolvedLifecycleCompetitor[];
   readonly fixtures: readonly ResolvedLifecycleFixture[];
 }
@@ -142,15 +147,17 @@ export interface AggregateLifecycleSummary {
 export interface LifecycleSuiteReport {
   readonly schemaVersion: "1";
   readonly suiteId: string;
-  readonly componentQualificationId: string;
+  readonly fixtureChecksum: string;
+  readonly componentQualificationId: ComponentQualificationId;
+  readonly componentQualification: ComponentQualificationMetadata;
   readonly seedBankId: string;
   readonly partition: "development";
   readonly fixtureReports: readonly LifecycleFixtureReport[];
   readonly aggregateLifecycleSummary: AggregateLifecycleSummary;
   readonly suiteGates: readonly GateResult[];
   readonly decision:
-    | "A. Candidate C2 passes revised 0.2B lifecycle gates."
-    | "B. Candidate C2 fails revised lifecycle gates and requires no further automatic tuning."
+    | "A. Selected qualification passes revised 0.2B lifecycle gates."
+    | "B. Selected qualification fails revised lifecycle gates."
     | "C. Fixture suite exposes a lifecycle-design defect rather than a tuning issue."
     | "D. Fixture suite implementation is insufficient to make a decision.";
   readonly suiteChecksum: string;
@@ -166,4 +173,5 @@ export interface RunLifecycleSuiteOptions {
   readonly seedBank: import("./benchmark.types.js").SeedBank;
   readonly partition: SeedPartition;
   readonly fixtureId?: string;
+  readonly componentQualificationId?: ComponentQualificationId;
 }

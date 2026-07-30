@@ -9,7 +9,10 @@ export function renderLifecycleSuiteReport(report: LifecycleSuiteReport): string
     "FORGE ARENA COMPONENT LIFECYCLE SUITE",
     "",
     `Suite: ${report.suiteId}`,
+    `Fixture checksum: ${report.fixtureChecksum}`,
     `Candidate: ${report.componentQualificationId}`,
+    `Qualification model: ${report.componentQualification.model}`,
+    `Qualification checksum: ${report.componentQualification.configChecksum}`,
     `Seed bank: ${report.seedBankId}`,
     `Partition: ${report.partition}`,
     `Total simulations: ${report.aggregateLifecycleSummary.totalSimulations}`,
@@ -33,6 +36,7 @@ export function renderLifecycleSuiteReport(report: LifecycleSuiteReport): string
       `Seeds/assignments/simulations: ${benchmark.seedCount}/${benchmark.roleAssignmentsPerSeed}/${benchmark.totalSimulations}`,
     );
     lines.push(`Candidate ID: ${benchmark.componentQualificationId}`);
+    lines.push(`Candidate checksum: ${benchmark.componentQualification.configChecksum}`);
     lines.push(
       `Checksums: outcomes ${benchmark.outcomesChecksum}, report ${benchmark.reportChecksum}`,
     );

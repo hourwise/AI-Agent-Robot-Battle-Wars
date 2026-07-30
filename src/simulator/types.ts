@@ -1,4 +1,8 @@
 import type { ValidatedBuild } from "../validation/validation.types.js";
+import type {
+  ComponentQualificationId,
+  ComponentQualificationMetadata,
+} from "./component-qualification-registry.js";
 
 export type Direction = "north" | "south" | "east" | "west";
 export type ArenaZone =
@@ -96,8 +100,10 @@ export interface MatchConfig {
   fighterB: { build: ValidatedBuild; policy: ActionPolicy };
   rulesetVersion: string;
   catalogueVersion: string;
-  /** Explicit qualification rule identity; optional only for historical inputs. */
-  componentQualificationId?: "component-impact-c1" | "component-impact-c2";
+  /** Explicit registered rule identity. Omission resolves to the registry default. */
+  componentQualificationId?: ComponentQualificationId;
+  /** Resolved persisted metadata; omitted only by legacy inputs. */
+  componentQualification?: ComponentQualificationMetadata;
 }
 
 export type VictoryMethod = "destruction" | "immobilisation" | "judges" | "draw";

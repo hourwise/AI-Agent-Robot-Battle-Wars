@@ -5,6 +5,13 @@ import { loadSeedBank } from "../bench/seed-bank.js";
 import { loadLifecycleFixtureSuite } from "../bench/lifecycle-fixture-schema.js";
 import { runBenchmarkSuite } from "../bench/run-lifecycle-suite.js";
 import { renderLifecycleSuiteReport } from "../bench/lifecycle-report-renderer.js";
+import {
+  DEFAULT_COMPONENT_QUALIFICATION_ID,
+  getComponentQualificationConfig,
+  getComponentQualificationConfigChecksum,
+  listComponentQualificationConfigs,
+  type ComponentQualificationId,
+} from "../simulator/component-qualification-registry.js";
 
 interface CliOptions {
   readonly partition: string;
@@ -12,6 +19,8 @@ interface CliOptions {
   readonly output?: string;
   readonly json: boolean;
   readonly force: boolean;
+  readonly qualificationId?: ComponentQualificationId;
+  readonly listQualifications: boolean;
 }
 
 export function parseLifecycleBenchmarkArgs(args: readonly string[]): CliOptions {
@@ -20,6 +29,8 @@ export function parseLifecycleBenchmarkArgs(args: readonly string[]): CliOptions
   let output: string | undefined;
   let json = false;
   let force = false;
+  let qualificationId: ComponentQualificationId | undefined;
+  let listQualifications = false;
 
   for (let index = 0; index < args.length; index++) {
     const argument = args[index];
@@ -33,15 +44,35 @@ export function parseLifecycleBenchmarkArgs(args: readonly string[]): CliOptions
       json = true;
     } else if (argument === "--force") {
       force = true;
+    } else if (argument === "--qualification" && args[index + 1]) {
+      qualificationId = getComponentQualificationConfig(args[++index]!).id;
+    } else if (argument === "--list-qualifications") {
+      listQualifications = true;
     } else {
       throw new Error(`Unknown or incomplete argument: ${String(argument)}`);
     }
   }
-  return { partition, fixtureId, output, json, force };
+  return {
+    partition,
+    fixtureId,
+    output,
+    json,
+    force,
+    qualificationId,
+    listQualifications,
+  };
 }
 
 export function runLifecycleBenchmarkCli(args = process.argv.slice(2)): string {
   const options = parseLifecycleBenchmarkArgs(args);
+  if (options.listQualifications) {
+    return listComponentQualificationConfigs()
+      .map(
+        (config) =>
+          `${config.id}${config.id === DEFAULT_COMPONENT_QUALIFICATION_ID ? " (default)" : ""}: ${config.model}, checksum ${getComponentQualificationConfigChecksum(config)}, armour ${config.armourFactor}, min ${config.minimumImpact}, critical ${config.criticalThreshold}, high ${config.highImpactThreshold}`,
+      )
+      .join("\n");
+  }
   if (options.partition !== "development") {
     throw new Error(
       `Lifecycle benchmark partition "${options.partition}" is prohibited. Only "development" is authorised.`,
@@ -57,6 +88,7 @@ export function runLifecycleBenchmarkCli(args = process.argv.slice(2)): string {
     seedBank: bank,
     partition: "development",
     fixtureId: options.fixtureId,
+    componentQualificationId: options.qualificationId,
   });
   const rendered = options.json
     ? JSON.stringify(report, null, 2)

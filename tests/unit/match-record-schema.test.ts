@@ -201,8 +201,69 @@ describe("validateMatchRecord", () => {
   });
 
   it("accepts explicit historical C1 and active C2 qualification identities", () => {
-    expect(validateMatchRecord({ ...makeValidRecord(), componentQualificationId: "component-impact-c1" }).ok).toBe(true);
-    expect(validateMatchRecord({ ...makeValidRecord(), componentQualificationId: "component-impact-c2" }).ok).toBe(true);
+    expect(
+      validateMatchRecord({
+        ...makeValidRecord(),
+        componentQualificationId: "component-impact-c1",
+      }).ok,
+    ).toBe(true);
+    expect(
+      validateMatchRecord({
+        ...makeValidRecord(),
+        componentQualificationId: "component-impact-c2",
+      }).ok,
+    ).toBe(true);
+  });
+
+  it("accepts optional resolved C1/C2 metadata without assigning it to legacy records", () => {
+    for (const componentQualification of [
+      {
+        id: "component-impact-c1",
+        configChecksum: "2a40a56f97062ca3",
+        model: "linear-component-impact",
+      },
+      {
+        id: "component-impact-c2",
+        configChecksum: "13548462df34a183",
+        model: "linear-component-impact",
+      },
+    ]) {
+      expect(
+        validateMatchRecord({
+          ...makeValidRecord(),
+          componentQualificationId: componentQualification.id,
+          componentQualification,
+        }).ok,
+      ).toBe(true);
+    }
+    const legacy = validateMatchRecord(makeValidRecord());
+    expect(legacy.ok).toBe(true);
+    if (legacy.ok) {
+      expect(legacy.record.componentQualification).toBeUndefined();
+    }
+  });
+
+  it("rejects unknown or malformed resolved qualification metadata", () => {
+    expect(
+      validateMatchRecord({
+        ...makeValidRecord(),
+        componentQualification: {
+          id: "component-impact-unknown",
+          configChecksum: "13548462df34a183",
+          model: "linear-component-impact",
+        },
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateMatchRecord({
+        ...makeValidRecord(),
+        componentQualification: {
+          id: "component-impact-c2",
+          configChecksum: "not-a-checksum",
+          model: "linear-component-impact",
+        },
+      }).ok,
+    ).toBe(false);
   });
 
   it("rejects an unknown qualification identity", () => {
@@ -220,7 +281,7 @@ describe("validateMatchRecord", () => {
   });
 
   it("rejects missing schemaVersion", () => {
-    const { schemaVersion, ...rest } = makeValidRecord();
+    const { schemaVersion: _schemaVersion, ...rest } = makeValidRecord();
     const result = validateMatchRecord(rest);
     expect(result.ok).toBe(false);
   });

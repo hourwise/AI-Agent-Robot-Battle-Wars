@@ -99,12 +99,17 @@ npm run smoke:design    # Live test of DeepSeek design generation
 npm run benchmark                                  # Existing Bulwark mirror benchmark
 npm run benchmark:lifecycle -- --partition development
 npm run benchmark:lifecycle -- --partition development --fixture glass-cannon-mirror
+npm run benchmark:lifecycle -- --partition development --qualification component-impact-c1
+npm run benchmark:lifecycle -- --partition development --qualification component-impact-c2
+npm run benchmark:lifecycle -- --list-qualifications
 npm run benchmark:lifecycle -- --partition development --json
 ```
 
 The component-lifecycle suite is benchmark-only and rejects `held-out` and
 `all` partitions until a future explicitly authorised confirmation task. Its
-fixed manifest is in `data/bench-fixtures/component-lifecycle-v1/`.
+fixed, qualification-independent manifest is in
+`data/bench-fixtures/component-lifecycle-v1/`. Registered qualification IDs
+are immutable; `component-impact-c2` is the default when the option is omitted.
 
 ## Output
 

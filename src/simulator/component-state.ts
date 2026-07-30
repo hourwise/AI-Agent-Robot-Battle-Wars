@@ -10,12 +10,13 @@ import {
   DAMAGED_WEAPON_MULTIPLIER,
   DAMAGED_COOLING_BONUS,
   COOLING_BONUS,
-  COMPONENT_ARMOUR_FACTOR,
-  COMPONENT_MIN_IMPACT,
-  COMPONENT_QUALIFICATION_ID,
-  CRITICAL_COMPONENT_IMPACT_THRESHOLD,
-  HIGH_COMPONENT_IMPACT_THRESHOLD,
 } from "./constants.js";
+import {
+  getComponentQualificationConfigChecksum,
+  getDefaultComponentQualificationConfig,
+  type ComponentQualificationId,
+  type LinearComponentQualificationConfig,
+} from "./component-qualification-registry.js";
 import type { SeededRandom } from "./seeded-random.js";
 
 // ── Effective-stat helpers ──
@@ -101,6 +102,9 @@ export interface ComponentImpactInput {
 export interface ComponentImpactResult {
   readonly rawDamage: number;
   readonly armourAtHitZone: number;
+  readonly qualificationId: ComponentQualificationId;
+  readonly qualificationConfigChecksum: string;
+  readonly qualificationModel: "linear-component-impact";
   readonly armourFactor: number;
   readonly minimumImpact: number;
   readonly componentImpact: number;
@@ -108,7 +112,9 @@ export interface ComponentImpactResult {
 
 export interface QualificationResult {
   readonly qualifies: boolean;
-  readonly qualificationId: typeof COMPONENT_QUALIFICATION_ID;
+  readonly qualificationId: ComponentQualificationId;
+  readonly qualificationConfigChecksum: string;
+  readonly qualificationModel: "linear-component-impact";
   readonly componentImpact: number;
   readonly criticalThreshold: number;
   readonly highImpactThreshold: number;
@@ -117,6 +123,7 @@ export interface QualificationResult {
 
 export function calculateComponentImpact(
   input: ComponentImpactInput,
+  config: LinearComponentQualificationConfig = getDefaultComponentQualificationConfig(),
 ): ComponentImpactResult {
   if (!Number.isFinite(input.rawDamage) || input.rawDamage < 0) {
     throw new Error("rawDamage must be a finite non-negative number");
@@ -127,13 +134,16 @@ export function calculateComponentImpact(
   return {
     rawDamage: Math.trunc(input.rawDamage),
     armourAtHitZone: Math.trunc(input.armourAtHitZone),
-    armourFactor: COMPONENT_ARMOUR_FACTOR,
-    minimumImpact: COMPONENT_MIN_IMPACT,
+    qualificationId: config.id,
+    qualificationConfigChecksum: getComponentQualificationConfigChecksum(config),
+    qualificationModel: config.model,
+    armourFactor: config.armourFactor,
+    minimumImpact: config.minimumImpact,
     componentImpact: Math.max(
-      COMPONENT_MIN_IMPACT,
+      config.minimumImpact,
       Math.round(
         Math.trunc(input.rawDamage) -
-          Math.trunc(input.armourAtHitZone) * COMPONENT_ARMOUR_FACTOR,
+          Math.trunc(input.armourAtHitZone) * config.armourFactor,
       ),
     ),
   };
@@ -142,26 +152,31 @@ export function calculateComponentImpact(
 export function checkComponentQualification(
   isCritical: boolean,
   componentImpact: number,
+  config: LinearComponentQualificationConfig = getDefaultComponentQualificationConfig(),
 ): QualificationResult {
-  if (!Number.isFinite(componentImpact) || componentImpact < COMPONENT_MIN_IMPACT) {
+  const configChecksum = getComponentQualificationConfigChecksum(config);
+  if (!Number.isFinite(componentImpact) || componentImpact < config.minimumImpact) {
     return {
       qualifies: false,
-      qualificationId: COMPONENT_QUALIFICATION_ID,
-      componentImpact: COMPONENT_MIN_IMPACT,
-      criticalThreshold: CRITICAL_COMPONENT_IMPACT_THRESHOLD,
-      highImpactThreshold: HIGH_COMPONENT_IMPACT_THRESHOLD,
+      qualificationId: config.id,
+      qualificationConfigChecksum: configChecksum,
+      qualificationModel: config.model,
+      componentImpact: config.minimumImpact,
+      criticalThreshold: config.criticalThreshold,
+      highImpactThreshold: config.highImpactThreshold,
       reason: null,
     };
   }
-  const criticalQualifies =
-    isCritical && componentImpact >= CRITICAL_COMPONENT_IMPACT_THRESHOLD;
-  const highImpactQualifies = componentImpact >= HIGH_COMPONENT_IMPACT_THRESHOLD;
+  const criticalQualifies = isCritical && componentImpact >= config.criticalThreshold;
+  const highImpactQualifies = componentImpact >= config.highImpactThreshold;
   return {
     qualifies: criticalQualifies || highImpactQualifies,
-    qualificationId: COMPONENT_QUALIFICATION_ID,
+    qualificationId: config.id,
+    qualificationConfigChecksum: configChecksum,
+    qualificationModel: config.model,
     componentImpact,
-    criticalThreshold: CRITICAL_COMPONENT_IMPACT_THRESHOLD,
-    highImpactThreshold: HIGH_COMPONENT_IMPACT_THRESHOLD,
+    criticalThreshold: config.criticalThreshold,
+    highImpactThreshold: config.highImpactThreshold,
     reason: criticalQualifies
       ? "critical_component_impact"
       : highImpactQualifies

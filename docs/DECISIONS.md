@@ -132,6 +132,33 @@ component-impact-c1`; reports must carry a canonical configuration checksum.
 That work, fixture approval, and any later candidate are separate tasks.
 Held-out execution remains prohibited and Milestone 0.2B remains incomplete.
 
+### D30: Qualification registry, representative light fixture, and armour-band gate
+
+Decision **A**: the architecture step is complete and a fixed struck-zone
+armour-band model is implementation-ready for a separate future candidate.
+
+The immutable registry preserves `component-impact-c1`
+(`2a40a56f97062ca3`) and `component-impact-c2` (`13548462df34a183`), with C2
+as the default. Fixture manifests are qualification-independent, while match
+events and factual, benchmark, and suite reports carry the selected
+configuration checksum. Unknown IDs fail before simulation.
+
+The revised development fixture definition has checksum
+`ffc11deb47e6049f`. It adds the hard, 80-match
+`representative-light-mirror` fixture and reclassifies unchanged Glass Cannon
+as an extreme diagnostic with a hard first-round anti-instant-volatility gate.
+C1 and C2 each ran 480 development simulations. Their suite checksums are
+`3289f1c9e4ab8398` and `801981a42474b5b6`; historical fixture outcome
+checksums remain unchanged. Representative-light terminal incidence was 92.5%
+under C1 and 87.5% under C2, so neither registered configuration passes.
+
+The Proposed future shape uses inclusive struck-zone armour bands: exposed
+`0-9`, light `10-24`, protected `25-49`, and heavy `50+`, with linear impact
+inside each band and explicit per-band thresholds. It may not branch on
+fixture, chassis, competitor, or build name. No banded runtime entry, C3,
+automatic tuning, seed change, or held-out execution is authorised by this
+decision. Milestone 0.2B remains incomplete.
+
 | Date       | Decision                                                                              | Rationale                                                                                                                                                                                                                                   | Alternatives considered                                                                                                                                        |
 | ---------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2026-07-26 | D1: Five-zone ring arena with derived distance                                        | Positional play, circling, flanking and knockback are core to the concept. Distance derived from zones prevents state contradictions.                                                                                                       | Distance-bands only (simpler but removes spatial tactics)                                                                                                      |

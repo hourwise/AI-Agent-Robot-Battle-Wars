@@ -1,4 +1,8 @@
 import type { MatchResult } from "../simulator/types.js";
+import type {
+  ComponentQualificationId,
+  ComponentQualificationMetadata,
+} from "../simulator/component-qualification-registry.js";
 
 export interface SeedBank {
   readonly schemaVersion: string;
@@ -28,6 +32,7 @@ export interface BenchmarkConfig {
     readonly machineName: string;
   };
   readonly roleSwapped: boolean;
+  readonly componentQualificationId?: ComponentQualificationId;
 }
 
 export interface PerMatchResult {
@@ -176,7 +181,8 @@ export interface BenchmarkReport {
   readonly simulatorVersion: string;
   readonly rulesetVersion: string;
   readonly catalogueVersion: string;
-  readonly componentQualificationId: string;
+  readonly componentQualificationId: ComponentQualificationId;
+  readonly componentQualification: ComponentQualificationMetadata;
   readonly qualificationConstants: {
     readonly armourFactor: number;
     readonly minimumImpact: number;

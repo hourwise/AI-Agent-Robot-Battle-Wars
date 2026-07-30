@@ -14,6 +14,12 @@ import type {
   LifecycleSuiteReport,
   RunLifecycleSuiteOptions,
 } from "./lifecycle-suite.types.js";
+import {
+  DEFAULT_COMPONENT_QUALIFICATION_ID,
+  canonicalStringify,
+  getComponentQualificationConfig,
+  getComponentQualificationMetadata,
+} from "../simulator/component-qualification-registry.js";
 
 function aggregate(
   fixtureReports: readonly LifecycleFixtureReport[],
@@ -78,15 +84,15 @@ function decide(
   if (
     allGates.some(
       (gate) =>
-        gate.status === "fail" && gate.gateId === "candidate-c2-factual-completeness",
+        gate.status === "fail" && gate.gateId === "qualification-factual-completeness",
     )
   ) {
     return "D. Fixture suite implementation is insufficient to make a decision.";
   }
   if (allGates.some((gate) => gate.status === "fail")) {
-    return "B. Candidate C2 fails revised lifecycle gates and requires no further automatic tuning.";
+    return "B. Selected qualification fails revised lifecycle gates.";
   }
-  return "A. Candidate C2 passes revised 0.2B lifecycle gates.";
+  return "A. Selected qualification passes revised 0.2B lifecycle gates.";
 }
 
 export function runBenchmarkSuite(
@@ -100,6 +106,10 @@ export function runBenchmarkSuite(
   if (options.suite.seedPartition !== "development") {
     throw new Error("Lifecycle fixture suite must declare the development partition");
   }
+  const qualificationConfig = getComponentQualificationConfig(
+    options.componentQualificationId ?? DEFAULT_COMPONENT_QUALIFICATION_ID,
+  );
+  const componentQualification = getComponentQualificationMetadata(qualificationConfig);
 
   const selectedFixtures = options.fixtureId
     ? options.suite.fixtures.filter((fixture) => fixture.fixtureId === options.fixtureId)
@@ -125,6 +135,7 @@ export function runBenchmarkSuite(
         machineName: fixture.fighterY.build.proposal.machineName,
       },
       roleSwapped: fixture.roleSwapped,
+      componentQualificationId: qualificationConfig.id,
     };
     const executions = runBenchmarkDetailed(config);
     const benchmark = createBenchmarkReport(
@@ -132,7 +143,11 @@ export function runBenchmarkSuite(
       config,
       executions.map((execution) => execution.perMatch),
     );
-    const audit = auditLifecycleExecutions(fixture.fixtureId, executions);
+    const audit = auditLifecycleExecutions(
+      fixture.fixtureId,
+      executions,
+      componentQualification,
+    );
     fixtureReports.push({
       fixtureId: fixture.fixtureId,
       purpose: fixture.purpose,
@@ -150,7 +165,9 @@ export function runBenchmarkSuite(
   const reportWithoutChecksum = {
     schemaVersion: "1" as const,
     suiteId: options.suite.suiteId,
-    componentQualificationId: options.suite.componentQualificationId,
+    fixtureChecksum: options.suite.fixtureChecksum,
+    componentQualificationId: qualificationConfig.id,
+    componentQualification,
     seedBankId: options.seedBank.bankId,
     partition: "development" as const,
     fixtureReports,
@@ -162,7 +179,7 @@ export function runBenchmarkSuite(
   return {
     ...reportWithoutChecksum,
     suiteChecksum: createHash("sha256")
-      .update(JSON.stringify(reportWithoutChecksum))
+      .update(canonicalStringify(reportWithoutChecksum))
       .digest("hex")
       .slice(0, 16),
   };

@@ -64,6 +64,57 @@ describe("lifecycle gate evaluator", () => {
     ).toBe("diagnostic");
   });
 
+  it("keeps Glass full-match incidence diagnostic but its first-round ceiling hard", () => {
+    const definition = suite.fixtures.find(
+      (fixture) => fixture.fixtureId === "glass-cannon-mirror",
+    )!;
+    const gates = evaluateFixtureGates(
+      definition,
+      {
+        ...fixtureReport.benchmark,
+        metrics: {
+          ...fixtureReport.benchmark.metrics,
+          matchesWithAnyDisable: 1,
+        },
+      },
+      fixtureReport.audit,
+    );
+    expect(
+      gates.find((gate) => gate.gateId === "terminal-disable-incidence")?.status,
+    ).toBe("diagnostic");
+    expect(
+      gates.find((gate) => gate.gateId === "glass-first-round-terminal-disable")?.status,
+    ).toBe("pass");
+  });
+
+  it("applies representative-light terminal and progression thresholds as hard gates", () => {
+    const definition = suite.fixtures.find(
+      (fixture) => fixture.fixtureId === "representative-light-mirror",
+    )!;
+    const gates = evaluateFixtureGates(
+      definition,
+      {
+        ...fixtureReport.benchmark,
+        metrics: {
+          ...fixtureReport.benchmark.metrics,
+          totalQualifyingHits: 0,
+          totalDamagedTransitions: 0,
+          matchesWithAnyDisable: 0.85,
+        },
+      },
+      fixtureReport.audit,
+    );
+    expect(gates.find((gate) => gate.gateId === "qualifying-hits-positive")?.status).toBe(
+      "fail",
+    );
+    expect(
+      gates.find((gate) => gate.gateId === "healthy-to-damaged-positive")?.status,
+    ).toBe("fail");
+    expect(
+      gates.find((gate) => gate.gateId === "terminal-disable-incidence")?.status,
+    ).toBe("fail");
+  });
+
   it("handles zero denominators", () => {
     const benchmark = {
       ...fixtureReport.benchmark,

@@ -3,7 +3,15 @@ import { machineBuildProposalSchema } from "./build.schema.js";
 import { actionPolicySchema } from "./policy.schema.js";
 import { MatchReviewSchema } from "./review.schema.js";
 
-const componentQualificationIdSchema = z.enum(["component-impact-c1", "component-impact-c2"]);
+const componentQualificationIdSchema = z.enum([
+  "component-impact-c1",
+  "component-impact-c2",
+]);
+const componentQualificationMetadataSchema = z.object({
+  id: componentQualificationIdSchema,
+  configChecksum: z.string().regex(/^[a-f0-9]{16}$/),
+  model: z.literal("linear-component-impact"),
+});
 
 const validatedBuildSchema = z.object({
   proposal: machineBuildProposalSchema,
@@ -110,6 +118,7 @@ const matchConfigSchema = z.object({
   rulesetVersion: z.string(),
   catalogueVersion: z.string(),
   componentQualificationId: componentQualificationIdSchema.optional(),
+  componentQualification: componentQualificationMetadataSchema.optional(),
 });
 
 const agentUsageRecordSchema = z.object({
@@ -148,6 +157,7 @@ export const MatchRecordV1Schema = z.object({
   catalogueVersion: z.string(),
   simulatorVersion: z.string(),
   componentQualificationId: componentQualificationIdSchema.optional(),
+  componentQualification: componentQualificationMetadataSchema.optional(),
   seed: z.number().int().nonnegative(),
   config: matchConfigSchema,
   initialState: z.object({
@@ -169,6 +179,7 @@ export const MatchRecordV2Schema = z.object({
   catalogueVersion: z.string(),
   simulatorVersion: z.string(),
   componentQualificationId: componentQualificationIdSchema.optional(),
+  componentQualification: componentQualificationMetadataSchema.optional(),
   seed: z.number().int().nonnegative(),
   config: matchConfigSchema,
   initialState: z.object({

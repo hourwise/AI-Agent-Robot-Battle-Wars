@@ -16,7 +16,11 @@ export function renderTextReport(report: BenchmarkReport): string {
   lines.push(`Role assignments: ${m.roleAssignmentsPerSeed} per seed`);
   lines.push(`Total simulations: ${m.totalSimulations}`);
   lines.push(`Component qualification: ${report.componentQualificationId}`);
-  lines.push(`Qualification constants: armour ${report.qualificationConstants.armourFactor}, min ${report.qualificationConstants.minimumImpact}, critical ${report.qualificationConstants.criticalThreshold}, high ${report.qualificationConstants.highImpactThreshold}`);
+  lines.push(`Qualification checksum: ${report.componentQualification.configChecksum}`);
+  lines.push(`Qualification model: ${report.componentQualification.model}`);
+  lines.push(
+    `Qualification constants: armour ${report.qualificationConstants.armourFactor}, min ${report.qualificationConstants.minimumImpact}, critical ${report.qualificationConstants.criticalThreshold}, high ${report.qualificationConstants.highImpactThreshold}`,
+  );
   lines.push(`Role-swapped: ${report.roleSwapped ? "yes" : "no"}`);
   lines.push("");
 
@@ -78,8 +82,12 @@ export function renderTextReport(report: BenchmarkReport): string {
   lines.push(`  — Utility: ${m.utilityDisabledTransitions}`);
   lines.push(`Resisted transitions: ${m.totalResistedTransitions}`);
   lines.push(`Guards spent: ${m.totalGuardsSpent}, lost: ${m.totalGuardsLost}`);
-  lines.push(`Matches with any transition: ${(m.matchesWithAnyComponentTransition * 100).toFixed(1)}%`);
-  lines.push(`Matches with any damaged component: ${(m.matchesWithAnyDamagedComponent * 100).toFixed(1)}%`);
+  lines.push(
+    `Matches with any transition: ${(m.matchesWithAnyComponentTransition * 100).toFixed(1)}%`,
+  );
+  lines.push(
+    `Matches with any damaged component: ${(m.matchesWithAnyDamagedComponent * 100).toFixed(1)}%`,
+  );
   lines.push("");
 
   lines.push("COMPONENT DISABLES (terminal)");
@@ -94,11 +102,15 @@ export function renderTextReport(report: BenchmarkReport): string {
   lines.push(`Total hits: ${m.totalHits}`);
   lines.push(`Hit rate: ${(m.hitRate * 100).toFixed(1)}%`);
   lines.push(`Critical hits: ${m.totalCriticalHits}`);
-  lines.push(`Qualifying hits: ${m.totalQualifyingHits} (${(m.qualificationRate * 100).toFixed(1)}% of hits)`);
+  lines.push(
+    `Qualifying hits: ${m.totalQualifyingHits} (${(m.qualificationRate * 100).toFixed(1)}% of hits)`,
+  );
   lines.push(`Critical-qualified: ${m.totalCriticalQualifiedHits}`);
   lines.push(`High-impact-qualified: ${m.totalHighImpactQualifiedHits}`);
   lines.push(`Non-qualifying successful hits: ${m.totalNonQualifyingSuccessfulHits}`);
-  lines.push(`Matches with 1+/2+/3+ qualifying hits: ${m.matchesWithAtLeastOneQualifyingHit}/${m.matchesWithAtLeastTwoQualifyingHits}/${m.matchesWithAtLeastThreeQualifyingHits}`);
+  lines.push(
+    `Matches with 1+/2+/3+ qualifying hits: ${m.matchesWithAtLeastOneQualifyingHit}/${m.matchesWithAtLeastTwoQualifyingHits}/${m.matchesWithAtLeastThreeQualifyingHits}`,
+  );
   lines.push("");
 
   lines.push(`Outcomes checksum: ${report.outcomesChecksum}`);
