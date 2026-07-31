@@ -15,8 +15,8 @@ representative-light terminal incidence was 58.8%, all hard first-round
 terminal rates were 0%, and maximum suite component-terminal share was 52.98%.
 Factual, replay, guard, lifecycle, and qualification-before-selection gates
 passed. Decision **A**: AB2 passes all revised development lifecycle gates.
-Held-out execution is not part of this decision and remains separately
-authorised work.
+Held-out execution was not part of this decision; it was later authorised
+exactly once (D31) and the partition is now permanently sealed (D32).
 
 ## D31: AB2 held-out confirmation failure (2026-07-31)
 
@@ -32,7 +32,36 @@ All other hard and general gates passed, but the strict representative-light
 terminal-disable requirement is `<85%`, so Decision **B** applies. AB2 remains
 unchanged and C2 remains the runtime default. No tuning, default promotion, or
 final Milestone 0.2B completion was performed. No individual held-out seed or
-per-match result is recorded.
+per-match result is recorded. This decision is finalised and sealed by D32.
+
+## D32: AB2 evaluation closed and held-out suite resealed (2026-07-31)
+
+The AB2 evaluation is closed. Decision B is final and the strict `<0.85`
+representative-light terminal-incidence gate will not be retroactively relaxed.
+No AB3 (or any further candidate) search will be performed against the spent
+validation evidence. Further qualification tuning is deferred until positioning
+and multi-opponent evaluation provide a broader combat distribution.
+
+The original held-out partition is spent and can never validate another
+candidate. AB2 is frozen and retained for historical reproducibility only; it
+is permanently ineligible for default promotion and no later task may promote
+it. The temporary `--confirm-held-out` authorisation path has been removed:
+`--partition held-out` and `--partition all` are rejected before seed selection
+or simulation, and the historical confirmation flag cannot reopen the
+partition. C2 remains the unchanged experimental runtime default and is not an
+accepted final balance solution. Milestone 0.2B's lifecycle mechanism is
+implemented, but its qualification/balance acceptance remains unresolved and
+deferred; 0.2B is not marked complete.
+
+Any future qualification cycle requires:
+
+- a new immutable candidate ID;
+- a newly predeclared development protocol;
+- a genuinely fresh held-out partition;
+- creation or custody of that held-out partition outside the candidate-design AI context;
+- one-time execution only after the candidate is frozen.
+
+No individual seed values or per-match held-out records are recorded here.
 
 ## D24: Candidate C component-impact qualification
 

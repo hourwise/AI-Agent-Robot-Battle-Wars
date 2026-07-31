@@ -21,10 +21,7 @@ interface CliOptions {
   readonly force: boolean;
   readonly qualificationId?: ComponentQualificationId;
   readonly listQualifications: boolean;
-  readonly confirmHeldOut: boolean;
 }
-
-const HELD_OUT_CONFIRMATION_ID = "component-impact-ab2" as const;
 
 export function parseLifecycleBenchmarkArgs(args: readonly string[]): CliOptions {
   let partition = "development";
@@ -34,7 +31,6 @@ export function parseLifecycleBenchmarkArgs(args: readonly string[]): CliOptions
   let force = false;
   let qualificationId: ComponentQualificationId | undefined;
   let listQualifications = false;
-  let confirmHeldOut = false;
 
   for (let index = 0; index < args.length; index++) {
     const argument = args[index];
@@ -52,8 +48,6 @@ export function parseLifecycleBenchmarkArgs(args: readonly string[]): CliOptions
       qualificationId = getComponentQualificationConfig(args[++index]!).id;
     } else if (argument === "--list-qualifications") {
       listQualifications = true;
-    } else if (argument === "--confirm-held-out") {
-      confirmHeldOut = true;
     } else {
       throw new Error(`Unknown or incomplete argument: ${String(argument)}`);
     }
@@ -66,7 +60,6 @@ export function parseLifecycleBenchmarkArgs(args: readonly string[]): CliOptions
     force,
     qualificationId,
     listQualifications,
-    confirmHeldOut,
   };
   validateLifecycleBenchmarkAuthorization(options);
   return options;
@@ -74,31 +67,9 @@ export function parseLifecycleBenchmarkArgs(args: readonly string[]): CliOptions
 
 export function validateLifecycleBenchmarkAuthorization(options: CliOptions): void {
   if (options.partition === "held-out") {
-    if (!options.confirmHeldOut) {
-      throw new Error(
-        "Held-out confirmation requires --confirm-held-out and explicit --qualification component-impact-ab2",
-      );
-    }
-    if (!options.qualificationId) {
-      throw new Error(
-        "Held-out confirmation requires explicit --qualification component-impact-ab2",
-      );
-    }
-    if (options.qualificationId !== HELD_OUT_CONFIRMATION_ID) {
-      throw new Error(
-        "Held-out confirmation is authorized only for component-impact-ab2",
-      );
-    }
-    if (options.fixtureId) {
-      throw new Error("Held-out confirmation does not allow --fixture");
-    }
-    if (options.json) {
-      throw new Error("Held-out confirmation does not allow --json output");
-    }
-    return;
-  }
-  if (options.confirmHeldOut) {
-    throw new Error("--confirm-held-out is valid only with --partition held-out");
+    throw new Error(
+      'The held-out partition is permanently sealed after the one-time AB2 confirmation; only the development partition may be executed.',
+    );
   }
 }
 
@@ -115,9 +86,9 @@ export function runLifecycleBenchmarkCli(args = process.argv.slice(2)): string {
       })
       .join("\n");
   }
-  if (options.partition !== "development" && options.partition !== "held-out") {
+  if (options.partition !== "development") {
     throw new Error(
-      `Lifecycle benchmark partition "${options.partition}" is prohibited.`,
+      `Lifecycle benchmark partition "${options.partition}" is prohibited. Only "development" is authorised.`,
     );
   }
 
@@ -128,10 +99,9 @@ export function runLifecycleBenchmarkCli(args = process.argv.slice(2)): string {
   const report = runBenchmarkSuite({
     suite,
     seedBank: bank,
-    partition: options.partition as "development" | "held-out",
+    partition: "development",
     fixtureId: options.fixtureId,
     componentQualificationId: options.qualificationId,
-    confirmHeldOut: options.confirmHeldOut,
   });
   const rendered = options.json
     ? JSON.stringify(report, null, 2)

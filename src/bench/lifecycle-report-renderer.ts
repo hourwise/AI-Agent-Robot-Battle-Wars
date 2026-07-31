@@ -26,7 +26,7 @@ export function renderLifecycleSuiteReport(report: LifecycleSuiteReport): string
     `Partition: ${report.partition}`,
     `Total simulations: ${report.aggregateLifecycleSummary.totalSimulations}`,
     `Simulator/ruleset/catalogue: ${report.fixtureReports[0]?.benchmark.simulatorVersion ?? "unknown"}/${report.fixtureReports[0]?.benchmark.rulesetVersion ?? "unknown"}/${report.fixtureReports[0]?.benchmark.catalogueVersion ?? "unknown"}`,
-    `${report.partition === "held-out" ? "Held-out" : "Development"} seed count: ${report.fixtureReports[0]?.benchmark.seedCount ?? 0}`,
+    `Development seed count: ${report.fixtureReports[0]?.benchmark.seedCount ?? 0}`,
     "",
   ];
 

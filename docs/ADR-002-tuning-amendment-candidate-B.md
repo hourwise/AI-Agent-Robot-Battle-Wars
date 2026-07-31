@@ -1440,8 +1440,9 @@ transitions were positive, and suite component-terminal dominance was 52.98%
 (maximum category share). The representative-light and both Bulwark hard
 fixtures passed every hard threshold; Glass remained diagnostic-extreme and
 passed its first-round ceiling. Decision: **A. The armour-band candidate passes
-all revised development lifecycle gates.** Held-out confirmation remains a
-separate authorised task and was not run.
+all revised development lifecycle gates.** Held-out confirmation was then
+authorised exactly once (see 26.8 below) and is now permanently disabled; the
+held-out partition is sealed.
 
 ### 26.8 AB2 held-out confirmation (2026-07-31)
 
@@ -1474,6 +1475,16 @@ passed. Suite component-terminal dominance was 60.26%. The representative-light
 `0.85`, while the unchanged requirement is strict `<0.85`.
 
 Decision: **B. AB2 fails the held-out confirmation because one hard gate failed.**
-AB2 was not changed, tuned, or promoted. Default promotion and final Milestone
-0.2B completion remain unperformed and require a separate authorised task.
-No individual held-out seed or per-match result is recorded here.
+
+The command above is the historical record of the one-time AB2 held-out
+confirmation. It is permanently disabled: `--confirm-held-out` is no longer a
+recognised option, and `--partition held-out` is rejected before seed selection
+or simulation. AB2 is **development-passed** and **held-out-rejected**. It was
+not changed or tuned; it is frozen and retained for historical reproducibility
+and is permanently ineligible for default promotion — no later task may promote
+AB2. The original held-out partition is spent and cannot validate another
+candidate. C2 remains the unchanged experimental runtime default and is not an
+accepted final balance solution. Milestone 0.2B's lifecycle mechanism is
+implemented, but its qualification/balance acceptance remains unresolved and
+deferred; 0.2B is not marked complete. No individual held-out seed or per-match
+result is recorded here.

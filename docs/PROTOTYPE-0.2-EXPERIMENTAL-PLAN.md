@@ -2,13 +2,13 @@
 
 ## Armour-band Candidate AB2 development result (2026-07-31)
 
-AB2 is the selected implementation-ready armour-band candidate. Its final ID
-is `component-impact-ab2` and its canonical checksum is `6b9f70450d3f10b8`.
-The exact immutable table is exposed `0-9` (`17/20` critical/high), light
-`10-24` (`15/18`), protected `25-49` (`13/15`), and heavy `50+` (`11/13`).
-Band selection uses only `armourAtHitZone`; the linear impact formula,
-qualification precedence, lifecycle, guard, fixtures, seeds, and C1/C2 entries
-remain unchanged. C2 remains the default.
+AB2 is the frozen armour-band candidate that passed the development lifecycle
+suite. Its final ID is `component-impact-ab2` and its canonical checksum is
+`6b9f70450d3f10b8`. The exact immutable table is exposed `0-9` (`17/20`
+critical/high), light `10-24` (`15/18`), protected `25-49` (`13/15`), and heavy
+`50+` (`11/13`). Band selection uses only `armourAtHitZone`; the linear impact
+formula, qualification precedence, lifecycle, guard, fixtures, seeds, and
+C1/C2 entries remain unchanged. C2 remains the default.
 
 The one authorised development run used fixture checksum
 `ffc11deb47e6049f`, seed bank `prototype-0.2-baseline-v1`, 80 development seeds,
@@ -32,9 +32,29 @@ diagnostic-extreme 101 / 56, 38 / 18, 80.0%; and the asymmetric diagnostic
 268 / 98, 62 / 32, 75.0%. All general and diagnostic gates passed, but the
 unchanged representative-light terminal gate failed at exactly 0.85 against
 the strict `<0.85` requirement. Decision B: held-out confirmation failed one
-hard gate. AB2 was not changed or promoted; default promotion and final
-Milestone 0.2B completion remain separate unperformed tasks. No individual
-held-out seeds or per-match results are recorded.
+hard gate, so AB2 is **held-out-rejected**. AB2 was not changed; it is frozen
+and retained for historical reproducibility and is permanently ineligible for
+default promotion — no later task may promote AB2. The original held-out
+partition is spent and cannot validate another candidate. C2 remains the
+unchanged experimental runtime default and is not an accepted final balance
+solution. Milestone 0.2B's lifecycle mechanism is implemented, but its
+qualification/balance acceptance remains unresolved and deferred; 0.2B is not
+marked complete. No individual held-out seeds or per-match results are
+recorded.
+
+## Handoff: next authorised direction (2026-07-31)
+
+The next permitted implementation milestone after this closure is
+**Milestone 0.2C — Positioning Model (3×3 Grid)**. That work:
+
+- may build on the current C2 default without treating C2 as final;
+- must keep component qualification constants frozen during 0.2C;
+- must not use the AB2 held-out result to tune combat;
+- will see component qualification reconsidered only in a later separately
+  authorised evaluation cycle.
+
+Milestone 0.2C itself is not implemented by this closure task; no 0.2C branch
+is created and no arena code is modified here.
 
 This is an evidence-led plan, not a feature wishlist. Every proposed change is driven by a specific limitation observed in Prototype 0.1.
 
@@ -333,13 +353,13 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
 
 ---
 
-### Milestone 0.2B — Component-State Refinement ⚠️ CANDIDATE C IMPLEMENTATION PENDING
+### Milestone 0.2B — Component-State Refinement ⚠️ QUALIFICATION/BALANCE ACCEPTANCE DEFERRED
 
 **Scope:** Damaged vs disabled states, revised critical logic, simulator/ruleset version bump, benchmark comparison against 0.1 baseline.
 
-**State:** Core `healthy → damaged → disabled` lifecycle, v2 match schema, replay, reporting, and benchmark measurement support are implemented. Candidate Set A and Candidate B1-B3 failed analytically. Candidate C is selected but not implemented.
+**State:** The `healthy → damaged → disabled` lifecycle mechanism, v2 match schema, replay, reporting, and benchmark measurement support are implemented. Candidate Set A and Candidate B1-B3 failed analytically. The lifecycle qualification candidates C1, C2, and AB2 exist; C2 is the unchanged experimental runtime default and is not an accepted final balance solution. AB2 is development-passed but held-out-rejected and permanently ineligible for default promotion.
 
-**Completion gate:** Separate Candidate C implementation, development benchmark gates, and held-out confirmation remain outstanding. This milestone is not complete.
+**Completion gate:** Milestone 0.2B's lifecycle mechanism is implemented, but its qualification/balance acceptance remains unresolved and deferred. The original held-out partition is spent and cannot validate another candidate; further qualification cycles require a separately authorised evaluation with a fresh held-out partition (see the handoff section below). This milestone is not complete.
 
 **Exclusions:** Positioning changes, new opponents.
 

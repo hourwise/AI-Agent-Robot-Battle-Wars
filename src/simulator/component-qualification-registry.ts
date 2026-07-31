@@ -30,8 +30,12 @@ export interface ArmourBandDefinition {
 }
 
 /**
- * Immutable configuration shape for the accepted AB2 armour-band model.
- * Further armour-band candidates require a separately authorised task.
+ * Immutable configuration shape for the frozen AB2 armour-band candidate.
+ * AB2 passed the development lifecycle suite but was rejected by its one-time
+ * held-out confirmation. It is permanently ineligible for default promotion
+ * and is retained only for historical reproducibility. The original held-out
+ * partition is spent and cannot validate another candidate. Further
+ * armour-band candidates require a separately authorised task.
  */
 export interface ArmourBandComponentQualificationConfig extends ComponentQualificationConfigBase {
   readonly id: "component-impact-ab2";

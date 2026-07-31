@@ -98,20 +98,10 @@ function decide(
 export function runBenchmarkSuite(
   options: RunLifecycleSuiteOptions,
 ): LifecycleSuiteReport {
-  if (options.partition === "held-out") {
-    if (!options.confirmHeldOut) {
-      throw new Error("Held-out confirmation requires explicit authorization");
-    }
-    if (options.componentQualificationId !== "component-impact-ab2") {
-      throw new Error(
-        "Held-out confirmation is authorized only for component-impact-ab2",
-      );
-    }
-    if (options.fixtureId) {
-      throw new Error("Held-out confirmation does not allow fixture filtering");
-    }
-  } else if (options.partition !== "development") {
-    throw new Error("Lifecycle benchmark suite rejects unsupported partitions.");
+  if (options.partition !== "development") {
+    throw new Error(
+      'Lifecycle benchmark suite is development-only; the held-out partition is permanently sealed and the "all" partition is prohibited.',
+    );
   }
   if (options.suite.seedPartition !== "development") {
     throw new Error("Lifecycle fixture suite must declare the development partition");
@@ -133,7 +123,7 @@ export function runBenchmarkSuite(
     const config: BenchmarkConfig = {
       label: fixture.fixtureId,
       seedBank: options.seedBank,
-      partition: options.partition,
+      partition: "development",
       fighterA: {
         build: fixture.fighterX.build,
         policy: fixture.fighterX.policy,
@@ -180,7 +170,7 @@ export function runBenchmarkSuite(
     componentQualificationId: qualificationConfig.id,
     componentQualification,
     seedBankId: options.seedBank.bankId,
-    partition: options.partition,
+    partition: "development" as const,
     fixtureReports,
     aggregateLifecycleSummary: aggregate(fixtureReports),
     suiteGates,
