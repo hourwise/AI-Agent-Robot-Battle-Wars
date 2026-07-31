@@ -10,6 +10,7 @@ import type {
   BenchmarkReport,
   PerMatchResult,
 } from "./benchmark.types.js";
+import type { MatchResult } from "../simulator/types.js";
 import { computeMetrics } from "./metrics.js";
 import { fingerprintBuild, fingerprintPolicy } from "./run-benchmark.js";
 
@@ -17,6 +18,7 @@ export function createBenchmarkReport(
   benchmarkId: string,
   config: BenchmarkConfig,
   results: readonly PerMatchResult[],
+  matches: readonly MatchResult[] = [],
 ): BenchmarkReport {
   const qualificationConfig = getComponentQualificationConfig(
     config.componentQualificationId ?? DEFAULT_COMPONENT_QUALIFICATION_ID,
@@ -33,6 +35,26 @@ export function createBenchmarkReport(
     .digest("hex")
     .slice(0, 16);
 
+  const bandFacts =
+    qualificationConfig.model === "armour-band-component-impact"
+      ? qualificationConfig.bands.map((band) => {
+          const hits = matches.flatMap((match) =>
+            match.events.filter(
+              (event) =>
+                event.type === "attack_hit" &&
+                event.data.componentArmourBandId === band.id,
+            ),
+          );
+          return {
+            ...band,
+            hitCount: hits.length,
+            qualificationCount: hits.filter(
+              (event) => event.data.qualificationReason !== null,
+            ).length,
+          };
+        })
+      : undefined;
+
   const report: BenchmarkReport = {
     schemaVersion: "1",
     benchmarkId,
@@ -46,9 +68,14 @@ export function createBenchmarkReport(
     qualificationConstants: {
       armourFactor: qualificationConfig.armourFactor,
       minimumImpact: qualificationConfig.minimumImpact,
-      criticalThreshold: qualificationConfig.criticalThreshold,
-      highImpactThreshold: qualificationConfig.highImpactThreshold,
+      ...(qualificationConfig.model === "linear-component-impact"
+        ? {
+            criticalThreshold: qualificationConfig.criticalThreshold,
+            highImpactThreshold: qualificationConfig.highImpactThreshold,
+          }
+        : { bands: qualificationConfig.bands }),
     },
+    ...(bandFacts ? { bandFacts } : {}),
     fighterX: {
       machineName: config.fighterA.machineName,
       buildFingerprint: fingerprintBuild(config.fighterA.build),

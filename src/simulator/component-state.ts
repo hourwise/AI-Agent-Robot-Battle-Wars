@@ -14,8 +14,9 @@ import {
 import {
   getComponentQualificationConfigChecksum,
   getDefaultComponentQualificationConfig,
+  resolveArmourBand,
   type ComponentQualificationId,
-  type LinearComponentQualificationConfig,
+  type ComponentQualificationConfig,
 } from "./component-qualification-registry.js";
 import type { SeededRandom } from "./seeded-random.js";
 
@@ -104,33 +105,51 @@ export interface ComponentImpactResult {
   readonly armourAtHitZone: number;
   readonly qualificationId: ComponentQualificationId;
   readonly qualificationConfigChecksum: string;
-  readonly qualificationModel: "linear-component-impact";
+  readonly qualificationModel: ComponentQualificationConfig["model"];
   readonly armourFactor: number;
   readonly minimumImpact: number;
   readonly componentImpact: number;
+  readonly bandId?: string;
+  readonly bandMinArmourInclusive?: number;
+  readonly bandMaxArmourInclusive?: number | null;
+  readonly criticalThreshold: number;
+  readonly highImpactThreshold: number;
 }
 
 export interface QualificationResult {
   readonly qualifies: boolean;
   readonly qualificationId: ComponentQualificationId;
   readonly qualificationConfigChecksum: string;
-  readonly qualificationModel: "linear-component-impact";
+  readonly qualificationModel: ComponentQualificationConfig["model"];
   readonly componentImpact: number;
   readonly criticalThreshold: number;
   readonly highImpactThreshold: number;
   readonly reason: "critical_component_impact" | "high_component_impact" | null;
+  readonly bandId?: string;
+  readonly bandMinArmourInclusive?: number;
+  readonly bandMaxArmourInclusive?: number | null;
 }
 
 export function calculateComponentImpact(
   input: ComponentImpactInput,
-  config: LinearComponentQualificationConfig = getDefaultComponentQualificationConfig(),
+  config: ComponentQualificationConfig = getDefaultComponentQualificationConfig(),
 ): ComponentImpactResult {
   if (!Number.isFinite(input.rawDamage) || input.rawDamage < 0) {
     throw new Error("rawDamage must be a finite non-negative number");
   }
-  if (!Number.isFinite(input.armourAtHitZone) || input.armourAtHitZone < 0) {
-    throw new Error("armourAtHitZone must be a finite non-negative number");
+  if (!Number.isInteger(input.armourAtHitZone) || input.armourAtHitZone < 0) {
+    throw new Error("armourAtHitZone must be a finite non-negative integer");
   }
+  const band =
+    config.model === "armour-band-component-impact"
+      ? resolveArmourBand(config, Math.trunc(input.armourAtHitZone))
+      : undefined;
+  const criticalThreshold =
+    band?.criticalThreshold ??
+    (config.model === "linear-component-impact" ? config.criticalThreshold : 0);
+  const highImpactThreshold =
+    band?.highImpactThreshold ??
+    (config.model === "linear-component-impact" ? config.highImpactThreshold : 0);
   return {
     rawDamage: Math.trunc(input.rawDamage),
     armourAtHitZone: Math.trunc(input.armourAtHitZone),
@@ -139,6 +158,18 @@ export function calculateComponentImpact(
     qualificationModel: config.model,
     armourFactor: config.armourFactor,
     minimumImpact: config.minimumImpact,
+    ...(band
+      ? {
+          bandId: band.id,
+          bandMinArmourInclusive: band.minArmourInclusive,
+          bandMaxArmourInclusive: band.maxArmourInclusive,
+          criticalThreshold,
+          highImpactThreshold,
+        }
+      : {
+          criticalThreshold,
+          highImpactThreshold,
+        }),
     componentImpact: Math.max(
       config.minimumImpact,
       Math.round(
@@ -152,9 +183,29 @@ export function calculateComponentImpact(
 export function checkComponentQualification(
   isCritical: boolean,
   componentImpact: number,
-  config: LinearComponentQualificationConfig = getDefaultComponentQualificationConfig(),
+  config: ComponentQualificationConfig = getDefaultComponentQualificationConfig(),
+  band?: {
+    readonly id: string;
+    readonly minArmourInclusive: number;
+    readonly maxArmourInclusive: number | null;
+    readonly criticalThreshold: number;
+    readonly highImpactThreshold: number;
+  },
 ): QualificationResult {
   const configChecksum = getComponentQualificationConfigChecksum(config);
+  const thresholdBand =
+    config.model === "armour-band-component-impact"
+      ? band
+      : undefined;
+  if (!thresholdBand && config.model === "armour-band-component-impact") {
+    throw new Error("Armour-band qualification requires a resolved band");
+  }
+  const criticalThreshold =
+    thresholdBand?.criticalThreshold ??
+    (config.model === "linear-component-impact" ? config.criticalThreshold : 0);
+  const highImpactThreshold =
+    thresholdBand?.highImpactThreshold ??
+    (config.model === "linear-component-impact" ? config.highImpactThreshold : 0);
   if (!Number.isFinite(componentImpact) || componentImpact < config.minimumImpact) {
     return {
       qualifies: false,
@@ -162,26 +213,40 @@ export function checkComponentQualification(
       qualificationConfigChecksum: configChecksum,
       qualificationModel: config.model,
       componentImpact: config.minimumImpact,
-      criticalThreshold: config.criticalThreshold,
-      highImpactThreshold: config.highImpactThreshold,
+      criticalThreshold,
+      highImpactThreshold,
       reason: null,
+      ...(thresholdBand
+        ? {
+            bandId: thresholdBand.id,
+            bandMinArmourInclusive: thresholdBand.minArmourInclusive,
+            bandMaxArmourInclusive: thresholdBand.maxArmourInclusive,
+          }
+        : {}),
     };
   }
-  const criticalQualifies = isCritical && componentImpact >= config.criticalThreshold;
-  const highImpactQualifies = componentImpact >= config.highImpactThreshold;
+  const criticalQualifies = isCritical && componentImpact >= criticalThreshold;
+  const highImpactQualifies = componentImpact >= highImpactThreshold;
   return {
     qualifies: criticalQualifies || highImpactQualifies,
     qualificationId: config.id,
     qualificationConfigChecksum: configChecksum,
     qualificationModel: config.model,
     componentImpact,
-    criticalThreshold: config.criticalThreshold,
-    highImpactThreshold: config.highImpactThreshold,
+    criticalThreshold,
+    highImpactThreshold,
     reason: criticalQualifies
       ? "critical_component_impact"
       : highImpactQualifies
         ? "high_component_impact"
         : null,
+    ...(thresholdBand
+      ? {
+          bandId: thresholdBand.id,
+          bandMinArmourInclusive: thresholdBand.minArmourInclusive,
+          bandMaxArmourInclusive: thresholdBand.maxArmourInclusive,
+        }
+      : {}),
   };
 }
 

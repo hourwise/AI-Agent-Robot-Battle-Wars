@@ -1,5 +1,23 @@
 # Decisions
 
+## D29: Armour-band Candidate AB2 development passage (2026-07-31)
+
+`component-impact-ab2` is the sole new immutable candidate, checksum
+`6b9f70450d3f10b8`, preserving C1/C2 and C2's default status. It uses fixed
+struck-zone bands `0-9`, `10-24`, `25-49`, and `50+` with critical/high
+thresholds `17/20`, `15/18`, `13/15`, and `11/13`. The temporary identity
+`component-impact-ab1` and checksum `4ccfa5e666b0d4fb` were superseded.
+
+Exactly one 480-simulation development suite ran against the unchanged fixture
+manifest and seed bank. Fixture checksum remained `ffc11deb47e6049f`; suite
+checksum was `951cdbe01132b06c`. Guarded and unguarded resistance were 64 and 0,
+representative-light terminal incidence was 58.8%, all hard first-round
+terminal rates were 0%, and maximum suite component-terminal share was 52.98%.
+Factual, replay, guard, lifecycle, and qualification-before-selection gates
+passed. Decision **A**: AB2 passes all revised development lifecycle gates.
+Held-out execution is not part of this decision and remains separately
+authorised work.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

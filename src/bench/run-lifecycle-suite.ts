@@ -142,6 +142,7 @@ export function runBenchmarkSuite(
       `${fixture.benchmarkId}-development`,
       config,
       executions.map((execution) => execution.perMatch),
+      executions.map((execution) => execution.match),
     );
     const audit = auditLifecycleExecutions(
       fixture.fixtureId,

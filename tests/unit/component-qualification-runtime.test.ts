@@ -70,4 +70,29 @@ describe("runtime component qualification selection", () => {
       } as unknown as MatchConfig),
     ).toThrow("Unknown component qualification ID");
   });
+
+  it("persists AB2 band metadata and validates the v2 record", () => {
+    const match = runMatch(config("component-impact-ab2"));
+    expect(match.config.componentQualification).toMatchObject({
+      id: "component-impact-ab2",
+      configChecksum: "6b9f70450d3f10b8",
+      model: "armour-band-component-impact",
+    });
+    const bandedEvents = match.events.filter(
+      (event) =>
+        ["attack_hit", "component_damaged", "component_disabled", "component_damage_resisted"].includes(event.type) &&
+          event.data.componentQualificationId === "component-impact-ab2",
+    );
+    expect(bandedEvents.length).toBeGreaterThan(0);
+    expect(
+      bandedEvents.every(
+        (event) =>
+          event.data.componentQualificationChecksum === "6b9f70450d3f10b8" &&
+          typeof event.data.componentArmourBandId === "string" &&
+          typeof event.data.componentArmourBandMinInclusive === "number" &&
+          Object.prototype.hasOwnProperty.call(event.data, "componentArmourBandMaxInclusive"),
+      ),
+    ).toBe(true);
+    expect(validateMatchRecord(matchResultToRecord(match)).ok).toBe(true);
+  });
 });

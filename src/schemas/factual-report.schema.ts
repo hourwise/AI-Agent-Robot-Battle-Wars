@@ -56,11 +56,29 @@ export const FactualMatchReportSchema = z.object({
   schemaVersion: z.literal("1"),
   matchId: z.string(),
   componentQualification: z
-    .object({
-      id: z.enum(["component-impact-c1", "component-impact-c2"]),
-      configChecksum: z.string().regex(/^[a-f0-9]{16}$/),
-      model: z.literal("linear-component-impact"),
-    })
+    .discriminatedUnion("model", [
+      z.object({
+        id: z.enum(["component-impact-c1", "component-impact-c2"]),
+        configChecksum: z.string().regex(/^[a-f0-9]{16}$/),
+        model: z.literal("linear-component-impact"),
+      }),
+      z.object({
+        id: z.literal("component-impact-ab2"),
+        configChecksum: z.string().regex(/^[a-f0-9]{16}$/),
+        model: z.literal("armour-band-component-impact"),
+        bands: z
+          .array(
+          z.object({
+            id: z.string(),
+            minArmourInclusive: z.number().int().nonnegative(),
+            maxArmourInclusive: z.number().int().nonnegative().nullable(),
+            criticalThreshold: z.number().nonnegative(),
+            highImpactThreshold: z.number().nonnegative(),
+          }),
+          )
+          .readonly(),
+      }),
+    ])
     .optional(),
   seed: z.number().int().nonnegative(),
   rounds: z.number().int().nonnegative(),

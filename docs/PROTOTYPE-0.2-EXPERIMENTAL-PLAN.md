@@ -1,5 +1,28 @@
 # Prototype 0.2 Experimental Plan
 
+## Armour-band Candidate AB2 development result (2026-07-31)
+
+AB2 is the selected implementation-ready armour-band candidate. Its final ID
+is `component-impact-ab2` and its canonical checksum is `6b9f70450d3f10b8`.
+The exact immutable table is exposed `0-9` (`17/20` critical/high), light
+`10-24` (`15/18`), protected `25-49` (`13/15`), and heavy `50+` (`11/13`).
+Band selection uses only `armourAtHitZone`; the linear impact formula,
+qualification precedence, lifecycle, guard, fixtures, seeds, and C1/C2 entries
+remain unchanged. C2 remains the default.
+
+The one authorised development run used fixture checksum
+`ffc11deb47e6049f`, seed bank `prototype-0.2-baseline-v1`, 80 development seeds,
+480 simulations, simulator/ruleset/catalogue `0.2.0/0.2.0/1`, and suite checksum
+`951cdbe01132b06c`. Guarded Bulwark had 164/1255 qualifying hits and 64
+resisted events; unguarded Bulwark had 147/1074 and zero resistance;
+representative light had 207/509; Glass diagnostic-extreme had 238/462; and
+the asymmetric diagnostic had 418/1101. Hard terminal incidence was 22.5%,
+42.5%, and 58.8%, with 0% first-round terminal incidence in each hard fixture.
+All hard lifecycle, factual, guard, replay, and randomness gates passed;
+component-terminal dominance was 52.98%. Decision A: AB2 passes the revised
+development lifecycle gates. Held-out confirmation is still separate and was
+not run.
+
 This is an evidence-led plan, not a feature wishlist. Every proposed change is driven by a specific limitation observed in Prototype 0.1.
 
 ---

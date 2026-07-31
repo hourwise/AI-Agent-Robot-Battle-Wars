@@ -2,6 +2,7 @@ import type { MatchResult } from "../simulator/types.js";
 import type {
   ComponentQualificationId,
   ComponentQualificationMetadata,
+  ArmourBandDefinition,
 } from "../simulator/component-qualification-registry.js";
 
 export interface SeedBank {
@@ -186,9 +187,19 @@ export interface BenchmarkReport {
   readonly qualificationConstants: {
     readonly armourFactor: number;
     readonly minimumImpact: number;
+    readonly criticalThreshold?: number;
+    readonly highImpactThreshold?: number;
+    readonly bands?: readonly ArmourBandDefinition[];
+  };
+  readonly bandFacts?: readonly {
+    readonly id: string;
+    readonly minArmourInclusive: number;
+    readonly maxArmourInclusive: number | null;
     readonly criticalThreshold: number;
     readonly highImpactThreshold: number;
-  };
+    readonly hitCount: number;
+    readonly qualificationCount: number;
+  }[];
   readonly fighterX: {
     readonly machineName: string;
     readonly buildFingerprint: string;

@@ -31,12 +31,13 @@ import {
 } from "./component-state.js";
 import {
   getDefaultComponentQualificationConfig,
-  type LinearComponentQualificationConfig,
+  resolveArmourBand,
+  type ComponentQualificationConfig,
 } from "./component-qualification-registry.js";
 
 function getComponentQualificationFacts(
   attack: AttackResult,
-  config: LinearComponentQualificationConfig,
+  config: ComponentQualificationConfig,
 ) {
   const impact = calculateComponentImpact(
     {
@@ -45,6 +46,10 @@ function getComponentQualificationFacts(
     },
     config,
   );
+  const band =
+    config.model === "armour-band-component-impact"
+      ? resolveArmourBand(config, attack.armourAtHitZone)
+      : undefined;
   return {
     ...impact,
     integrityEffectiveDamage: attack.effectiveDamage,
@@ -52,6 +57,7 @@ function getComponentQualificationFacts(
       attack.isCritical,
       impact.componentImpact,
       config,
+      band,
     ),
   };
 }
@@ -77,7 +83,7 @@ export function applyRound(
   timestampMs: number,
   policyA?: ActionPolicy,
   policyB?: ActionPolicy,
-  qualificationConfig: LinearComponentQualificationConfig = getDefaultComponentQualificationConfig(),
+  qualificationConfig: ComponentQualificationConfig = getDefaultComponentQualificationConfig(),
 ): RoundState {
   let a = { ...state.fighterA };
   let b = { ...state.fighterB };
@@ -210,12 +216,19 @@ export function applyRound(
         componentQualificationId: facts.qualification.qualificationId,
         componentQualificationConfigChecksum:
           facts.qualification.qualificationConfigChecksum,
+        componentQualificationChecksum:
+          facts.qualification.qualificationModel === "armour-band-component-impact"
+            ? facts.qualification.qualificationConfigChecksum
+            : undefined,
         componentQualificationModel: facts.qualification.qualificationModel,
         criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
         highComponentImpactThreshold: facts.qualification.highImpactThreshold,
         componentArmourFactor: facts.armourFactor,
         componentMinimumImpact: facts.minimumImpact,
         qualificationReason: facts.qualification.reason,
+        componentArmourBandId: facts.qualification.bandId,
+        componentArmourBandMinInclusive: facts.qualification.bandMinArmourInclusive,
+        componentArmourBandMaxInclusive: facts.qualification.bandMaxArmourInclusive,
         isCritical: attackResultA.isCritical,
       });
 
@@ -283,12 +296,19 @@ export function applyRound(
               componentQualificationId: facts.qualification.qualificationId,
               componentQualificationConfigChecksum:
                 facts.qualification.qualificationConfigChecksum,
+              componentQualificationChecksum:
+                facts.qualification.qualificationModel === "armour-band-component-impact"
+                  ? facts.qualification.qualificationConfigChecksum
+                  : undefined,
               componentQualificationModel: facts.qualification.qualificationModel,
               componentArmourFactor: facts.armourFactor,
               componentMinimumImpact: facts.minimumImpact,
               criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
               highComponentImpactThreshold: facts.qualification.highImpactThreshold,
               qualificationReason: facts.qualification.reason,
+              componentArmourBandId: facts.qualification.bandId,
+              componentArmourBandMinInclusive: facts.qualification.bandMinArmourInclusive,
+              componentArmourBandMaxInclusive: facts.qualification.bandMaxArmourInclusive,
               hitZone: attackResultA.hitZone,
               reason: "reinforced_drive",
               guardStateBefore: transition.guardStateBefore,
@@ -315,12 +335,19 @@ export function applyRound(
               componentQualificationId: facts.qualification.qualificationId,
               componentQualificationConfigChecksum:
                 facts.qualification.qualificationConfigChecksum,
+              componentQualificationChecksum:
+                facts.qualification.qualificationModel === "armour-band-component-impact"
+                  ? facts.qualification.qualificationConfigChecksum
+                  : undefined,
               componentQualificationModel: facts.qualification.qualificationModel,
               componentArmourFactor: facts.armourFactor,
               componentMinimumImpact: facts.minimumImpact,
               criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
               highComponentImpactThreshold: facts.qualification.highImpactThreshold,
               qualificationReason: facts.qualification.reason,
+              componentArmourBandId: facts.qualification.bandId,
+              componentArmourBandMinInclusive: facts.qualification.bandMinArmourInclusive,
+              componentArmourBandMaxInclusive: facts.qualification.bandMaxArmourInclusive,
               hitZone: attackResultA.hitZone,
               reason: transition.reason,
             };
@@ -345,12 +372,19 @@ export function applyRound(
               componentQualificationId: facts.qualification.qualificationId,
               componentQualificationConfigChecksum:
                 facts.qualification.qualificationConfigChecksum,
+              componentQualificationChecksum:
+                facts.qualification.qualificationModel === "armour-band-component-impact"
+                  ? facts.qualification.qualificationConfigChecksum
+                  : undefined,
               componentQualificationModel: facts.qualification.qualificationModel,
               componentArmourFactor: facts.armourFactor,
               componentMinimumImpact: facts.minimumImpact,
               criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
               highComponentImpactThreshold: facts.qualification.highImpactThreshold,
               qualificationReason: facts.qualification.reason,
+              componentArmourBandId: facts.qualification.bandId,
+              componentArmourBandMinInclusive: facts.qualification.bandMinArmourInclusive,
+              componentArmourBandMaxInclusive: facts.qualification.bandMaxArmourInclusive,
               hitZone: attackResultA.hitZone,
               reason: transition.reason,
             };
@@ -402,12 +436,19 @@ export function applyRound(
         componentQualificationId: facts.qualification.qualificationId,
         componentQualificationConfigChecksum:
           facts.qualification.qualificationConfigChecksum,
+        componentQualificationChecksum:
+          facts.qualification.qualificationModel === "armour-band-component-impact"
+            ? facts.qualification.qualificationConfigChecksum
+            : undefined,
         componentQualificationModel: facts.qualification.qualificationModel,
         criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
         highComponentImpactThreshold: facts.qualification.highImpactThreshold,
         componentArmourFactor: facts.armourFactor,
         componentMinimumImpact: facts.minimumImpact,
         qualificationReason: facts.qualification.reason,
+        componentArmourBandId: facts.qualification.bandId,
+        componentArmourBandMinInclusive: facts.qualification.bandMinArmourInclusive,
+        componentArmourBandMaxInclusive: facts.qualification.bandMaxArmourInclusive,
         isCritical: attackResultB.isCritical,
       });
 
@@ -475,12 +516,19 @@ export function applyRound(
               componentQualificationId: facts.qualification.qualificationId,
               componentQualificationConfigChecksum:
                 facts.qualification.qualificationConfigChecksum,
+              componentQualificationChecksum:
+                facts.qualification.qualificationModel === "armour-band-component-impact"
+                  ? facts.qualification.qualificationConfigChecksum
+                  : undefined,
               componentQualificationModel: facts.qualification.qualificationModel,
               componentArmourFactor: facts.armourFactor,
               componentMinimumImpact: facts.minimumImpact,
               criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
               highComponentImpactThreshold: facts.qualification.highImpactThreshold,
               qualificationReason: facts.qualification.reason,
+              componentArmourBandId: facts.qualification.bandId,
+              componentArmourBandMinInclusive: facts.qualification.bandMinArmourInclusive,
+              componentArmourBandMaxInclusive: facts.qualification.bandMaxArmourInclusive,
               hitZone: attackResultB.hitZone,
               reason: "reinforced_drive",
               guardStateBefore: transition.guardStateBefore,
@@ -507,12 +555,19 @@ export function applyRound(
               componentQualificationId: facts.qualification.qualificationId,
               componentQualificationConfigChecksum:
                 facts.qualification.qualificationConfigChecksum,
+              componentQualificationChecksum:
+                facts.qualification.qualificationModel === "armour-band-component-impact"
+                  ? facts.qualification.qualificationConfigChecksum
+                  : undefined,
               componentQualificationModel: facts.qualification.qualificationModel,
               componentArmourFactor: facts.armourFactor,
               componentMinimumImpact: facts.minimumImpact,
               criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
               highComponentImpactThreshold: facts.qualification.highImpactThreshold,
               qualificationReason: facts.qualification.reason,
+              componentArmourBandId: facts.qualification.bandId,
+              componentArmourBandMinInclusive: facts.qualification.bandMinArmourInclusive,
+              componentArmourBandMaxInclusive: facts.qualification.bandMaxArmourInclusive,
               hitZone: attackResultB.hitZone,
               reason: transition.reason,
             };
@@ -537,12 +592,19 @@ export function applyRound(
               componentQualificationId: facts.qualification.qualificationId,
               componentQualificationConfigChecksum:
                 facts.qualification.qualificationConfigChecksum,
+              componentQualificationChecksum:
+                facts.qualification.qualificationModel === "armour-band-component-impact"
+                  ? facts.qualification.qualificationConfigChecksum
+                  : undefined,
               componentQualificationModel: facts.qualification.qualificationModel,
               componentArmourFactor: facts.armourFactor,
               componentMinimumImpact: facts.minimumImpact,
               criticalComponentImpactThreshold: facts.qualification.criticalThreshold,
               highComponentImpactThreshold: facts.qualification.highImpactThreshold,
               qualificationReason: facts.qualification.reason,
+              componentArmourBandId: facts.qualification.bandId,
+              componentArmourBandMinInclusive: facts.qualification.bandMinArmourInclusive,
+              componentArmourBandMaxInclusive: facts.qualification.bandMaxArmourInclusive,
               hitZone: attackResultB.hitZone,
               reason: transition.reason,
             };

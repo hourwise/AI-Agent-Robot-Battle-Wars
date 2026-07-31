@@ -19,8 +19,16 @@ export function renderTextReport(report: BenchmarkReport): string {
   lines.push(`Qualification checksum: ${report.componentQualification.configChecksum}`);
   lines.push(`Qualification model: ${report.componentQualification.model}`);
   lines.push(
-    `Qualification constants: armour ${report.qualificationConstants.armourFactor}, min ${report.qualificationConstants.minimumImpact}, critical ${report.qualificationConstants.criticalThreshold}, high ${report.qualificationConstants.highImpactThreshold}`,
+    `Qualification constants: armour ${report.qualificationConstants.armourFactor}, min ${report.qualificationConstants.minimumImpact}` +
+      (report.qualificationConstants.bands
+        ? `, bands ${report.qualificationConstants.bands.map((band) => `${band.id}:${band.criticalThreshold}/${band.highImpactThreshold}`).join(",")}`
+        : `, critical ${report.qualificationConstants.criticalThreshold}, high ${report.qualificationConstants.highImpactThreshold}`),
   );
+  if (report.bandFacts) {
+    lines.push(
+      `Band facts: ${report.bandFacts.map((band) => `${band.id}=${band.hitCount}/${band.qualificationCount}`).join(", ")}`,
+    );
+  }
   lines.push(`Role-swapped: ${report.roleSwapped ? "yes" : "no"}`);
   lines.push("");
 

@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 
-export type ComponentQualificationId = "component-impact-c1" | "component-impact-c2";
+export type ComponentQualificationId =
+  | "component-impact-c1"
+  | "component-impact-c2"
+  | "component-impact-ab2";
 
 export type ComponentQualificationModel =
   "linear-component-impact" | "armour-band-component-impact";
@@ -14,7 +17,7 @@ interface ComponentQualificationConfigBase {
 }
 
 export interface LinearComponentQualificationConfig extends ComponentQualificationConfigBase {
-  readonly id: ComponentQualificationId;
+  readonly id: "component-impact-c1" | "component-impact-c2";
   readonly model: "linear-component-impact";
   readonly criticalThreshold: number;
   readonly highImpactThreshold: number;
@@ -33,6 +36,7 @@ export interface ArmourBandDefinition {
  * No armour-band entry is registered or active in Milestone 0.2B.
  */
 export interface ArmourBandComponentQualificationConfig extends ComponentQualificationConfigBase {
+  readonly id: "component-impact-ab2";
   readonly model: "armour-band-component-impact";
   readonly bands: readonly ArmourBandDefinition[];
 }
@@ -40,11 +44,22 @@ export interface ArmourBandComponentQualificationConfig extends ComponentQualifi
 export type ComponentQualificationConfig =
   LinearComponentQualificationConfig | ArmourBandComponentQualificationConfig;
 
-export interface ComponentQualificationMetadata {
-  readonly id: ComponentQualificationId;
+export interface LinearComponentQualificationMetadata {
+  readonly id: "component-impact-c1" | "component-impact-c2";
   readonly configChecksum: string;
   readonly model: "linear-component-impact";
 }
+
+export interface ArmourBandComponentQualificationMetadata {
+  readonly id: "component-impact-ab2";
+  readonly configChecksum: string;
+  readonly model: "armour-band-component-impact";
+  readonly bands: readonly ArmourBandDefinition[];
+}
+
+export type ComponentQualificationMetadata =
+  | LinearComponentQualificationMetadata
+  | ArmourBandComponentQualificationMetadata;
 
 export const DEFAULT_COMPONENT_QUALIFICATION_ID =
   "component-impact-c2" as const satisfies ComponentQualificationId;
@@ -53,6 +68,16 @@ function freezeLinear(
   config: LinearComponentQualificationConfig,
 ): LinearComponentQualificationConfig {
   return Object.freeze({ ...config });
+}
+
+function freezeArmourBand(
+  config: ArmourBandComponentQualificationConfig,
+): ArmourBandComponentQualificationConfig {
+  validateArmourBandQualificationConfig(config);
+  return Object.freeze({
+    ...config,
+    bands: Object.freeze(config.bands.map((band) => Object.freeze({ ...band }))),
+  });
 }
 
 const REGISTRY = Object.freeze({
@@ -74,7 +99,44 @@ const REGISTRY = Object.freeze({
     criticalThreshold: 13,
     highImpactThreshold: 15,
   }),
-} satisfies Record<ComponentQualificationId, LinearComponentQualificationConfig>);
+  "component-impact-ab2": freezeArmourBand({
+    schemaVersion: "1",
+    id: "component-impact-ab2",
+    model: "armour-band-component-impact",
+    armourFactor: 0.2,
+    minimumImpact: 0,
+    bands: [
+      {
+        id: "exposed",
+        minArmourInclusive: 0,
+        maxArmourInclusive: 9,
+        criticalThreshold: 17,
+        highImpactThreshold: 20,
+      },
+      {
+        id: "light",
+        minArmourInclusive: 10,
+        maxArmourInclusive: 24,
+        criticalThreshold: 15,
+        highImpactThreshold: 18,
+      },
+      {
+        id: "protected",
+        minArmourInclusive: 25,
+        maxArmourInclusive: 49,
+        criticalThreshold: 13,
+        highImpactThreshold: 15,
+      },
+      {
+        id: "heavy",
+        minArmourInclusive: 50,
+        maxArmourInclusive: null,
+        criticalThreshold: 11,
+        highImpactThreshold: 13,
+      },
+    ],
+  }),
+} satisfies Record<ComponentQualificationId, ComponentQualificationConfig>);
 
 const IDS = Object.freeze(Object.keys(REGISTRY) as ComponentQualificationId[]);
 
@@ -182,7 +244,7 @@ export function isComponentQualificationId(
 
 export function getComponentQualificationConfig(
   id: ComponentQualificationId | string,
-): LinearComponentQualificationConfig {
+): ComponentQualificationConfig {
   if (!isComponentQualificationId(id)) {
     throw new Error(`Unknown component qualification ID: ${id}`);
   }
@@ -190,12 +252,24 @@ export function getComponentQualificationConfig(
 }
 
 export function getDefaultComponentQualificationConfig(): LinearComponentQualificationConfig {
-  return getComponentQualificationConfig(DEFAULT_COMPONENT_QUALIFICATION_ID);
+  const config = getComponentQualificationConfig(DEFAULT_COMPONENT_QUALIFICATION_ID);
+  if (config.model !== "linear-component-impact") {
+    throw new Error("The default component qualification must be linear");
+  }
+  return config;
 }
 
 export function getComponentQualificationMetadata(
-  config: LinearComponentQualificationConfig,
+  config: ComponentQualificationConfig,
 ): ComponentQualificationMetadata {
+  if (config.model === "armour-band-component-impact") {
+    return Object.freeze({
+      id: config.id,
+      configChecksum: getComponentQualificationConfigChecksum(config),
+      model: config.model,
+      bands: config.bands,
+    });
+  }
   return Object.freeze({
     id: config.id,
     configChecksum: getComponentQualificationConfigChecksum(config),
@@ -203,6 +277,25 @@ export function getComponentQualificationMetadata(
   });
 }
 
-export function listComponentQualificationConfigs(): readonly LinearComponentQualificationConfig[] {
+export function listComponentQualificationConfigs(): readonly ComponentQualificationConfig[] {
   return Object.freeze(IDS.map((id) => REGISTRY[id]));
+}
+
+export function resolveArmourBand(
+  config: ArmourBandComponentQualificationConfig,
+  armourAtHitZone: number,
+): ArmourBandDefinition {
+  if (!Number.isInteger(armourAtHitZone) || armourAtHitZone < 0) {
+    throw new Error("armourAtHitZone must be a finite non-negative integer");
+  }
+  const band = config.bands.find(
+    (candidate) =>
+      armourAtHitZone >= candidate.minArmourInclusive &&
+      (candidate.maxArmourInclusive === null ||
+        armourAtHitZone <= candidate.maxArmourInclusive),
+  );
+  if (!band) {
+    throw new Error(`No armour band contains struck armour ${armourAtHitZone}`);
+  }
+  return band;
 }

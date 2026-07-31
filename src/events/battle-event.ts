@@ -44,11 +44,15 @@ export type AttackHitData = {
   componentImpact?: number;
   componentQualificationId?: string;
   componentQualificationConfigChecksum?: string;
+  componentQualificationChecksum?: string;
   componentQualificationModel?: string;
   componentArmourFactor?: number;
   componentMinimumImpact?: number;
   criticalComponentImpactThreshold?: number;
   highComponentImpactThreshold?: number;
+  componentArmourBandId?: string;
+  componentArmourBandMinInclusive?: number;
+  componentArmourBandMaxInclusive?: number | null;
   qualificationReason?: string | null;
 };
 
@@ -68,11 +72,15 @@ export type ComponentTransitionData = {
   componentImpact: number;
   componentQualificationId: string;
   componentQualificationConfigChecksum: string;
+  componentQualificationChecksum?: string;
   componentQualificationModel: string;
   componentArmourFactor: number;
   componentMinimumImpact: number;
   criticalComponentImpactThreshold: number;
   highComponentImpactThreshold: number;
+  componentArmourBandId?: string;
+  componentArmourBandMinInclusive?: number;
+  componentArmourBandMaxInclusive?: number | null;
   qualificationReason: string | null;
   hitZone: string;
   reason: string;

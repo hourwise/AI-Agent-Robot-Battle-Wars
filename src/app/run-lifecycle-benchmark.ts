@@ -67,10 +67,13 @@ export function runLifecycleBenchmarkCli(args = process.argv.slice(2)): string {
   const options = parseLifecycleBenchmarkArgs(args);
   if (options.listQualifications) {
     return listComponentQualificationConfigs()
-      .map(
-        (config) =>
-          `${config.id}${config.id === DEFAULT_COMPONENT_QUALIFICATION_ID ? " (default)" : ""}: ${config.model}, checksum ${getComponentQualificationConfigChecksum(config)}, armour ${config.armourFactor}, min ${config.minimumImpact}, critical ${config.criticalThreshold}, high ${config.highImpactThreshold}`,
-      )
+      .map((config) => {
+        const thresholds =
+          config.model === "linear-component-impact"
+            ? `critical ${config.criticalThreshold}, high ${config.highImpactThreshold}`
+            : `bands ${config.bands.map((band) => `${band.id}:${band.criticalThreshold}/${band.highImpactThreshold}`).join(",")}`;
+        return `${config.id}${config.id === DEFAULT_COMPONENT_QUALIFICATION_ID ? " (default)" : ""}: ${config.model}, checksum ${getComponentQualificationConfigChecksum(config)}, armour ${config.armourFactor}, min ${config.minimumImpact}, ${thresholds}`;
+      })
       .join("\n");
   }
   if (options.partition !== "development") {

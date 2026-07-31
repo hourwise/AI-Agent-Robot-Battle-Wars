@@ -34,6 +34,13 @@ const REQUIRED_FACTS = [
   "newState",
 ] as const;
 
+const ARMOUR_BAND_FACTS = [
+  "componentQualificationChecksum",
+  "componentArmourBandId",
+  "componentArmourBandMinInclusive",
+  "componentArmourBandMaxInclusive",
+] as const;
+
 function hasOwn(data: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(data, key);
 }
@@ -115,7 +122,11 @@ export function auditLifecycleExecutions(
       const current = state.get(key);
       const label = `${matchKey}#${event.sequence}`;
 
-      for (const field of REQUIRED_FACTS) {
+      const requiredFacts =
+        expectedQualification.model === "armour-band-component-impact"
+          ? [...REQUIRED_FACTS, ...ARMOUR_BAND_FACTS]
+          : REQUIRED_FACTS;
+      for (const field of requiredFacts) {
         if (!hasOwn(data, field)) {
           factualCompletenessErrors.push(`${label} missing ${field}`);
         }
@@ -144,6 +155,17 @@ export function auditLifecycleExecutions(
         factualCompletenessErrors.push(
           `${label} has qualification model ${String(data.componentQualificationModel)}; expected ${expectedQualification.model}`,
         );
+      }
+      if (
+        expectedQualification.model === "armour-band-component-impact" &&
+        !expectedQualification.bands.some(
+          (band) =>
+            band.id === data.componentArmourBandId &&
+            band.minArmourInclusive === data.componentArmourBandMinInclusive &&
+            band.maxArmourInclusive === data.componentArmourBandMaxInclusive,
+        )
+      ) {
+        factualCompletenessErrors.push(`${label} has invalid armour-band facts`);
       }
 
       const attack = precedingAttack(match.events, event);

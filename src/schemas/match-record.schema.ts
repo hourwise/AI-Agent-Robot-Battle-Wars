@@ -6,12 +6,28 @@ import { MatchReviewSchema } from "./review.schema.js";
 const componentQualificationIdSchema = z.enum([
   "component-impact-c1",
   "component-impact-c2",
+  "component-impact-ab2",
 ]);
-const componentQualificationMetadataSchema = z.object({
-  id: componentQualificationIdSchema,
-  configChecksum: z.string().regex(/^[a-f0-9]{16}$/),
-  model: z.literal("linear-component-impact"),
+const armourBandSchema = z.object({
+  id: z.string(),
+  minArmourInclusive: z.number().int().nonnegative(),
+  maxArmourInclusive: z.number().int().nonnegative().nullable(),
+  criticalThreshold: z.number().nonnegative(),
+  highImpactThreshold: z.number().nonnegative(),
 });
+const componentQualificationMetadataSchema = z.discriminatedUnion("model", [
+  z.object({
+    id: z.enum(["component-impact-c1", "component-impact-c2"]),
+    configChecksum: z.string().regex(/^[a-f0-9]{16}$/),
+    model: z.literal("linear-component-impact"),
+  }),
+  z.object({
+    id: z.literal("component-impact-ab2"),
+    configChecksum: z.string().regex(/^[a-f0-9]{16}$/),
+    model: z.literal("armour-band-component-impact"),
+    bands: z.array(armourBandSchema).min(1).readonly(),
+  }),
+]);
 
 const validatedBuildSchema = z.object({
   proposal: machineBuildProposalSchema,

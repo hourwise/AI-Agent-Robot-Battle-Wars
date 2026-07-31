@@ -1382,3 +1382,63 @@ critical-rate change, damage change, selection-weight change, seed change, or
 held-out execution is authorised here. The next task is bounded armour-band
 candidate selection and implementation using the published ranges. Milestone
 0.2B remains incomplete.
+
+### 26.7 Armour-band Candidate AB2 development evaluation (2026-07-31)
+
+The bounded candidate task selected the published AB2 table and resolved the
+temporary identity mismatch. The pulled baseline contained no uncommitted
+candidate; the continuation note's temporary identity was `component-impact-ab1`
+with checksum `4ccfa5e666b0d4fb`. The final registry identity is
+`component-impact-ab2`, checksum `6b9f70450d3f10b8`. C1 and C2 remain unchanged,
+and C2 remains the runtime default.
+
+AB2 is immutable and uses only struck-zone armour for band selection:
+
+| Band | Armour | Critical / high threshold |
+| --- | --- | ---: |
+| exposed | 0-9 | 17 / 20 |
+| light | 10-24 | 15 / 18 |
+| protected | 25-49 | 13 / 15 |
+| heavy | 50+ | 11 / 13 |
+
+Impact remains `max(0, round(rawDamage - armourAtHitZone * 0.20))`.
+Qualification precedes component selection, critical reason precedence is
+preserved, and no additional random roll was introduced. Band identity,
+bounds, thresholds, checksum, and all damage/lifecycle facts are persisted;
+replay continues to consume persisted facts rather than resolving the current
+registry.
+
+Exactly one development command was run:
+
+```text
+npm run benchmark:lifecycle -- --partition development --qualification component-impact-ab2
+```
+
+Identity: simulator `0.2.0`, ruleset `0.2.0`, catalogue `1`, seed bank
+`prototype-0.2-baseline-v1`, 80 development seeds, 480 simulations, fixture
+checksum `ffc11deb47e6049f`, suite checksum `951cdbe01132b06c`.
+
+| Fixture | Hits / qualifying | Critical / high | Damaged / disabled | Terminal / first-round terminal | Outcomes D/I/J/draw |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| guarded Bulwark | 1255 / 164 (13.1%) | 164 / 2 | 81 / 19 | 22.5% / 0.0% | 0 / 4 / 76 / 15 |
+| unguarded Bulwark | 1074 / 147 (13.7%) | 147 / 2 | 111 / 36 | 42.5% / 0.0% | 0 / 21 / 59 / 10 |
+| representative light | 509 / 207 (40.7%) | 167 / 118 | 151 / 56 | 58.8% / 0.0% | 5 / 26 / 49 / 0 |
+| Glass Cannon diagnostic-extreme | 462 / 238 (51.5%) | 202 / 141 | 170 / 68 | 71.3% / 0.0% | 57 / 19 / 4 / 0 |
+| Bulwark vs Glass diagnostic | 1101 / 418 (38.0%) | 364 / 225 | 268 / 123 | 69.4% / 0.0% | 113 / 40 / 7 / 0 |
+
+Band facts were heavy-only for both Bulwark mirrors (1255/164 and 1074/147),
+light-only for representative light (509/207), and exposed-only for Glass
+Cannon (462/238). The asymmetric diagnostic used exposed 577/361 and heavy
+524/57. The captured report also recorded the required 1+/2+/3+ qualification
+match counts: guarded 76/48/28, unguarded 76/48/20, representative light
+80/71/40, Glass 80/77/56, and asymmetric 160/147/85.
+
+All general legality, factual completeness, historical replay,
+qualification-before-selection, and mobility semantics gates passed. Guarded
+resistance was 64, unguarded resistance was 0, hard-fixture damaged-to-disabled
+transitions were positive, and suite component-terminal dominance was 52.98%
+(maximum category share). The representative-light and both Bulwark hard
+fixtures passed every hard threshold; Glass remained diagnostic-extreme and
+passed its first-round ceiling. Decision: **A. The armour-band candidate passes
+all revised development lifecycle gates.** Held-out confirmation remains a
+separate authorised task and was not run.

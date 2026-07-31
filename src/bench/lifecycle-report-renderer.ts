@@ -4,6 +4,15 @@ function percent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+function median(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1]! + sorted[middle]!) / 2
+    : sorted[middle]!;
+}
+
 export function renderLifecycleSuiteReport(report: LifecycleSuiteReport): string {
   const lines: string[] = [
     "FORGE ARENA COMPONENT LIFECYCLE SUITE",
@@ -16,6 +25,8 @@ export function renderLifecycleSuiteReport(report: LifecycleSuiteReport): string
     `Seed bank: ${report.seedBankId}`,
     `Partition: ${report.partition}`,
     `Total simulations: ${report.aggregateLifecycleSummary.totalSimulations}`,
+    `Simulator/ruleset/catalogue: ${report.fixtureReports[0]?.benchmark.simulatorVersion ?? "unknown"}/${report.fixtureReports[0]?.benchmark.rulesetVersion ?? "unknown"}/${report.fixtureReports[0]?.benchmark.catalogueVersion ?? "unknown"}`,
+    `Development seed count: ${report.fixtureReports[0]?.benchmark.seedCount ?? 0}`,
     "",
   ];
 
@@ -36,6 +47,7 @@ export function renderLifecycleSuiteReport(report: LifecycleSuiteReport): string
       `Seeds/assignments/simulations: ${benchmark.seedCount}/${benchmark.roleAssignmentsPerSeed}/${benchmark.totalSimulations}`,
     );
     lines.push(`Candidate ID: ${benchmark.componentQualificationId}`);
+    lines.push(`Candidate model: ${benchmark.componentQualification.model}`);
     lines.push(`Candidate checksum: ${benchmark.componentQualification.configChecksum}`);
     lines.push(
       `Checksums: outcomes ${benchmark.outcomesChecksum}, report ${benchmark.reportChecksum}`,
@@ -58,8 +70,18 @@ export function renderLifecycleSuiteReport(report: LifecycleSuiteReport): string
       `Matches with 1+/2+/3+: ${metrics.matchesWithAtLeastOneQualifyingHit}/${metrics.matchesWithAtLeastTwoQualifyingHits}/${metrics.matchesWithAtLeastThreeQualifyingHits}`,
     );
     lines.push(
-      `Critical/high qualified: ${metrics.totalCriticalQualifiedHits}/${metrics.totalHighImpactQualifiedHits}`,
+      `Critical/high/both qualified: ${metrics.totalCriticalQualifiedHits}/${metrics.totalHighImpactQualifiedHits}/${metrics.totalHitsSatisfyingBothConditions}`,
     );
+    const qualificationsPerMatch = benchmark.perMatch.map((match) => match.qualifyingHits);
+    lines.push(`Mean/median qualifications per match: ${diagnostics.qualifyingHitsPerMatch.toFixed(2)}/${median(qualificationsPerMatch).toFixed(2)}`);
+    if (benchmark.bandFacts) {
+      lines.push("Band facts:");
+      for (const band of benchmark.bandFacts) {
+        lines.push(
+          `  ${band.id} [${band.minArmourInclusive}-${band.maxArmourInclusive ?? "∞"}] critical/high ${band.criticalThreshold}/${band.highImpactThreshold}: ${band.hitCount} hits, ${band.qualificationCount} qualifications`,
+        );
+      }
+    }
     lines.push("");
     lines.push("LIFECYCLE");
     lines.push(`Resistances: ${metrics.totalResistedTransitions}`);

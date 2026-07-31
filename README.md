@@ -101,6 +101,7 @@ npm run benchmark:lifecycle -- --partition development
 npm run benchmark:lifecycle -- --partition development --fixture glass-cannon-mirror
 npm run benchmark:lifecycle -- --partition development --qualification component-impact-c1
 npm run benchmark:lifecycle -- --partition development --qualification component-impact-c2
+npm run benchmark:lifecycle -- --partition development --qualification component-impact-ab2
 npm run benchmark:lifecycle -- --list-qualifications
 npm run benchmark:lifecycle -- --partition development --json
 ```
