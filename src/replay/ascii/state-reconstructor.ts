@@ -1,25 +1,47 @@
 import type { SimulationEvent } from "../../simulator/types.js";
+import { isGridZone } from "../../simulator/arena-grid.js";
+import { POSITIONING_MODEL_LEGACY } from "../../schemas/positioning.schema.js";
+import {
+  isGridReplayPositioningModel,
+  type ReplayPositioningModel,
+} from "../positioning-model.js";
 import type {
   AsciiReplayInput,
   CompetitionState,
   HighlightMoment,
 } from "./ascii.types.js";
 
-export function getInitialState(input: AsciiReplayInput): CompetitionState {
+function assertGridZone(value: unknown, context: string): void {
+  if (!isGridZone(value)) {
+    throw new Error(
+      `Grid reconstruction rejects non-grid zone in ${context}: ${String(value)}`,
+    );
+  }
+}
+
+export function getInitialState(
+  input: AsciiReplayInput,
+  positioningModel: ReplayPositioningModel = POSITIONING_MODEL_LEGACY,
+): CompetitionState {
+  if (isGridReplayPositioningModel(positioningModel)) {
+    assertGridZone(input.initialState.fighterA.zone, "initial fighterA.zone");
+    assertGridZone(input.initialState.fighterB.zone, "initial fighterB.zone");
+  }
   return input.initialState;
 }
 
 export function getRoundEndState(
   input: AsciiReplayInput,
   round: number,
+  positioningModel: ReplayPositioningModel = POSITIONING_MODEL_LEGACY,
 ): CompetitionState | null {
-  let state = getInitialState(input);
+  let state = getInitialState(input, positioningModel);
 
   for (const event of input.events) {
     if (event.round === undefined || event.round > round) break;
     if (event.type === "round_started" && event.round === round) continue;
 
-    state = applyEvent(state, event);
+    state = applyEvent(state, event, positioningModel);
   }
 
   return state;
@@ -28,20 +50,36 @@ export function getRoundEndState(
 export function getStateAfterEvents(
   input: AsciiReplayInput,
   events: readonly SimulationEvent[],
+  positioningModel: ReplayPositioningModel = POSITIONING_MODEL_LEGACY,
 ): CompetitionState {
-  let state = getInitialState(input);
+  let state = getInitialState(input, positioningModel);
 
   for (const event of events) {
-    state = applyEvent(state, event);
+    state = applyEvent(state, event, positioningModel);
   }
 
   return state;
 }
 
-function applyEvent(state: CompetitionState, event: SimulationEvent): CompetitionState {
+function applyEvent(
+  state: CompetitionState,
+  event: SimulationEvent,
+  positioningModel: ReplayPositioningModel,
+): CompetitionState {
   switch (event.type) {
     case "movement_resolved": {
-      const data = event.data as { to: string; facing: string; action?: string };
+      const data = event.data as {
+        from?: string;
+        to: string;
+        facing: string;
+        action?: string;
+      };
+      if (isGridReplayPositioningModel(positioningModel)) {
+        if (data.from !== undefined) {
+          assertGridZone(data.from, "movement_resolved.data.from");
+        }
+        assertGridZone(data.to, "movement_resolved.data.to");
+      }
       // For knockback events, the fighter whose zone changed is targetId (the one knocked back).
       // For normal movement, it is actorId.
       const isKnockback = data.action === "knockback";
@@ -229,11 +267,12 @@ function applyEvent(state: CompetitionState, event: SimulationEvent): Competitio
 export function populateHighlightStates(
   input: AsciiReplayInput,
   moments: HighlightMoment[],
+  positioningModel: ReplayPositioningModel = POSITIONING_MODEL_LEGACY,
 ): HighlightMoment[] {
   return moments.map((moment) => {
     const lastEvent = moment.events[moment.events.length - 1];
     if (!lastEvent) {
-      return { ...moment, stateAfter: getInitialState(input) };
+      return { ...moment, stateAfter: getInitialState(input, positioningModel) };
     }
 
     const eventsUpTo = input.events.filter((e) => e.sequence <= lastEvent.sequence);
@@ -247,7 +286,7 @@ export function populateHighlightStates(
       (a, b) => a.sequence - b.sequence,
     );
 
-    const stateAfter = getStateAfterEvents(input, allEvents);
+    const stateAfter = getStateAfterEvents(input, allEvents, positioningModel);
 
     return { ...moment, stateAfter };
   });

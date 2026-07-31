@@ -384,34 +384,42 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
 
 ---
 
-### Milestone 0.2C — Positioning Model (3×3 Grid) 🚧 IN PROGRESS — PHASE 1 COMPLETE
+### Milestone 0.2C — Positioning Model (3×3 Grid) 🚧 IN PROGRESS — PHASES 1–2 COMPLETE
 
-**Phase 1 status (2026-07-31):**
+**Phase status (2026-07-31):**
 
 - Milestone 0.2C has **started**.
-- **Phase 1 geometry foundation is implemented**: ADR-001 accepted
+- **Phase 1 geometry foundation is complete**: ADR-001 accepted
   (`docs/ADR-001-positioning-representation.md`) and the pure geometry module
   `src/simulator/arena-grid.ts` shipped with exhaustive tests
   (`tests/unit/arena-grid.test.ts`, 48 tests).
+- **Phase 2 persistence/replay foundation is complete**: grid match schema v3
+  (`src/schemas/match-record.schema.ts`), positioning schemas
+  (`src/schemas/positioning.schema.ts`), version-aware replay dispatch
+  (`src/replay/positioning-model.ts`), 3×3 ASCII renderer and dispatcher
+  (`src/replay/ascii/grid-arena-snapshot-renderer.ts`,
+  `src/replay/ascii/arena-renderer.ts`), and grid-aware state reconstruction
+  (`src/replay/ascii/state-reconstructor.ts`).
 - Authoritative runtime migration has **not** started.
 - `SIMULATOR_VERSION` `0.3.0` has **not** been activated (still `0.2.0`).
-- Match-record schema v3 has **not** been created (v1/v2 unchanged).
-- Replay migration has **not** been performed.
-- ASCII 3×3 rendering has **not** been implemented (five-zone renderer unchanged).
+- Grid movement, action and damage integration has **not** been implemented.
 - Policy-driven lateral movement has **not** been implemented.
+- Current matches still produce schema v2 legacy records.
 - Milestone 0.2C is **not complete**.
 
 **Scope:** New arena representation, movement events, facing and rear advantage, replay updates, policy updates.
 
 **Exclusions:** Opponent suite, evaluation protocol changes.
 
-**Affected modules (later phases):** `src/simulator/types.ts` (zone enum), `src/simulator/movement.ts`, `src/simulator/damage.ts` (exposure), `src/simulator/actions.ts` (policy-driven movement), `src/replay/ascii/arena-snapshot-renderer.ts`, `src/replay/text-replay-renderer.ts`, `src/replay/ascii/state-reconstructor.ts`, `src/schemas/match-record.schema.ts`.
+**Affected modules (later phases):** `src/simulator/types.ts` (zone enum), `src/simulator/movement.ts`, `src/simulator/damage.ts` (exposure), `src/simulator/actions.ts` (policy-driven movement).
 
-**Schema implications:** New zone values, possible new movement event fields (deferred to the runtime-migration phase).
+**Affected modules (Phase 2 completed):** `src/schemas/match-record.schema.ts` (schema v3), `src/schemas/positioning.schema.ts` (new), `src/replay/positioning-model.ts` (new), `src/replay/ascii/grid-arena-snapshot-renderer.ts` (new), `src/replay/ascii/arena-renderer.ts` (new), `src/replay/ascii/state-reconstructor.ts`, `src/replay/ascii/moment-renderer.ts`, `src/replay/zone-format.ts` (new), `src/replay/text-replay-renderer.ts`.
 
-**Version implications:** `SIMULATOR_VERSION` → 0.3.0 (not performed in Phase 1).
+**Schema implications:** Schema v3 defined for grid records (deferred activation: current runtime still emits v2). New zone values and possible new movement event fields await the runtime-migration phase.
 
-**Tests:** Phase 1: exhaustive pure geometry tests for all nine zones, distances, bearings, exposure and pathfinding. Later phases: movement resolution, ASCII grid rendering, policy action derivation with new movement options.
+**Version implications:** `SIMULATOR_VERSION` → 0.3.0 (not performed in Phases 1–2).
+
+**Tests:** Phase 1: exhaustive pure geometry tests. Phase 2: positioning schema consistency, match-record v3 (validation, round trips, version guards, event positioning facts), replay dispatch, grid ASCII renderer, dispatcher, grid state reconstruction, legacy regression, zone formatting.
 
 **Acceptance criteria:**
 
@@ -420,7 +428,7 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
 - ASCII grid renders all 9 zones clearly.
 - Flank policy produces lateral movement when tactically appropriate.
 
-**Rollback:** Restore 5-zone arena. Version-gate new zone values. Phase 1 geometry is additive and removable without touching live behaviour.
+**Rollback:** Restore 5-zone arena. Version-gate new zone values. Phases 1–2 are additive and removable without touching live behaviour.
 
 ---
 

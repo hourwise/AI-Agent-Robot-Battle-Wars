@@ -99,6 +99,42 @@ Milestone 0.2C is started but not complete: the authoritative runtime
 migration, simulator `0.3.0`, match schema v3, replay migration, ASCII 3×3
 rendering and policy-driven lateral movement all remain outstanding.
 
+## D34: Grid match schema and versioned replay foundation (2026-07-31)
+
+Milestone 0.2C Phase 2 defines the persistence and replay foundation for the
+future 3×3 runtime without changing authoritative combat:
+
+- `MatchRecord` schema v3 is defined for grid records: it requires
+  `schemaVersion: "3"` and an explicit `positioningModel: "grid-3x3-v1"`,
+  uses canonical grid zones in initial fighter states, retains the full v2
+  component representation, and validates positioning facts inside
+  `movement_resolved` and `round_ended` events.
+- The positioning model is explicit (`grid-3x3-v1`; v1/v2 remain implicitly
+  `legacy-five-zone-v1`). `center` exists in both models, so the model is
+  never inferred from zone values.
+- v1 and v2 records remain legacy and unchanged; v1/v2 accept legacy zones,
+  reject grid-only corners, and are never rewritten during deserialisation.
+- Replay dispatch uses record identity only: v1/v2 → `legacy-five-zone-v1`;
+  v3 → `grid-3x3-v1`. Raw current `0.2.0` results resolve explicitly to the
+  legacy model.
+- Both ASCII renderers now exist: the existing five-zone renderer (preserved
+  byte-for-byte) and a new deterministic 3×3 renderer with same-cell
+  occupancy and fixed-width layout, selected by a version-aware dispatcher.
+- State reconstruction accepts an explicit positioning model; grid mode
+  reconstructs all nine zones and rejects legacy edge values.
+- Current matches still produce schema v2 legacy records; no normal
+  application path produces schema v3, and `mapLegacyZoneToGridZone` is never
+  used for automatic conversion.
+- No live gameplay migration occurred: the five-zone simulator, movement,
+  actions, damage, armour exposure, knockback and component behaviour are
+  unchanged, and simulator/ruleset/catalogue remain `0.2.0 / 0.2.0 / 1`.
+
+Milestone 0.2C status: Phase 1 geometry foundation complete; Phase 2
+persistence/replay foundation complete; authoritative runtime migration not
+started; simulator `0.3.0` not active; grid movement/action/damage integration
+not implemented; policy-driven lateral movement not implemented. Milestone
+0.2C is not complete.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

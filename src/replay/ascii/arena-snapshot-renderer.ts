@@ -1,29 +1,9 @@
 import type { FighterVisualState } from "./ascii.types.js";
-import {
-  FACING_ARROWS,
-  CONDITION_MARKERS,
-  padCenter,
-  padRight,
-  ARENA_WIDTH,
-} from "./ascii-layout.js";
+import { padCenter, padRight, ARENA_WIDTH } from "./ascii-layout.js";
+import { buildFighterMarker } from "./fighter-marker.js";
 
 function getMarker(fighter: FighterVisualState, label: string): string {
-  const facing = FACING_ARROWS[fighter.facing] ?? "?";
-  let marker = label;
-
-  if (fighter.components.mobilityDisabled) {
-    marker += "X";
-  } else if (fighter.components.mobilityDamaged) {
-    marker += "x";
-  } else if (fighter.conditions.includes("overturned")) {
-    marker += CONDITION_MARKERS.overturned;
-  } else if (fighter.conditions.includes("overheated")) {
-    marker += CONDITION_MARKERS.overheated;
-  } else {
-    marker += facing;
-  }
-
-  return marker;
+  return buildFighterMarker(fighter, label);
 }
 
 export function renderArenaSnapshot(

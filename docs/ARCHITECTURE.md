@@ -71,6 +71,26 @@ the live five-zone `ArenaZone`; the authoritative simulator, movement, action,
 damage, replay and ASCII runtime remain unchanged until the separately
 authorised runtime-migration phase.
 
+### Grid persistence and replay foundation (Milestone 0.2C Phase 2)
+
+- `src/schemas/positioning.schema.ts` — canonical legacy/grid zone schemas and
+  the explicit positioning identifier (`grid-3x3-v1`); grid values derive from
+  `arena-grid.ts` so they cannot drift.
+- `src/schemas/match-record.schema.ts` — supports schema v3 for grid records
+  (`positioningModel: "grid-3x3-v1"`, grid initial zones, validated positioning
+  facts in `movement_resolved`/`round_ended` events). v1/v2 records remain
+  legacy and unchanged; current `0.2.0` matches still produce schema v2.
+- `src/replay/positioning-model.ts` — replay positioning dispatch by record
+  identity (v1/v2 → legacy-five-zone-v1; v3 → grid-3x3-v1).
+- `src/replay/ascii/grid-arena-snapshot-renderer.ts` — deterministic 3×3 ASCII
+  arena renderer (typed grid visual states).
+- `src/replay/ascii/arena-renderer.ts` — version-aware arena renderer
+  dispatcher (legacy five-zone vs 3×3 grid).
+- `src/replay/ascii/state-reconstructor.ts` — accepts an explicit positioning
+  model; grid mode reconstructs the nine grid zones and rejects legacy edges.
+- `src/replay/zone-format.ts` — shared human-readable zone formatting for both
+  legacy and grid zone names.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

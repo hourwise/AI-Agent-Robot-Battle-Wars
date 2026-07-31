@@ -1,5 +1,6 @@
 import type { MatchResult, SimulationEvent } from "../simulator/types.js";
 import { sanitizeTerminalText, resolveDisplayName } from "../shared/text-sanitise.js";
+import { formatZoneName } from "./zone-format.js";
 
 function getFighterName(fighterId: string | undefined, result: MatchResult): string {
   if (!fighterId) return "Unknown";
@@ -9,11 +10,7 @@ function getFighterName(fighterId: string | undefined, result: MatchResult): str
 }
 
 function formatZone(zone: string): string {
-  return zone
-    .replace(/_/g, " ")
-    .split(" ")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+  return formatZoneName(zone);
 }
 
 function formatWeapon(weapon: string): string {

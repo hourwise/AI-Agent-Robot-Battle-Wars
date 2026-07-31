@@ -2,6 +2,11 @@ import { z } from "zod";
 import { machineBuildProposalSchema } from "./build.schema.js";
 import { actionPolicySchema } from "./policy.schema.js";
 import { MatchReviewSchema } from "./review.schema.js";
+import {
+  gridZoneSchema,
+  POSITIONING_MODEL_GRID,
+} from "./positioning.schema.js";
+import { isGridZone } from "../simulator/arena-grid.js";
 
 const componentQualificationIdSchema = z.enum([
   "component-impact-c1",
@@ -89,6 +94,11 @@ const fighterStateSchema = z.object({
 
 const fighterStateV2Schema = fighterStateSchema.extend({
   comps: componentStatesSchema,
+});
+
+/** v3 fighter state: full v2 component representation with grid zones only. */
+const fighterStateV3Schema = fighterStateV2Schema.extend({
+  zone: gridZoneSchema,
 });
 
 const simulationEventSchema = z.object({
@@ -209,9 +219,86 @@ export const MatchRecordV2Schema = z.object({
   review: MatchReviewSchema.optional(),
 });
 
+/**
+ * Validates positioning facts inside authoritative event data for grid (v3)
+ * records. Only `movement_resolved` and `round_ended` carry arena zone facts
+ * that must be canonical grid zones; other event payloads are left generic.
+ * This is deliberately scoped and does not redesign the generic event schema.
+ */
+function validateV3PositioningFacts(events: readonly unknown[]): string[] {
+  const errors: string[] = [];
+  for (const event of events) {
+    if (typeof event !== "object" || event === null) continue;
+    const envelope = event as { type?: unknown; data?: unknown };
+
+    if (envelope.type === "movement_resolved") {
+      const data = envelope.data as { from?: unknown; to?: unknown } | undefined;
+      if (typeof data === "object" && data !== null) {
+        for (const field of ["from", "to"] as const) {
+          if (!isGridZone(data[field])) {
+            errors.push(
+              `movement_resolved.data.${field} must be a canonical grid zone; received ${String(data[field])}`,
+            );
+          }
+        }
+      }
+    }
+
+    if (envelope.type === "round_ended") {
+      const data = envelope.data as
+        | { fighterA?: { zone?: unknown }; fighterB?: { zone?: unknown } }
+        | undefined;
+      if (typeof data === "object" && data !== null) {
+        for (const side of ["fighterA", "fighterB"] as const) {
+          const fighter = data[side];
+          if (typeof fighter === "object" && fighter !== null) {
+            const zone = (fighter as { zone?: unknown }).zone;
+            if (!isGridZone(zone)) {
+              errors.push(
+                `round_ended.data.${side}.zone must be a canonical grid zone; received ${String(zone)}`,
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+  return errors;
+}
+
+export const MatchRecordV3Schema = z
+  .object({
+    schemaVersion: z.literal("3"),
+    positioningModel: z.literal(POSITIONING_MODEL_GRID),
+    matchId: z.string().uuid(),
+    createdAt: z.string().datetime(),
+    rulesetVersion: z.string(),
+    catalogueVersion: z.string(),
+    simulatorVersion: z.string(),
+    componentQualificationId: componentQualificationIdSchema.optional(),
+    componentQualification: componentQualificationMetadataSchema.optional(),
+    seed: z.number().int().nonnegative(),
+    config: matchConfigSchema,
+    initialState: z.object({
+      fighterA: fighterStateV3Schema,
+      fighterB: fighterStateV3Schema,
+    }),
+    events: z.array(simulationEventSchema),
+    result: competitionResultSchema,
+    rounds: z.number().int().nonnegative(),
+    agentUsage: z.array(agentUsageRecordSchema).default([]),
+    review: MatchReviewSchema.optional(),
+  })
+  .superRefine((record, ctx) => {
+    for (const message of validateV3PositioningFacts(record.events)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+    }
+  });
+
 export type MatchRecordV1 = z.infer<typeof MatchRecordV1Schema>;
 export type MatchRecordV2 = z.infer<typeof MatchRecordV2Schema>;
-export type MatchRecord = MatchRecordV1 | MatchRecordV2;
+export type MatchRecordV3 = z.infer<typeof MatchRecordV3Schema>;
+export type MatchRecord = MatchRecordV1 | MatchRecordV2 | MatchRecordV3;
 
 /** Legacy alias — prefer MatchRecordV1 / MatchRecordV2 discriminated. */
 /** @deprecated Use MatchRecordV1 explicitly. */
@@ -249,6 +336,14 @@ export function validateMatchRecord(data: unknown):
     return { ok: false, errors: result.error.message };
   }
 
+  if (version === "3") {
+    const result = MatchRecordV3Schema.safeParse(data);
+    if (result.success) {
+      return { ok: true, record: result.data };
+    }
+    return { ok: false, errors: result.error.message };
+  }
+
   return {
     ok: false,
     errors: `Unsupported or missing schemaVersion: ${String(version)}`,
@@ -261,6 +356,10 @@ export function isV2Record(record: MatchRecord): record is MatchRecordV2 {
 
 export function isV1Record(record: MatchRecord): record is MatchRecordV1 {
   return record.schemaVersion === "1";
+}
+
+export function isV3Record(record: MatchRecord): record is MatchRecordV3 {
+  return record.schemaVersion === "3";
 }
 
 export function serializeMatchRecord(record: MatchRecord): string {

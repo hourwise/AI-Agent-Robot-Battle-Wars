@@ -3,8 +3,10 @@
 **Status:** Accepted for phased implementation
 **Date:** 2026-07-31
 **Scope:** Phase 1 freezes the 3×3 arena representation and provides a pure,
-deterministically tested geometry module. No authoritative combat is switched
-to the new arena in this phase.
+deterministically tested geometry module. Phase 2 defines the grid match
+schema (`MatchRecord` v3), the explicit positioning identifier, version-aware
+replay dispatch and the 3×3 ASCII renderer. No authoritative combat is switched
+to the new arena in either phase.
 
 ## 1. Context
 
@@ -254,11 +256,11 @@ bench modules reference `hitZone` armour facts only, not arena zones).
 ## 4. Consequences
 
 - Phase 1 adds only pure geometry and produces no authoritative gameplay change.
-- The new module `src/simulator/arena-grid.ts` is imported only by tests (and
-  non-runtime documentation tooling), never by the authoritative simulator in
-  this phase.
-- The five-zone live simulator, event schema, match-record schemas, replay and
-  ASCII rendering remain byte-for-byte unchanged.
+- Phase 2 adds persistence/replay foundation only: grid match schema v3, the
+  explicit positioning identifier, version-aware replay dispatch and the 3×3
+  ASCII renderer. No authoritative gameplay change.
+- The five-zone live simulator, existing v1/v2 schemas, existing replay and
+  existing ASCII output remain byte-for-byte unchanged.
 - Simulator/ruleset/catalogue versions remain `0.2.0 / 0.2.0 / 1`.
 - Component qualification (C1, C2, AB2) remains frozen and unchanged; C2
   remains the experimental runtime default.
@@ -266,8 +268,93 @@ bench modules reference `hitZone` armour facts only, not arena zones).
 ## 5. Out of scope (later 0.2C phases)
 
 - Authoritative simulator migration to the 3×3 arena (version `0.3.0`).
-- Match-record schema v3.
-- Replay migration and versioned replay dispatch.
-- ASCII 3×3 rendering.
+- Grid movement, action and damage integration.
 - Policy-driven lateral movement.
+- Live activation of grid match production (the runtime still emits schema v2).
 - Opponent suite and adaptation evaluation (0.2D/0.2E).
+
+## 6. Phase 2 — persistence and replay foundation (2026-07-31)
+
+Phase 2 prepares persistence and replay for the future grid runtime without
+changing authoritative match outcomes.
+
+### 6.1 Positioning schemas
+
+`src/schemas/positioning.schema.ts` provides canonical Zod schemas:
+
+- `legacyArenaZoneSchema` — the five legacy values (`center`, `north_edge`,
+  `south_edge`, `east_edge`, `west_edge`);
+- `gridZoneSchema` — derived directly from `GRID_ZONES` in `arena-grid.ts` so
+  the lists cannot drift;
+- the explicit persisted positioning identifier `grid-3x3-v1` (schema v1 and
+  v2 remain implicitly `legacy-five-zone-v1`).
+
+`center` exists in both models, so the positioning model is never inferred
+from a zone string.
+
+### 6.2 MatchRecord schema v3
+
+`src/schemas/match-record.schema.ts` now supports schema versions `1`, `2`
+and `3`:
+
+- v3 requires `schemaVersion: "3"` and `positioningModel: "grid-3x3-v1"`;
+- v3 fighter states retain the full v2 component representation and use only
+  canonical `GridZone` values with the existing four cardinal facings;
+- v3 validates positioning facts inside authoritative events
+  (`movement_resolved.data.from`/`.to` and `round_ended.data.fighterA/B.zone`
+  must be grid zones);
+- v1/v2 continue to accept legacy zones and reject grid-only corners;
+- v3 rejects legacy edge zones and a missing/incorrect `positioningModel`;
+- unsupported schema versions are rejected; deserialisation never mutates or
+  upgrades v1/v2 records.
+
+### 6.3 Replay positioning dispatch
+
+`src/replay/positioning-model.ts` selects the model from record identity only:
+
+- schema v1 → `legacy-five-zone-v1`;
+- schema v2 → `legacy-five-zone-v1`;
+- schema v3 → `grid-3x3-v1`.
+
+Raw current `0.2.0` `MatchResult` values resolve explicitly to the legacy
+model. Zone values are never used to guess the model.
+
+### 6.4 ASCII rendering
+
+The existing five-zone renderer is preserved byte-for-byte.
+`src/replay/ascii/grid-arena-snapshot-renderer.ts` renders all nine grid cells
+with a deterministic fixed-width layout, same-cell occupancy (A before B),
+facing arrows and the existing component/condition marker precedence.
+`src/replay/ascii/arena-renderer.ts` dispatches between the two renderers by
+positioning model.
+
+### 6.5 State reconstruction
+
+`state-reconstructor.ts` accepts an explicit positioning model (defaulting to
+legacy, preserving existing callers). In grid mode it reconstructs all nine
+grid zones from initial state and `movement_resolved` events (including
+knockback via `targetId`) and rejects legacy edge values; legacy mode is
+unchanged. Human-readable zone formatting (`src/replay/zone-format.ts`)
+handles both "North West" grid names and "North Edge" legacy names.
+
+### 6.6 Record production
+
+Current `0.2.0` matches still produce schema v2 records with legacy zones via
+`matchResultToRecord`. No normal application path produces schema v3, and
+`mapLegacyZoneToGridZone` is never used for automatic conversion.
+
+## 7. Additional persistence/replay dependencies (Phase 1.5 inventory)
+
+Beyond the Phase 1 inventory, Phase 2 inspection recorded:
+
+| Module                                                                          | Role                                                                                                                   |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `src/persistence/match-converter.ts`                                            | `matchResultToRecord` chooses v2 when `SIMULATOR_VERSION` is `0.2.x`; the future v3 producer will be gated on `0.3.0`. |
+| `src/persistence/json-match-repository.ts`                                      | `saveMatch`/`getMatch` dispatch through `validateMatchRecord`; supports all versions automatically.                    |
+| `src/app/replay-match.ts`                                                       | Reconstructs a `MatchResult`-shaped object from a persisted record for text/ASCII replay.                              |
+| `src/app/run-series.ts`                                                         | Persists matches via `matchResultToRecord` + `saveMatch`.                                                              |
+| `src/replay/ascii/ascii-replay-renderer.ts`                                     | Adapts `MatchResult` to `AsciiReplayInput`; `adaptFighterVisual` reads v2 `comps`.                                     |
+| `src/replay/ascii/ascii.types.ts`                                               | `FighterVisualState.zone: string` (legacy view; grid view is typed `GridZone`).                                        |
+| `src/replay/ascii/moment-renderer.ts`                                           | Renders arena snapshots per positioning model (legacy default).                                                        |
+| `src/replay/text-replay-renderer.ts`, `src/replay/ascii/state-reconstructor.ts` | Zone formatting and reconstruction (see 6.5).                                                                          |
+| `tests/fixtures/v3-match-record.ts`                                             | Synthetic v3 record builder used only by tests.                                                                        |

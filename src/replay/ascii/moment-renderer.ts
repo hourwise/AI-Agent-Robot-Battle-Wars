@@ -1,6 +1,9 @@
 import type { SimulationEvent } from "../../simulator/types.js";
 import type { HighlightMoment, CompetitionState } from "./ascii.types.js";
-import { renderArenaSnapshot } from "./arena-snapshot-renderer.js";
+import { renderArenaForModel } from "./arena-renderer.js";
+import { formatZoneName } from "../zone-format.js";
+import { POSITIONING_MODEL_LEGACY } from "../../schemas/positioning.schema.js";
+import type { ReplayPositioningModel } from "../positioning-model.js";
 import {
   sanitizeName,
   resolveDisplayName,
@@ -90,11 +93,7 @@ function getFighterName(fighterId: string | undefined, state: CompetitionState):
 }
 
 function formatZone(zone: string): string {
-  return zone
-    .replace(/_/g, " ")
-    .split(" ")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+  return formatZoneName(zone);
 }
 
 function formatWeaponName(weapon: string): string {
@@ -104,7 +103,10 @@ function formatWeaponName(weapon: string): string {
     .join(" ");
 }
 
-export function renderMoment(moment: HighlightMoment): string {
+export function renderMoment(
+  moment: HighlightMoment,
+  positioningModel: ReplayPositioningModel = POSITIONING_MODEL_LEGACY,
+): string {
   const lines: string[] = [];
 
   lines.push(SEPARATOR);
@@ -112,7 +114,8 @@ export function renderMoment(moment: HighlightMoment): string {
   lines.push(SEPARATOR);
   lines.push("");
 
-  const arena = renderArenaSnapshot(
+  const arena = renderArenaForModel(
+    positioningModel,
     moment.stateAfter.fighterA,
     moment.stateAfter.fighterB,
   );
@@ -131,7 +134,11 @@ export function renderMoment(moment: HighlightMoment): string {
   return lines.join("\n");
 }
 
-export function renderOpeningFrame(state: CompetitionState, seed: number): string {
+export function renderOpeningFrame(
+  state: CompetitionState,
+  seed: number,
+  positioningModel: ReplayPositioningModel = POSITIONING_MODEL_LEGACY,
+): string {
   const lines: string[] = [];
 
   lines.push(SEPARATOR);
@@ -139,7 +146,7 @@ export function renderOpeningFrame(state: CompetitionState, seed: number): strin
   lines.push(SEPARATOR);
   lines.push("");
 
-  const arena = renderArenaSnapshot(state.fighterA, state.fighterB);
+  const arena = renderArenaForModel(positioningModel, state.fighterA, state.fighterB);
   lines.push(arena);
   lines.push("");
 
