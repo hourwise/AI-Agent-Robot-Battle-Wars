@@ -20,8 +20,21 @@ the asymmetric diagnostic had 418/1101. Hard terminal incidence was 22.5%,
 42.5%, and 58.8%, with 0% first-round terminal incidence in each hard fixture.
 All hard lifecycle, factual, guard, replay, and randomness gates passed;
 component-terminal dominance was 52.98%. Decision A: AB2 passes the revised
-development lifecycle gates. Held-out confirmation is still separate and was
-not run.
+development lifecycle gates. The separately authorised held-out confirmation
+then ran exactly once with 20 held-out seeds and 120 simulations. It preserved
+candidate checksum `6b9f70450d3f10b8` and fixture checksum `ffc11deb47e6049f`;
+held-out suite checksum was `4ea2fe4423a0de8c`.
+
+Held-out aggregate results were guarded Bulwark 311 hits / 39 qualifications,
+18 damaged / 3 disabled, 15.0% terminal incidence; unguarded Bulwark 283 / 38,
+32 / 6, 30.0%; representative light 118 / 59, 40 / 19, **85.0%**; Glass
+diagnostic-extreme 101 / 56, 38 / 18, 80.0%; and the asymmetric diagnostic
+268 / 98, 62 / 32, 75.0%. All general and diagnostic gates passed, but the
+unchanged representative-light terminal gate failed at exactly 0.85 against
+the strict `<0.85` requirement. Decision B: held-out confirmation failed one
+hard gate. AB2 was not changed or promoted; default promotion and final
+Milestone 0.2B completion remain separate unperformed tasks. No individual
+held-out seeds or per-match results are recorded.
 
 This is an evidence-led plan, not a feature wishlist. Every proposed change is driven by a specific limitation observed in Prototype 0.1.
 

@@ -102,15 +102,18 @@ npm run benchmark:lifecycle -- --partition development --fixture glass-cannon-mi
 npm run benchmark:lifecycle -- --partition development --qualification component-impact-c1
 npm run benchmark:lifecycle -- --partition development --qualification component-impact-c2
 npm run benchmark:lifecycle -- --partition development --qualification component-impact-ab2
+npm run benchmark:lifecycle -- --partition held-out --qualification component-impact-ab2 --confirm-held-out
 npm run benchmark:lifecycle -- --list-qualifications
 npm run benchmark:lifecycle -- --partition development --json
 ```
 
-The component-lifecycle suite is benchmark-only and rejects `held-out` and
-`all` partitions until a future explicitly authorised confirmation task. Its
-fixed, qualification-independent manifest is in
+The component-lifecycle suite uses a fixed, qualification-independent manifest
+in
 `data/bench-fixtures/component-lifecycle-v1/`. Registered qualification IDs
 are immutable; `component-impact-c2` is the default when the option is omitted.
+AB2 development passed, but its one-time held-out confirmation failed the
+representative-light strict terminal-incidence gate at exactly 85%. Default
+promotion and final Milestone 0.2B completion remain unperformed.
 
 ## Output
 

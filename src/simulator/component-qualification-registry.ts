@@ -1,9 +1,7 @@
 import { createHash } from "node:crypto";
 
 export type ComponentQualificationId =
-  | "component-impact-c1"
-  | "component-impact-c2"
-  | "component-impact-ab2";
+  "component-impact-c1" | "component-impact-c2" | "component-impact-ab2";
 
 export type ComponentQualificationModel =
   "linear-component-impact" | "armour-band-component-impact";
@@ -32,8 +30,8 @@ export interface ArmourBandDefinition {
 }
 
 /**
- * Reserved configuration shape for a future ADR-approved model family.
- * No armour-band entry is registered or active in Milestone 0.2B.
+ * Immutable configuration shape for the accepted AB2 armour-band model.
+ * Further armour-band candidates require a separately authorised task.
  */
 export interface ArmourBandComponentQualificationConfig extends ComponentQualificationConfigBase {
   readonly id: "component-impact-ab2";
@@ -58,8 +56,7 @@ export interface ArmourBandComponentQualificationMetadata {
 }
 
 export type ComponentQualificationMetadata =
-  | LinearComponentQualificationMetadata
-  | ArmourBandComponentQualificationMetadata;
+  LinearComponentQualificationMetadata | ArmourBandComponentQualificationMetadata;
 
 export const DEFAULT_COMPONENT_QUALIFICATION_ID =
   "component-impact-c2" as const satisfies ComponentQualificationId;

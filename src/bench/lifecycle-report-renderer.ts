@@ -26,7 +26,7 @@ export function renderLifecycleSuiteReport(report: LifecycleSuiteReport): string
     `Partition: ${report.partition}`,
     `Total simulations: ${report.aggregateLifecycleSummary.totalSimulations}`,
     `Simulator/ruleset/catalogue: ${report.fixtureReports[0]?.benchmark.simulatorVersion ?? "unknown"}/${report.fixtureReports[0]?.benchmark.rulesetVersion ?? "unknown"}/${report.fixtureReports[0]?.benchmark.catalogueVersion ?? "unknown"}`,
-    `Development seed count: ${report.fixtureReports[0]?.benchmark.seedCount ?? 0}`,
+    `${report.partition === "held-out" ? "Held-out" : "Development"} seed count: ${report.fixtureReports[0]?.benchmark.seedCount ?? 0}`,
     "",
   ];
 
@@ -72,8 +72,12 @@ export function renderLifecycleSuiteReport(report: LifecycleSuiteReport): string
     lines.push(
       `Critical/high/both qualified: ${metrics.totalCriticalQualifiedHits}/${metrics.totalHighImpactQualifiedHits}/${metrics.totalHitsSatisfyingBothConditions}`,
     );
-    const qualificationsPerMatch = benchmark.perMatch.map((match) => match.qualifyingHits);
-    lines.push(`Mean/median qualifications per match: ${diagnostics.qualifyingHitsPerMatch.toFixed(2)}/${median(qualificationsPerMatch).toFixed(2)}`);
+    const qualificationsPerMatch = benchmark.perMatch.map(
+      (match) => match.qualifyingHits,
+    );
+    lines.push(
+      `Mean/median qualifications per match: ${diagnostics.qualifyingHitsPerMatch.toFixed(2)}/${median(qualificationsPerMatch).toFixed(2)}`,
+    );
     if (benchmark.bandFacts) {
       lines.push("Band facts:");
       for (const band of benchmark.bandFacts) {

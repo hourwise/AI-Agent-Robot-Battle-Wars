@@ -120,12 +120,12 @@ describe("component lifecycle suite runner", () => {
   it("rejects held-out and all partitions before executing matches", () => {
     expect(() =>
       runBenchmarkSuite({ suite, seedBank: bank, partition: "held-out" }),
-    ).toThrow("development-only");
+    ).toThrow("explicit authorization");
     expect(() => runBenchmarkSuite({ suite, seedBank: bank, partition: "all" })).toThrow(
-      "development-only",
+      "unsupported partitions",
     );
     expect(() => runLifecycleBenchmarkCli(["--partition", "held-out"])).toThrow(
-      'Only "development" is authorised',
+      "--confirm-held-out",
     );
   });
 

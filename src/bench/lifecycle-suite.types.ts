@@ -151,7 +151,7 @@ export interface LifecycleSuiteReport {
   readonly componentQualificationId: ComponentQualificationId;
   readonly componentQualification: ComponentQualificationMetadata;
   readonly seedBankId: string;
-  readonly partition: "development";
+  readonly partition: "development" | "held-out";
   readonly fixtureReports: readonly LifecycleFixtureReport[];
   readonly aggregateLifecycleSummary: AggregateLifecycleSummary;
   readonly suiteGates: readonly GateResult[];
@@ -174,4 +174,5 @@ export interface RunLifecycleSuiteOptions {
   readonly partition: SeedPartition;
   readonly fixtureId?: string;
   readonly componentQualificationId?: ComponentQualificationId;
+  readonly confirmHeldOut?: boolean;
 }

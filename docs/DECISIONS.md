@@ -18,6 +18,22 @@ passed. Decision **A**: AB2 passes all revised development lifecycle gates.
 Held-out execution is not part of this decision and remains separately
 authorised work.
 
+## D31: AB2 held-out confirmation failure (2026-07-31)
+
+The separately authorised held-out command ran exactly once for AB2, using 20
+held-out seeds and 120 simulations. Candidate checksum remained
+`6b9f70450d3f10b8`, fixture checksum remained `ffc11deb47e6049f`, and the
+held-out suite checksum was `4ea2fe4423a0de8c`. Guarded Bulwark had 18 damaged,
+3 disabled, and 18 resisted events; unguarded Bulwark had 32 damaged, 6
+disabled, and zero resistance. Representative light had 40 damaged and 19
+disabled transitions with 85.0% terminal incidence.
+
+All other hard and general gates passed, but the strict representative-light
+terminal-disable requirement is `<85%`, so Decision **B** applies. AB2 remains
+unchanged and C2 remains the runtime default. No tuning, default promotion, or
+final Milestone 0.2B completion was performed. No individual held-out seed or
+per-match result is recorded.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

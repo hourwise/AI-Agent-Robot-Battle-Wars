@@ -1442,3 +1442,38 @@ fixtures passed every hard threshold; Glass remained diagnostic-extreme and
 passed its first-round ceiling. Decision: **A. The armour-band candidate passes
 all revised development lifecycle gates.** Held-out confirmation remains a
 separate authorised task and was not run.
+
+### 26.8 AB2 held-out confirmation (2026-07-31)
+
+The separately authorised held-out confirmation ran exactly once with the
+explicit command:
+
+```text
+npm run benchmark:lifecycle -- --partition held-out --qualification component-impact-ab2 --confirm-held-out
+```
+
+The run used the unchanged candidate `component-impact-ab2` with checksum
+`6b9f70450d3f10b8`, fixture checksum `ffc11deb47e6049f`, seed bank
+`prototype-0.2-baseline-v1`, 20 held-out seeds, and 120 simulations. Simulator,
+ruleset, and catalogue versions remained `0.2.0`, `0.2.0`, and `1`. Held-out
+suite checksum: `4ea2fe4423a0de8c`.
+
+| Fixture | Hits / qualifying | Damaged / disabled | Terminal / first-round terminal | Resisted | Outcome D/I/J/draw |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| guarded Bulwark | 311 / 39 (12.5%) | 18 / 3 | 15.0% / 0.0% | 18 | 0 / 0 / 20 / 3 |
+| unguarded Bulwark | 283 / 38 (13.4%) | 32 / 6 | 30.0% / 0.0% | 0 | 0 / 4 / 16 / 0 |
+| representative light | 118 / 59 (50.0%) | 40 / 19 | **85.0% / 0.0%** | 0 | 2 / 10 / 8 / 0 |
+| Glass Cannon diagnostic-extreme | 101 / 56 (55.4%) | 38 / 18 | 80.0% / 0.0% | 0 | 11 / 8 / 1 / 0 |
+| Bulwark vs Glass diagnostic | 268 / 98 (36.6%) | 62 / 32 | 75.0% / 0.0% | 4 | 27 / 13 / 0 / 0 |
+
+All factual-completeness, lifecycle-legality, qualification-before-selection,
+guard, mobility-semantics, guarded-resistance, unguarded-resistance,
+damaged-to-disabled, Glass first-round, and suite component-dominance gates
+passed. Suite component-terminal dominance was 60.26%. The representative-light
+`terminal-disable-incidence` gate failed because the observed value was exactly
+`0.85`, while the unchanged requirement is strict `<0.85`.
+
+Decision: **B. AB2 fails the held-out confirmation because one hard gate failed.**
+AB2 was not changed, tuned, or promoted. Default promotion and final Milestone
+0.2B completion remain unperformed and require a separate authorised task.
+No individual held-out seed or per-match result is recorded here.
