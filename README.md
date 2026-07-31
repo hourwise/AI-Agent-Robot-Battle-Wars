@@ -20,6 +20,9 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
 - Provider-neutral agent interface
 - Usage and cost tracking
 - Atomic JSON persistence for matches and series
+- 3×3 arena geometry foundation (Milestone 0.2C Phase 1) — pure
+  `src/simulator/arena-grid.ts` module; the live five-zone simulator is
+  unchanged and not yet migrated
 
 ## Architecture
 

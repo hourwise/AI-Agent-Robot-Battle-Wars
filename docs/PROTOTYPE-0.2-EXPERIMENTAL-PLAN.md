@@ -44,7 +44,7 @@ recorded.
 
 ## Handoff: next authorised direction (2026-07-31)
 
-The next permitted implementation milestone after this closure is
+The next permitted implementation milestone after the 0.2B closure is
 **Milestone 0.2C — Positioning Model (3×3 Grid)**. That work:
 
 - may build on the current C2 default without treating C2 as final;
@@ -53,8 +53,10 @@ The next permitted implementation milestone after this closure is
 - will see component qualification reconsidered only in a later separately
   authorised evaluation cycle.
 
-Milestone 0.2C itself is not implemented by this closure task; no 0.2C branch
-is created and no arena code is modified here.
+Milestone 0.2C Phase 1 (pure geometry foundation) is implemented by the
+`agent/0.2c-grid-foundation` task; the authoritative runtime migration,
+schema v3, replay migration and ASCII 3×3 rendering remain separate future
+phases.
 
 This is an evidence-led plan, not a feature wishlist. Every proposed change is driven by a specific limitation observed in Prototype 0.1.
 
@@ -382,19 +384,34 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
 
 ---
 
-### Milestone 0.2C — Positioning Model (3×3 Grid)
+### Milestone 0.2C — Positioning Model (3×3 Grid) 🚧 IN PROGRESS — PHASE 1 COMPLETE
+
+**Phase 1 status (2026-07-31):**
+
+- Milestone 0.2C has **started**.
+- **Phase 1 geometry foundation is implemented**: ADR-001 accepted
+  (`docs/ADR-001-positioning-representation.md`) and the pure geometry module
+  `src/simulator/arena-grid.ts` shipped with exhaustive tests
+  (`tests/unit/arena-grid.test.ts`, 48 tests).
+- Authoritative runtime migration has **not** started.
+- `SIMULATOR_VERSION` `0.3.0` has **not** been activated (still `0.2.0`).
+- Match-record schema v3 has **not** been created (v1/v2 unchanged).
+- Replay migration has **not** been performed.
+- ASCII 3×3 rendering has **not** been implemented (five-zone renderer unchanged).
+- Policy-driven lateral movement has **not** been implemented.
+- Milestone 0.2C is **not complete**.
 
 **Scope:** New arena representation, movement events, facing and rear advantage, replay updates, policy updates.
 
 **Exclusions:** Opponent suite, evaluation protocol changes.
 
-**Affected modules:** `src/simulator/types.ts` (zone enum), `src/simulator/movement.ts`, `src/simulator/damage.ts` (exposure), `src/simulator/actions.ts` (policy-driven movement), `src/replay/ascii/arena-snapshot-renderer.ts`, `src/replay/text-replay-renderer.ts`, `src/replay/ascii/state-reconstructor.ts`.
+**Affected modules (later phases):** `src/simulator/types.ts` (zone enum), `src/simulator/movement.ts`, `src/simulator/damage.ts` (exposure), `src/simulator/actions.ts` (policy-driven movement), `src/replay/ascii/arena-snapshot-renderer.ts`, `src/replay/text-replay-renderer.ts`, `src/replay/ascii/state-reconstructor.ts`, `src/schemas/match-record.schema.ts`.
 
-**Schema implications:** New zone values, possible new movement event fields.
+**Schema implications:** New zone values, possible new movement event fields (deferred to the runtime-migration phase).
 
-**Version implications:** `SIMULATOR_VERSION` → 0.3.0.
+**Version implications:** `SIMULATOR_VERSION` → 0.3.0 (not performed in Phase 1).
 
-**Tests:** Movement resolution for all 9 zones, exposure computation for all relative positions, ASCII grid rendering, policy action derivation with new movement options.
+**Tests:** Phase 1: exhaustive pure geometry tests for all nine zones, distances, bearings, exposure and pathfinding. Later phases: movement resolution, ASCII grid rendering, policy action derivation with new movement options.
 
 **Acceptance criteria:**
 
@@ -403,7 +420,7 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
 - ASCII grid renders all 9 zones clearly.
 - Flank policy produces lateral movement when tactically appropriate.
 
-**Rollback:** Restore 5-zone arena. Version-gate new zone values.
+**Rollback:** Restore 5-zone arena. Version-gate new zone values. Phase 1 geometry is additive and removable without touching live behaviour.
 
 ---
 
@@ -463,14 +480,14 @@ Decision questions to resolve before implementation. Recommended order reflects 
 
 | #       | ADR                                | Question                                                                                                                                                               | Depends on                  |
 | ------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| ADR-001 | Positioning representation         | Which arena model (3×3 grid, range+bearing, or abstract states)?                                                                                                       | Nothing                     |
+| ADR-001 | Positioning representation         | **Accepted for phased implementation:** 3×3 grid frozen in `docs/ADR-001-positioning-representation.md`; Phase 1 pure geometry implemented, runtime migration deferred. | Nothing                     |
 | ADR-002 | Component damage lifecycle         | **Accepted:** healthy→damaged→disabled. Candidate C1 is implemented and viable for lifecycle coverage, but 0.2B acceptance awaits split gates and diagnostic fixtures. | Volatility benchmark (0.2A) |
 | ADR-003 | Deterministic seed-bank evaluation | Fixed seeds, sample size, held-out protocol?                                                                                                                           | Nothing                     |
 | ADR-004 | Multi-opponent fixture format      | How are opponent builds and policies stored and versioned?                                                                                                             | Nothing                     |
 | ADR-005 | Simulator version compatibility    | How do old matches replay under new rules? Version-gating vs separate code paths?                                                                                      | ADR-001, ADR-002            |
 | ADR-006 | Adaptation success metrics         | What thresholds define improvement? How is overfitting detected?                                                                                                       | ADR-003                     |
 
-Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are independent). ADR-001 should follow soon after. ADR-002's lifecycle and Candidate C qualification architecture are accepted; Candidate C1 is implemented, but split gate approval and diagnostic fixture confirmation remain outstanding. ADR-005 depends on decisions made in ADR-001 and ADR-002. ADR-006 is last — it needs the evaluation protocol defined.
+Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are independent). ADR-001 is now accepted for phased implementation (Phase 1 pure geometry complete). ADR-002's lifecycle and Candidate C qualification architecture are accepted; Candidate C1 is implemented, but split gate approval and diagnostic fixture confirmation remain outstanding. ADR-005 depends on decisions made in ADR-001 and ADR-002. ADR-006 is last — it needs the evaluation protocol defined.
 
 ---
 

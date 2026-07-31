@@ -61,6 +61,16 @@ src/
 
 Each layer depends only on layers below it. The simulator never imports agents, persistence or replay. Agents never import the simulator.
 
+### 3×3 grid geometry (Milestone 0.2C Phase 1)
+
+`src/simulator/arena-grid.ts` is a pure, deterministic 3×3 arena geometry
+module accepted by ADR-001. It imports no engine, fighter state, seeded
+random generator, damage, policy or replay code, and it is currently imported
+only by tests (and non-runtime documentation tooling). It does **not** replace
+the live five-zone `ArenaZone`; the authoritative simulator, movement, action,
+damage, replay and ASCII runtime remain unchanged until the separately
+authorised runtime-migration phase.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

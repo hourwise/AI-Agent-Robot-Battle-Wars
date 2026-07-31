@@ -63,6 +63,42 @@ Any future qualification cycle requires:
 
 No individual seed values or per-match held-out records are recorded here.
 
+## D33: 3×3 positioning representation accepted for phased implementation (2026-07-31)
+
+Milestone 0.2C Phase 1 freezes the positioning representation. Option A, the
+discrete 3×3 grid, is accepted (ADR-001,
+`docs/ADR-001-positioning-representation.md`):
+
+- Canonical zone IDs: `north_west`, `north`, `north_east`, `west`, `center`,
+  `east`, `south_west`, `south`, `south_east`, with immutable integer
+  coordinates in the `-1..1` range (north increases `y`, east increases `x`).
+- One ordinary movement step is orthogonal only (`north`, `east`, `south`,
+  `west`); diagonal cells cannot be entered diagonally in one step. Two
+  fighters may share a cell.
+- Deterministic traversal order is frozen as `north → east → south → west`.
+  Out-of-bounds movement is explicit (`null`) and never wraps.
+- Path distance (Manhattan) and combat proximity (Chebyshev: `close` 0,
+  `medium` 1, `far` 2) are distinct, explicit concepts.
+- Relative bearing is defender-relative (`same`, `front`, `front_right`,
+  `right`, `rear_right`, `rear`, `rear_left`, `left`, `front_left`),
+  computed from the attacker's cell delta rotated into the defender's facing
+  frame.
+- Planar armour exposure is frozen (`front`, `left`, `right`, `rear`; `same`
+  exposes `front`/`left`/`right`; top is weapon-specific and excluded).
+- The legacy five zones (`north_edge`, `south_edge`, `east_edge`, `west_edge`,
+  `center`) remain version-bound and authoritative for 0.1/0.2 matches; the
+  conceptual migration mapping is for a future versioned boundary only and is
+  not applied to live matches.
+- Phase 1 adds only the pure geometry module `src/simulator/arena-grid.ts` and
+  its exhaustive tests. It produces no live gameplay change; C1/C2/AB2,
+  qualification checksums, the live five-zone simulator, match schemas and
+  replay behaviour are all unchanged. Simulator/ruleset/catalogue remain
+  `0.2.0 / 0.2.0 / 1`.
+
+Milestone 0.2C is started but not complete: the authoritative runtime
+migration, simulator `0.3.0`, match schema v3, replay migration, ASCII 3×3
+rendering and policy-driven lateral movement all remain outstanding.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.
