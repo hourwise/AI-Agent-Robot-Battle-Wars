@@ -29,9 +29,9 @@ import {
   stepGridZone,
   getCombatProximity,
 } from "./arena-grid.js";
-import { rotateLeft, rotateRight } from "./movement.js";
 import { calculateGridAttack } from "./damage.js";
 import { deriveGridAction } from "./actions.js";
+import { resolveGridCircleMovement } from "./grid-lateral.js";
 import {
   applyRoundForZone,
   type PositioningAdapter,
@@ -57,7 +57,9 @@ export interface GridMovementResult {
  *   shortest path toward the opponent; no translation when sharing a cell.
  * - `retreat`: greatest-distance orthogonal neighbour from the opponent with
  *   north→east→south→west tie-breaking; no translation when blocked.
- * - `circle_left` / `circle_right`: turn in place, no translation (Phase 3A).
+ * - `circle_left` / `circle_right`: deterministic translated lateral movement
+ *   (Phase 3C) via the canonical lateral resolver; when no lateral candidate
+ *   exists or the fighters share a cell, the fighter rotates in place.
  * - `hold`: preserve zone and facing.
  */
 export function resolveGridMovement(
@@ -71,9 +73,9 @@ export function resolveGridMovement(
     case "retreat":
       return resolveGridRetreat(state, opponent);
     case "circle_left":
-      return { zone: state.zone, facing: rotateLeft(state.facing), translated: false };
+      return resolveGridCircleMovement(state, opponent, "circle_left");
     case "circle_right":
-      return { zone: state.zone, facing: rotateRight(state.facing), translated: false };
+      return resolveGridCircleMovement(state, opponent, "circle_right");
     case "hold":
       return { zone: state.zone, facing: state.facing, translated: false };
   }

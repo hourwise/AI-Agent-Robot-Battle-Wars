@@ -122,19 +122,44 @@ describe("grid movement", () => {
     expect(result.translated).toBe(false);
   });
 
-  it("rotates in place for circle_left and circle_right without translating", () => {
-    for (const zone of GRID_ZONES) {
-      const actor = makeGridFighter(zone, "north");
-      const opponent = makeGridFighter("center", "south");
-      const left = resolveGridMovement(actor, opponent, "circle_left");
-      expect(left.zone).toBe(zone);
-      expect(left.facing).toBe("west");
-      expect(left.translated).toBe(false);
-      const right = resolveGridMovement(actor, opponent, "circle_right");
-      expect(right.zone).toBe(zone);
-      expect(right.facing).toBe("east");
-      expect(right.translated).toBe(false);
-    }
+  it("rotates in place for circle_left and circle_right when sharing a cell", () => {
+    const actor = makeGridFighter("center", "north");
+    const opponent = makeGridFighter("center", "south");
+    const left = resolveGridMovement(actor, opponent, "circle_left");
+    expect(left.zone).toBe("center");
+    expect(left.facing).toBe("west");
+    expect(left.translated).toBe(false);
+    const right = resolveGridMovement(actor, opponent, "circle_right");
+    expect(right.zone).toBe("center");
+    expect(right.facing).toBe("east");
+    expect(right.translated).toBe(false);
+  });
+
+  it("rotates in place for a blocked circle with no lateral candidate", () => {
+    // Actor at north with the opponent at north_east: the only left-lateral
+    // candidate is off-grid and the down candidate has no tangential component,
+    // so circle_left is blocked and rotates left in place.
+    const actor = makeGridFighter("north", "north");
+    const opponent = makeGridFighter("north_east", "south");
+    const left = resolveGridMovement(actor, opponent, "circle_left");
+    expect(left.zone).toBe("north");
+    expect(left.facing).toBe("west");
+    expect(left.translated).toBe(false);
+  });
+
+  it("translates a circle laterally and faces toward the opponent", () => {
+    // Actor south of a stationary centre opponent: circle_left moves to
+    // south_west, circle_right moves to south_east, both facing the opponent.
+    const actor = makeGridFighter("south", "north");
+    const opponent = makeGridFighter("center", "south");
+    const left = resolveGridMovement(actor, opponent, "circle_left");
+    expect(left.zone).toBe("south_west");
+    expect(left.facing).toBe("north");
+    expect(left.translated).toBe(true);
+    const right = resolveGridMovement(actor, opponent, "circle_right");
+    expect(right.zone).toBe("south_east");
+    expect(right.facing).toBe("north");
+    expect(right.translated).toBe(true);
   });
 
   it("preserves zone and facing on hold", () => {

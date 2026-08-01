@@ -20,7 +20,7 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
 - Provider-neutral agent interface
 - Usage and cost tracking
 - Atomic JSON persistence for matches and series
-- 3×3 arena foundation (Milestone 0.2C Phases 1–3B.1) — pure
+- 3×3 arena foundation (Milestone 0.2C Phases 1–3C) — pure
   `src/simulator/arena-grid.ts` geometry, grid match schema v3, version-aware
   replay dispatch, a 3×3 ASCII renderer, and an **opt-in** deterministic grid
   combat runtime (`runGridMatch`, identity `0.3.0` / `grid-3x3-v1`, persists
@@ -30,10 +30,13 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
   record converter validates before returning, and positional effects are
   planned simultaneously from the shared post-movement snapshot. Phase 3B.1
   corrected grid movement momentum: ram charge momentum is granted only to a
-  translated `advance`, never to retreat, circle or hold. The live five-zone
-  simulator is unchanged: the normal application still uses `runMatch` (legacy
-  `0.2.0`) and emits schema v2, and `runGridMatch` is not wired into CLI,
-  series or application commands.
+  translated `advance`, never to retreat, circle or hold. Phase 3C added
+  deterministic translated lateral movement: `circle_left`/`circle_right` move
+  one orthogonal cell (facing toward the opponent) and the existing
+  `opening: "flank"` policy drives grid flanking via a pure selector. The live
+  five-zone simulator is unchanged: the normal application still uses
+  `runMatch` (legacy `0.2.0`) and emits schema v2, and `runGridMatch` is not
+  wired into CLI, series or application commands.
 
 ## Architecture
 

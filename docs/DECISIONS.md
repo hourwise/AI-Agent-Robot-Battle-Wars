@@ -278,6 +278,59 @@ Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
 **not implemented**; default grid activation **not performed**; Milestone 0.2C
 **not complete**.
 
+## D38: Deterministic grid lateral movement and flank-policy integration (2026-08-01)
+
+Milestone 0.2C Phase 3C implements genuine lateral grid movement using the
+existing `circle_left` / `circle_right` movement actions and the existing
+`opening: "flank"` policy field. No new movement-action values and no policy
+fields or schema changes were introduced; the grid runtime remains opt-in.
+
+- **Translated circle semantics**: in the opt-in grid runtime,
+  `circle_left`/`circle_right` translate one orthogonal cell along the frozen
+  tangent vectors (`circle_left (-dy, dx)`, `circle_right (dy, -dx)` for
+  actor-to-opponent `(dx, dy)`), excluding the opponent's cell, never
+  diagonally and never wrapping.
+- **Deterministic candidate ranking**: smallest absolute Chebyshev-distance
+  change to the opponent, then greatest positive tangent dot product, then the
+  frozen north→east→south→west order; a translated circle faces toward the
+  opponent from the destination.
+- **Blocked and same-cell in-place rotation**: when no lateral candidate exists
+  or the fighters share a cell, the fighter rotates in place (left/right)
+  without translating, exactly as the Phase 3A fallback.
+- **Existing `opening: "flank"` now drives grid lateral movement**: after
+  early-state rules (overturned, overheated, disabled mobility, retreat
+  threshold, heat threshold) which override flanking, the grid flank selector
+  advances at far range, holds when sharing a cell or when the desired planar
+  target is already exposed, and otherwise previews both circle directions and
+  selects the higher deterministic tactical score.
+- **Desired target selection and tactical scoring**: the desired planar target
+  is `primaryTarget` when `left`/`right`/`rear`, else `secondaryTarget` when
+  `left`/`right`/`rear`, else `rear`. The pure score is desired-target exposed
+  +100, secondary planar target +20, rear exposed +30, either side exposed +10,
+  translated +1, and preferred-range fit +8; exact ties choose `circle_left`.
+- **No policy fields or movement actions were added**; the policy schema is
+  unchanged.
+- **Flank selection consumes no RNG**: movement is chosen before the combat
+  roll, and the combat selection uses the existing cooldown/aggression/seeded
+  roll unchanged.
+- **Circle movement never receives ram momentum**: the Phase 3B.1 momentum
+  rule (only translated `advance`) is unchanged.
+- **Legacy circling remains unchanged**: translated lateral movement exists
+  only in the opt-in grid runtime; the legacy runtime keeps turn-in-place
+  circling, and its event streams, persistence (schema v2) and component
+  checksums are unchanged.
+- **Grid runtime remains opt-in** through `runGridMatch` (persists schema v3);
+  the normal application still uses legacy `runMatch`.
+- **No balance conclusions were made**: no weapon, damage, armour, hit chance,
+  qualification or global constants changed; no benchmark partition ran; seeds
+  and fixtures are unchanged.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; Phase 3C lateral/flank integration complete;
+default grid activation **not performed**; Milestone 0.2C **not complete**
+pending a separately authorised activation-readiness decision.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

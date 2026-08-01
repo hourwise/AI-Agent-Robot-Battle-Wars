@@ -173,6 +173,30 @@ lateral action never receives charge momentum. The grid positioning adapter
 uses this function via `momentumFor`; the legacy adapter keeps its historical
 momentum rule unchanged.
 
+### Grid lateral movement and flank policy (Milestone 0.2C Phase 3C)
+
+- `src/simulator/grid-lateral.ts` — the single canonical pure module for
+  translated lateral movement and flank intent. It imports only grid geometry,
+  grid fighter/policy types and cardinal rotation helpers. It provides
+  `resolveGridCircleMovement`, `chooseGridCircleCandidate` (frozen tangent
+  vectors `circle_left (-dy, dx)` / `circle_right (dy, -dx)`, opponent-cell
+  exclusion, deterministic ranking by Chebyshev-distance change → tangent dot →
+  NESW order), `getFacingTowardGridZone`, `chooseGridFlankMovement`,
+  `resolveDesiredFlankTarget` and `scoreGridFlankPosition`.
+- `src/simulator/grid-runtime.ts` — `resolveGridMovement` delegates
+  `circle_left`/`circle_right` to the canonical lateral resolver (translated
+  one-orthogonal-step circling, facing toward the opponent; blocked/same-cell
+  circles rotate in place). Both fighters still resolve from the same
+  start-of-round snapshot.
+- `src/simulator/actions.ts` — `deriveGridAction` routes `opening: "flank"`
+  through the pure `chooseGridFlankMovement` after early-state rules; movement
+  selection consumes no RNG and the existing cooldown/aggression/seeded combat
+  roll is unchanged. Non-flank policies keep their existing decision ordering.
+
+Translated lateral movement exists only in the opt-in grid runtime; legacy
+circling remains turn-in-place. No new movement-action values or policy fields
+were added, and the grid runtime remains opt-in through `runGridMatch`.
+
 The grid runtime remains opt-in through `runGridMatch`; the default
 application path, schema v2 persistence, and the frozen constants
 (`SIMULATOR_VERSION`/`RULESET_VERSION` `0.2.0`, catalogue `1`) are unchanged.

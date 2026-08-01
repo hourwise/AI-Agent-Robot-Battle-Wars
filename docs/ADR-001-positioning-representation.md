@@ -550,16 +550,80 @@ protect the invariant against future movement changes. The legacy adapter's
 historical momentum rule is untouched. This is a contract correction only: no
 balance conclusion or tuning was performed.
 
+### 8.8 Phase 3C — deterministic lateral circling and flank-policy integration (2026-08-01)
+
+Phase 3C makes `circle_left` / `circle_right` genuine translated lateral
+movement in the **opt-in** grid runtime, driven by the existing
+`opening: "flank"` policy field. No new movement-action values and no policy
+fields or schema changes were introduced; legacy circling remains turn-in-place.
+
+**Canonical lateral module.** `src/simulator/grid-lateral.ts` is the single
+pure home for `resolveGridCircleMovement`, `chooseGridCircleCandidate`,
+`chooseGridFlankMovement`, `getFacingTowardGridZone`, `resolveDesiredFlankTarget`
+and `scoreGridFlankPosition`. It imports only grid geometry, grid fighter and
+policy types, and cardinal rotation helpers — never the reducer, damage,
+component lifecycle, persistence, replay or seeded randomness.
+
+**Tangent vectors.** For actor `(ax, ay)` and opponent `(ox, oy)`,
+`dx = ox - ax`, `dy = oy - ay`; if the fighters share a cell no lateral
+direction exists. Frozen tangents:
+
+```
+circle_left  tangent = (-dy,  dx)
+circle_right tangent = ( dy, -dx)
+```
+
+Candidates are the actor's valid orthogonal neighbours in frozen
+north→east→south→west order, excluding the opponent's cell, keeping only cells
+whose one-step vector has a strictly positive dot product with the tangent.
+Ranking freezes: smallest absolute Chebyshev-distance change, then greatest
+tangent dot product, then the frozen NESW order. No diagonals, no wrapping.
+
+**Facing.** A translated circle faces toward the opponent from the destination
+(first step of the deterministic NESW shortest path); the previous facing is
+preserved only if no directional result exists. A blocked circle and a
+same-cell circle rotate in place (left/right) without translating.
+
+**Flank-policy intent.** For `opening: "flank"` after early-state rules (which
+override flanking): far proximity advances; same-cell holds; an already-exposed
+desired planar target holds; otherwise both circle directions are previewed and
+scored deterministically. The desired target is `primaryTarget` when it is
+`left`/`right`/`rear`, else `secondaryTarget` when it is `left`/`right`/`rear`,
+else `rear`. The pure tactical score is:
+
+```
+desired target exposed       +100
+secondary planar target      +20   (only when secondaryTarget is left/right/rear)
+rear armour exposed          +30
+either side armour exposed   +10
+translated lateral movement  +1
+resulting proximity equals preferredRange  +8
+```
+
+Exact ties choose `circle_left`; if neither direction translates or improves
+the score, the fighter holds. The flank selector consumes no randomness; the
+combat selection after it uses the existing cooldown/aggression/seeded roll.
+Circle movement never receives ram charge momentum (Phase 3B.1).
+
+**Integration.** `resolveGridMovement` delegates `circle_left` / `circle_right`
+to the canonical lateral resolver for both fighters from the same start-of-round
+snapshot. Movement events record `from`/`to`/`facing`/`action` for translated
+circling; a blocked facing-only circle still emits `movement_resolved`; a
+circle that changes neither cell nor facing emits nothing. Knockback/grapple
+positional-effect planning is unchanged.
+
 ## 9. Still out of scope
 
 - **Authoritative migration**: the live simulator remains `0.2.0` legacy;
   `SIMULATOR_VERSION` / `RULESET_VERSION` remain `0.2.0`, catalogue `1`;
   normal persistence remains schema v2.
-- **Policy-driven lateral movement**: `circle_left`/`circle_right` remain
-  in-place turns; no new lateral movement actions or policy fields exist.
+- **Translated lateral movement is grid-opt-in only**: translated
+  `circle_left`/`circle_right` exist only in `runGridMatch`; the legacy runtime
+  keeps turn-in-place circling. No new movement-action values or policy fields
+  were added.
 - **Live activation** of grid match production in the application/CLI/series.
 - **Balance conclusions**: no grid-vs-legacy balance claims are made from
-  Phase 3A, Phase 3B or Phase 3B.1.
+  Phase 3A through Phase 3C.
 - Opponent suite and adaptation evaluation (0.2D/0.2E).
 
 ### 6.5 State reconstruction

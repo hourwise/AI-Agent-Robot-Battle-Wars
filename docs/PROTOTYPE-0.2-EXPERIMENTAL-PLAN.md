@@ -63,9 +63,10 @@ converter-boundary validation and simultaneous positional effects) is
 implemented by the `agent/0.2c-grid-runtime-hardening` task; Phase 3B.1 (grid
 movement momentum correction — charge momentum granted only to translated
 `advance`, never to retreat/circle/hold) is implemented by the
-`agent/0.2c-grid-momentum-correction` task. The authoritative runtime
-migration, policy-driven lateral movement and live grid match production remain
-future, separately authorised phases.
+`agent/0.2c-grid-momentum-correction` task; Phase 3C (deterministic translated
+lateral circling and `opening: "flank"` integration) is implemented by the
+`agent/0.2c-grid-lateral-flank` task. The authoritative runtime migration and
+live grid match production remain future, separately authorised phases.
 
 **Milestone 0.2C progress (2026-08-01):**
 
@@ -94,13 +95,21 @@ future, separately authorised phases.
   (`getGridMovementMomentum`); a translated `retreat`, `circle_left`,
   `circle_right`, `hold`, or any future lateral action never receives charge
   momentum. Legacy momentum semantics are unchanged.
+- Phase 3C — deterministic lateral/flank integration: **complete**.
+  `circle_left` / `circle_right` are now genuine translated lateral movement
+  in the opt-in grid runtime (frozen tangent vectors, deterministic candidate
+  ranking, facing toward the opponent, blocked/same-cell in-place rotation),
+  and the existing `opening: "flank"` policy drives grid lateral movement via
+  a pure deterministic selector (desired planar target + tactical score, no
+  RNG). No new movement actions or policy fields were added; legacy circling
+  remains turn-in-place.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not
   wired into CLI, series, battle or application commands.
-- Policy-driven lateral movement: **not implemented**. `circle_left` /
-  `circle_right` are in-place turns only; no new movement actions or policy
-  fields exist.
+- Default grid activation: **not performed**. Milestone 0.2C remains
+  **not complete**, pending a separately authorised activation-readiness
+  decision.
 - Balance evaluation of the grid runtime: **not performed**; no grid-vs-legacy
   balance conclusions are made.
 - Milestone 0.2C is **not complete**.
@@ -465,6 +474,13 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
   translated `retreat`, `circle_left`, `circle_right`, `hold` or any future
   lateral action never receives charge momentum. Legacy momentum semantics are
   unchanged.
+- **Phase 3C deterministic lateral/flank integration is complete**:
+  `circle_left`/`circle_right` are genuine translated lateral movement in the
+  opt-in grid runtime (frozen tangent vectors, deterministic candidate
+  ranking, facing toward the opponent, blocked/same-cell in-place rotation),
+  and the existing `opening: "flank"` policy drives grid lateral movement via
+  a pure deterministic selector (desired planar target + tactical score, no
+  RNG). No new movement-action values or policy fields were added.
 - The grid runtime exists and identifies itself as simulator `0.3.0`; the
   **active/default application runtime is still legacy `0.2.0`**.
 - `SIMULATOR_VERSION` `0.3.0` has **not** been activated globally (still
@@ -472,15 +488,16 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
   (CLI, series, battle or application commands).
 - Grid schema v3 and grid replay are implemented; current normal matches still
   produce schema v2 legacy records.
-- Policy-driven translated lateral movement has **not** been implemented
-  (`circle_left` / `circle_right` remain in-place turns only).
-- Milestone 0.2C is **not complete**.
+- Translated lateral movement is implemented in the opt-in grid runtime only;
+  legacy `circle_left` / `circle_right` remain turn-in-place.
+- Default grid activation: **not performed**; Milestone 0.2C is **not
+  complete** pending a separately authorised activation-readiness decision.
 
 **Scope:** New arena representation, movement events, facing and rear advantage, replay updates, policy updates.
 
 **Exclusions:** Opponent suite, evaluation protocol changes.
 
-**Affected modules (completed):** `src/simulator/arena-grid.ts` (new), `src/simulator/grid-runtime.ts` (new), `src/simulator/runtime-identity.ts` (new), `src/simulator/simulator.ts` (generic `runMatchForZone` + `MatchRuntimeAdapter`), `src/simulator/reducer.ts` (generic `applyRoundForZone` + `PositioningAdapter`), `src/simulator/damage.ts` (grid attack path), `src/simulator/actions.ts` (grid action derivation), `src/simulator/types.ts` (zone/identity profile types), `src/schemas/match-record.schema.ts` (schema v3), `src/schemas/positioning.schema.ts` (new), `src/persistence/match-converter.ts` (v3 routing + converter validation), `src/replay/positioning-model.ts` (new), `src/replay/ascii/grid-arena-snapshot-renderer.ts` (new), `src/replay/ascii/arena-renderer.ts` (new), `src/replay/ascii/state-reconstructor.ts`, `src/replay/zone-format.ts` (new), `src/replay/text-replay-renderer.ts`.
+**Affected modules (completed):** `src/simulator/arena-grid.ts` (new), `src/simulator/grid-runtime.ts` (new), `src/simulator/grid-lateral.ts` (new — canonical lateral/flank module), `src/simulator/runtime-identity.ts` (new), `src/simulator/simulator.ts` (generic `runMatchForZone` + `MatchRuntimeAdapter`), `src/simulator/reducer.ts` (generic `applyRoundForZone` + `PositioningAdapter`), `src/simulator/damage.ts` (grid attack path), `src/simulator/actions.ts` (grid action derivation + flank intent), `src/simulator/types.ts` (zone/identity profile types), `src/schemas/match-record.schema.ts` (schema v3), `src/schemas/positioning.schema.ts` (new), `src/persistence/match-converter.ts` (v3 routing + converter validation), `src/replay/positioning-model.ts` (new), `src/replay/ascii/grid-arena-snapshot-renderer.ts` (new), `src/replay/ascii/arena-renderer.ts` (new), `src/replay/ascii/state-reconstructor.ts`, `src/replay/zone-format.ts` (new), `src/replay/text-replay-renderer.ts`.
 
 **Schema implications:** Schema v3 is defined and produced for opt-in grid
 matches (identity `0.3.0` / `grid-3x3-v1`); normal application matches still
@@ -498,14 +515,29 @@ state reconstruction, legacy regression, zone formatting. Phases 3A/3B: grid
 runtime integration, runtime identity hardening, runtime-profile type tests,
 version-contract tests, converter-boundary tests, positional-symmetry tests,
 grid correctness matrix, legacy regression. Phase 3B.1: grid momentum truth
-table and round-level momentum regression.
+table and round-level momentum regression. Phase 3C: exhaustive lateral
+geometry tests (all nine actor cells × all nine opponent cells × four facings ×
+both circle directions), flank-policy selector tests, and round/persistence/
+replay integration tests for translated circling.
 
-**Acceptance criteria:**
+**Acceptance criteria (correctness-test evidence):**
 
-- Lateral movement (east/west edges) reaches centre or adjacent edges.
-- Fighter can reach a position behind opponent in ≥3 moves from starting edge.
-- ASCII grid renders all 9 zones clearly.
-- Flank policy produces lateral movement when tactically appropriate.
+- Lateral movement (east/west edges) reaches centre or adjacent edges — **has
+  correctness-test evidence** (Phase 3C exhaustive lateral sweep and explicit
+  east/west corner routes).
+- Fighter can reach a position behind opponent in ≥3 moves from starting edge —
+  **has correctness-test evidence** (Phase 3C rear-route test: south →
+  south_west → west → north_west exposes rear of a south-facing centre
+  opponent in three translated moves).
+- ASCII grid renders all 9 zones clearly — **has correctness-test evidence**
+  (Phase 2/3A renderer and reconstruction tests; Phase 3C ASCII replay shows
+  translated positions).
+- Flank policy produces lateral movement when tactically appropriate — **has
+  correctness-test evidence** (Phase 3C flank selector tests and the flank-vs-
+  hold opt-in match that emits translated circle events).
+
+Balance or activation acceptance is **not** marked: no balance conclusions and
+no default activation were performed.
 
 **Rollback:** Restore 5-zone arena. Version-gate new zone values. All grid
 phases are additive and opt-in: `runGridMatch` and the v3 schema can be
@@ -568,16 +600,16 @@ removed without touching live legacy behaviour (normal matches remain
 
 Decision questions to resolve before implementation. Recommended order reflects dependencies.
 
-| #       | ADR                                | Question                                                                                                                                                                                                                                                                                                                                | Depends on                  |
-| ------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| ADR-001 | Positioning representation         | **Accepted for phased implementation:** 3×3 grid frozen in `docs/ADR-001-positioning-representation.md`; Phases 1–3B.1 implemented (geometry, schema v3/replay, opt-in grid runtime core, runtime hardening, momentum correction). The grid runtime is opt-in (`runGridMatch`, simulator `0.3.0`); default activation remains deferred. | Nothing                     |
-| ADR-002 | Component damage lifecycle         | **Accepted:** healthy→damaged→disabled. Candidate C1 is implemented and viable for lifecycle coverage, but 0.2B acceptance awaits split gates and diagnostic fixtures.                                                                                                                                                                  | Volatility benchmark (0.2A) |
-| ADR-003 | Deterministic seed-bank evaluation | Fixed seeds, sample size, held-out protocol?                                                                                                                                                                                                                                                                                            | Nothing                     |
-| ADR-004 | Multi-opponent fixture format      | How are opponent builds and policies stored and versioned?                                                                                                                                                                                                                                                                              | Nothing                     |
-| ADR-005 | Simulator version compatibility    | How do old matches replay under new rules? Version-gating vs separate code paths?                                                                                                                                                                                                                                                       | ADR-001, ADR-002            |
-| ADR-006 | Adaptation success metrics         | What thresholds define improvement? How is overfitting detected?                                                                                                                                                                                                                                                                        | ADR-003                     |
+| #       | ADR                                | Question                                                                                                                                                                                                                                                                                                                                                 | Depends on                  |
+| ------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| ADR-001 | Positioning representation         | **Accepted for phased implementation:** 3×3 grid frozen in `docs/ADR-001-positioning-representation.md`; Phases 1–3C implemented (geometry, schema v3/replay, opt-in grid runtime core, hardening, momentum correction, lateral/flank integration). The grid runtime is opt-in (`runGridMatch`, simulator `0.3.0`); default activation remains deferred. | Nothing                     |
+| ADR-002 | Component damage lifecycle         | **Accepted:** healthy→damaged→disabled. Candidate C1 is implemented and viable for lifecycle coverage, but 0.2B acceptance awaits split gates and diagnostic fixtures.                                                                                                                                                                                   | Volatility benchmark (0.2A) |
+| ADR-003 | Deterministic seed-bank evaluation | Fixed seeds, sample size, held-out protocol?                                                                                                                                                                                                                                                                                                             | Nothing                     |
+| ADR-004 | Multi-opponent fixture format      | How are opponent builds and policies stored and versioned?                                                                                                                                                                                                                                                                                               | Nothing                     |
+| ADR-005 | Simulator version compatibility    | How do old matches replay under new rules? Version-gating vs separate code paths?                                                                                                                                                                                                                                                                        | ADR-001, ADR-002            |
+| ADR-006 | Adaptation success metrics         | What thresholds define improvement? How is overfitting detected?                                                                                                                                                                                                                                                                                         | ADR-003                     |
 
-Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are independent). ADR-001 is accepted for phased implementation; Phases 1–3B.1 (geometry, schema v3/replay, opt-in grid runtime core, hardening, momentum correction) are complete and the grid runtime is opt-in with default activation deferred. ADR-002's lifecycle and Candidate C qualification architecture are accepted; Candidate C1 is implemented, but split gate approval and diagnostic fixture confirmation remain outstanding. ADR-005 depends on decisions made in ADR-001 and ADR-002. ADR-006 is last — it needs the evaluation protocol defined.
+Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are independent). ADR-001 is accepted for phased implementation; Phases 1–3C (geometry, schema v3/replay, opt-in grid runtime core, hardening, momentum correction, lateral/flank integration) are complete and the grid runtime is opt-in with default activation deferred. ADR-002's lifecycle and Candidate C qualification architecture are accepted; Candidate C1 is implemented, but split gate approval and diagnostic fixture confirmation remain outstanding. ADR-005 depends on decisions made in ADR-001 and ADR-002. ADR-006 is last — it needs the evaluation protocol defined.
 
 ---
 

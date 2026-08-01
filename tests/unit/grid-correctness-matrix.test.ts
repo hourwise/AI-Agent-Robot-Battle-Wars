@@ -310,14 +310,14 @@ describe("grid correctness matrix (Phase 3B)", () => {
           const action = event.data.action as string;
           const deltaX = gridDelta(from, to, 0);
           const deltaY = gridDelta(from, to, 1);
-          if (
-            action === "circle_left" ||
-            action === "circle_right" ||
-            action === "hold"
-          ) {
-            // In-place facing changes never translate the fighter.
+          if (action === "hold") {
+            // Hold never translates the fighter.
             expect(deltaX).toBe(0);
             expect(deltaY).toBe(0);
+          } else if (action === "circle_left" || action === "circle_right") {
+            // Translated circling moves exactly one orthogonal step; a blocked
+            // circle stays in place (facing-only change).
+            expect(Math.abs(deltaX) + Math.abs(deltaY)).toBeLessThanOrEqual(1);
           } else {
             // Advance/retreat/knockback/grapple move exactly one orthogonal
             // step — never diagonally, and never out of bounds (neighbours

@@ -10,6 +10,7 @@ import type {
 import type { SeededRandom } from "./seeded-random.js";
 import { isComponentDisabled } from "./component-state.js";
 import { getCombatProximity } from "./arena-grid.js";
+import { chooseGridFlankMovement } from "./grid-lateral.js";
 
 export function deriveAction(
   state: FighterState,
@@ -26,7 +27,10 @@ export function deriveAction(
 /**
  * Grid action path: identical policy fields, thresholds and decision ordering
  * to the legacy path, replacing only the positioning calculation with the grid
- * combat proximity band.
+ * combat proximity band. The existing `opening: "flank"` policy receives
+ * grid-specific lateral movement intent (Phase 3C): early-state rules still
+ * override flanking, movement selection consumes no randomness, and the combat
+ * selection below uses the existing cooldown/aggression/roll behaviour.
  */
 export function deriveGridAction(
   state: GridFighterState,
@@ -37,6 +41,11 @@ export function deriveGridAction(
   const early = deriveEarlyAction(state, policy);
   if (early) return early;
   const distance = getCombatProximity(state.zone, opponent.zone);
+  if (policy.opening === "flank") {
+    const movement = chooseGridFlankMovement(state, opponent, policy);
+    const combat = deriveCombatSelection(policy, rng, state.weaponCooldown > 0);
+    return { movement, combat };
+  }
   return derivePositionedAction(policy, rng, distance, state.weaponCooldown > 0);
 }
 
@@ -101,12 +110,26 @@ function derivePositionedAction(
   isCooldown: boolean,
 ): RoundAction {
   const movement = deriveMovement(distance, policy, rng);
-  const combat = isCooldown
+  const combat = deriveCombatSelection(policy, rng, isCooldown);
+  return { movement, combat };
+}
+
+/**
+ * Shared combat selection: cooldown always defends (no extra roll); otherwise
+ * the seeded aggression roll decides attack vs defend. Used by both the
+ * positioned action core and the grid flank path so the combat behaviour is
+ * identical and the seeded roll is consumed exactly once per engagement.
+ */
+function deriveCombatSelection(
+  policy: ActionPolicy,
+  rng: SeededRandom,
+  isCooldown: boolean,
+): RoundAction["combat"] {
+  return isCooldown
     ? "defend"
     : policy.aggression > 50 || rng.chance(policy.aggression / 100)
       ? "attack"
       : "defend";
-  return { movement, combat };
 }
 
 function deriveMovement(
