@@ -1,13 +1,13 @@
 import { mkdir, readFile, writeFile, readdir, rename, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import type { SeriesRecord } from "../schemas/series.schema.js";
+import type { AnySeriesRecord } from "../schemas/series.schema.js";
 import { validateSeriesRecord, serializeSeriesRecord } from "../schemas/series.schema.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface SeriesRepository {
-  saveSeries(record: SeriesRecord): Promise<void>;
-  getSeries(seriesId: string): Promise<SeriesRecord | null>;
+  saveSeries(record: AnySeriesRecord): Promise<void>;
+  getSeries(seriesId: string): Promise<AnySeriesRecord | null>;
   listSeries(): Promise<Array<{ seriesId: string; createdAt: string; status: string }>>;
 }
 
@@ -26,7 +26,7 @@ export class JsonSeriesRepository implements SeriesRepository {
     return join(this.dataDir, `${seriesId}.json`);
   }
 
-  async saveSeries(record: SeriesRecord): Promise<void> {
+  async saveSeries(record: AnySeriesRecord): Promise<void> {
     await this.ensureDataDir();
 
     if (!UUID_RE.test(record.seriesId)) {
@@ -35,7 +35,7 @@ export class JsonSeriesRepository implements SeriesRepository {
 
     const validation = validateSeriesRecord(record);
     if (!validation.ok) {
-      throw new Error(`Invalid series record: ${validation.errors.message}`);
+      throw new Error(`Invalid series record: ${validation.errors}`);
     }
 
     const json = serializeSeriesRecord(record);
@@ -55,7 +55,7 @@ export class JsonSeriesRepository implements SeriesRepository {
     }
   }
 
-  async getSeries(seriesId: string): Promise<SeriesRecord | null> {
+  async getSeries(seriesId: string): Promise<AnySeriesRecord | null> {
     if (!UUID_RE.test(seriesId)) {
       return null;
     }
@@ -64,7 +64,7 @@ export class JsonSeriesRepository implements SeriesRepository {
       const json = await readFile(this.getSeriesPath(seriesId), "utf-8");
       const validation = validateSeriesRecord(JSON.parse(json));
       if (!validation.ok) {
-        throw new Error(`Invalid series record: ${validation.errors.message}`);
+        throw new Error(`Invalid series record: ${validation.errors}`);
       }
       return validation.record;
     } catch (e: unknown) {

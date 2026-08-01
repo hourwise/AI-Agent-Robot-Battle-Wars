@@ -20,7 +20,7 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
 - Provider-neutral agent interface
 - Usage and cost tracking
 - Atomic JSON persistence for matches and series
-- 3×3 arena foundation (Milestone 0.2C Phases 1–3C) — pure
+- 3×3 arena foundation (Milestone 0.2C Phases 1–3D1) — pure
   `src/simulator/arena-grid.ts` geometry, grid match schema v3, version-aware
   replay dispatch, a 3×3 ASCII renderer, and an **opt-in** deterministic grid
   combat runtime (`runGridMatch`, identity `0.3.0` / `grid-3x3-v1`, persists
@@ -33,7 +33,14 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
   translated `advance`, never to retreat, circle or hold. Phase 3C added
   deterministic translated lateral movement: `circle_left`/`circle_right` move
   one orthogonal cell (facing toward the opponent) and the existing
-  `opening: "flank"` policy drives grid flanking via a pure selector. The live
+  `opening: "flank"` policy drives grid flanking via a pure selector. Phase
+  3D1 added version-aware reporting and series compatibility: factual-report
+  v1 stays the frozen legacy contract, a grid factual-report v2 represents
+  opt-in grid matches (builders dispatch on the explicit runtime identity),
+  the canonical movement-event subject rule is shared by reporting and replay,
+  a pure shared final-state projection never invents facts, AI review/rebuild
+  accept either report version, and a reserved single-runtime series v2 exists
+  alongside the unchanged v1 (which `runSeries` still produces). The live
   five-zone simulator is unchanged: the normal application still uses
   `runMatch` (legacy `0.2.0`) and emits schema v2, and `runGridMatch` is not
   wired into CLI, series or application commands.

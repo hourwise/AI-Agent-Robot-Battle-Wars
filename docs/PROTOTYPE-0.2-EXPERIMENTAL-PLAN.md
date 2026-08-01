@@ -65,8 +65,11 @@ movement momentum correction — charge momentum granted only to translated
 `advance`, never to retreat/circle/hold) is implemented by the
 `agent/0.2c-grid-momentum-correction` task; Phase 3C (deterministic translated
 lateral circling and `opening: "flank"` integration) is implemented by the
-`agent/0.2c-grid-lateral-flank` task. The authoritative runtime migration and
-live grid match production remain future, separately authorised phases.
+`agent/0.2c-grid-lateral-flank` task; Phase 3D1 (version-aware factual
+reporting and series compatibility foundation) is implemented by the
+`agent/0.2c-grid-reporting-foundation` task. The authoritative runtime
+migration and live grid match production remain future, separately authorised
+phases.
 
 **Milestone 0.2C progress (2026-08-01):**
 
@@ -103,6 +106,25 @@ live grid match production remain future, separately authorised phases.
   a pure deterministic selector (desired planar target + tactical score, no
   RNG). No new movement actions or policy fields were added; legacy circling
   remains turn-in-place.
+- Phase 3D1 — version-aware factual reporting and series compatibility
+  foundation: **complete**. Factual-match-report v1 is the frozen legacy
+  contract (unchanged, byte-compatible); factual-report v2 represents an
+  opt-in grid match only (frozen grid identity `0.3.0 / grid-3x3-v1 / ruleset
+0.2.0 / catalogue 1`, nine grid zones, no cooldown fields because the event
+  stream cannot reconstruct them). Builders dispatch through the explicit
+  immutable runtime identity, never zone strings. A canonical
+  `getMovementEventSubjectId` (knockback/grapple → target, ordinary movement →
+  actor) is shared by reporting and replay, and a pure shared
+  `projectFinalFighterState` applies events then the latest authoritative
+  `round_ended` facts without inventing any. AI review/rebuild accept either
+  report version (v1 prompt rendering byte-identical; v2 adds the simulator
+  identity line and human-readable grid zones — corners are never called
+  "edges"). Series v1 remains the unchanged legacy contract and the only
+  record `runSeries` produces; series v2 is a reserved single-runtime grid
+  contract (one immutable runtime identity per series, cross-field seed /
+  matchId / runtime / uniqueness / score validation) handled by the repository
+  and report renderer. No policy schema, seeds, fixtures or benchmark
+  partitions changed.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

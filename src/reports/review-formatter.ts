@@ -1,9 +1,28 @@
-import type { FactualMatchReport } from "../schemas/factual-report.schema.js";
+import type {
+  AnyFactualMatchReport,
+  FactualMatchReportV1,
+  FactualMatchReportV2,
+} from "../schemas/factual-report.schema.js";
+import { formatZoneName } from "../replay/zone-format.js";
+import { isFactualReportV2 } from "../schemas/factual-report.schema.js";
 
-export function formatFactualReportForPrompt(report: FactualMatchReport): string {
+/**
+ * Renders a factual report for an AI review prompt. Legacy v1 reports render
+ * exactly as before (raw five-zone values); grid v2 reports identify the
+ * simulator/positioning identity and use human-readable grid zone names via the
+ * shared zone formatter. Grid corners are never referred to as legacy "edges".
+ */
+export function formatFactualReportForPrompt(report: AnyFactualMatchReport): string {
+  const grid = isFactualReportV2(report);
   const lines: string[] = [];
 
   lines.push("=== MATCH RESULT ===");
+  if (grid) {
+    lines.push(`Simulator: ${report.simulatorVersion} (${report.positioningModel})`);
+    lines.push(
+      `Ruleset: ${report.rulesetVersion}, Catalogue: ${report.catalogueVersion}`,
+    );
+  }
   lines.push(`Seed: ${report.seed}`);
   lines.push(`Rounds: ${report.rounds}`);
   lines.push(`Winner: ${report.winner ?? "Draw"} by ${report.resultMethod}`);
@@ -49,13 +68,13 @@ export function formatFactualReportForPrompt(report: FactualMatchReport): string
   }
 
   lines.push("=== FINAL STATES ===");
-  lines.push(formatFinalState("A", report.finalStates.fighterA));
-  lines.push(formatFinalState("B", report.finalStates.fighterB));
+  lines.push(formatFinalState("A", report.finalStates.fighterA, grid));
+  lines.push(formatFinalState("B", report.finalStates.fighterB, grid));
 
   return lines.join("\n");
 }
 
-function formatFighterSummary(fighter: FactualMatchReport["fighterA"]): string {
+function formatFighterSummary(fighter: FactualMatchReportV1["fighterA"]): string {
   const lines: string[] = [];
   lines.push(`  Name: ${fighter.machineName}`);
   lines.push(
@@ -74,7 +93,14 @@ function formatFighterSummary(fighter: FactualMatchReport["fighterA"]): string {
   return lines.join("\n");
 }
 
-function formatComponentLine(state: FactualMatchReport["finalStates"]["fighterA"]): string {
+function formatComponentLine(state: {
+  mobilityDisabled: boolean;
+  weaponDisabled: boolean;
+  utilityDisabled: boolean;
+  mobilityDamaged: boolean;
+  weaponDamaged: boolean;
+  utilityDamaged: boolean;
+}): string {
   const parts: string[] = [];
   if (state.mobilityDisabled) parts.push("mobility=DISABLED");
   else if (state.mobilityDamaged) parts.push("mobility=DAMAGED");
@@ -90,7 +116,10 @@ function formatComponentLine(state: FactualMatchReport["finalStates"]["fighterA"
 
 function formatFinalState(
   label: string,
-  state: FactualMatchReport["finalStates"]["fighterA"],
+  state:
+    | FactualMatchReportV1["finalStates"]["fighterA"]
+    | FactualMatchReportV2["finalStates"]["fighterA"],
+  grid: boolean,
 ): string {
   const lines: string[] = [];
   const integrityPct =
@@ -98,7 +127,8 @@ function formatFinalState(
   lines.push(`  Fighter ${label}: ${state.machineName}`);
   lines.push(`  Integrity: ${state.integrity}/${state.maxIntegrity} (${integrityPct}%)`);
   lines.push(`  Energy: ${state.energy}, Heat: ${state.heat}`);
-  lines.push(`  Zone: ${state.zone}, Facing: ${state.facing}`);
+  const zoneText = grid ? formatZoneName(state.zone) : state.zone;
+  lines.push(`  Zone: ${zoneText}, Facing: ${state.facing}`);
   lines.push(formatComponentLine(state));
   if (state.conditions.length > 0) {
     lines.push(`  Conditions: ${state.conditions.join(", ")}`);
@@ -107,7 +137,7 @@ function formatFinalState(
 }
 
 export function formatReviewContextForPrompt(
-  report: FactualMatchReport,
+  report: AnyFactualMatchReport,
   reviewSummary: string,
   suggestedChanges: readonly {
     target: string;

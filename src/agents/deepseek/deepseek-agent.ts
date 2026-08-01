@@ -9,7 +9,7 @@ import type { MachineBuildProposal } from "../../validation/validation.types.js"
 import type { ActionPolicy } from "../../simulator/types.js";
 import type { AgentUsageRecord } from "../../types/agent-usage.js";
 import type { MatchReview } from "../../schemas/review.schema.js";
-import type { FactualMatchReport } from "../../schemas/factual-report.schema.js";
+import type { AnyFactualMatchReport } from "../../schemas/factual-report.schema.js";
 import type { DeepSeekConfig } from "./deepseek-config.js";
 import {
   DeepSeekClient,
@@ -238,7 +238,7 @@ function validateReviewSemantic(review: MatchReview): string[] {
 
 export function validateReviewAgainstFacts(
   review: MatchReview,
-  report: FactualMatchReport,
+  report: AnyFactualMatchReport,
 ): string[] {
   const errors: string[] = [];
 
@@ -733,7 +733,7 @@ export class DeepSeekArenaAgent implements ArenaAgent {
   }
 
   private fallbackReviewResult(
-    factualReport: FactualMatchReport,
+    factualReport: AnyFactualMatchReport,
     latencyMs: number,
     inputTokens: number,
     outputTokens: number,

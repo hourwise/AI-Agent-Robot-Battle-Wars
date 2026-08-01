@@ -331,6 +331,64 @@ Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
 default grid activation **not performed**; Milestone 0.2C **not complete**
 pending a separately authorised activation-readiness decision.
 
+## D39: Version-aware factual reporting and series compatibility foundation (2026-08-01)
+
+Milestone 0.2C Phase 3D1 makes the reporting, AI-review and adaptive-series
+contracts capable of **representing** grid matches without changing any legacy
+record. Grid matches remain opt-in; no normal command produces a grid report or
+grid series; `runSeries` stays v1-only. No policy schema, seeds, fixtures or
+benchmark partitions changed.
+
+- **Factual-report v1 is the frozen legacy contract, unchanged**: `schemaVersion`
+  `"1"`, legacy five-zone fighter states, persisted cooldown fields, grid-only
+  corners rejected; the deprecated `FactualMatchReportSchema` /
+  `FactualMatchReport` aliases keep every legacy caller compiling.
+- **Factual-report v2 represents an opt-in grid match only**: `schemaVersion`
+  `"2"` with the frozen grid identity (`simulatorVersion` `0.3.0`,
+  `positioningModel` `grid-3x3-v1`, `rulesetVersion` `0.2.0`,
+  `catalogueVersion` `1`), the nine canonical grid zones, and **no**
+  `weaponCooldown`/`utilityCooldown` because the event stream cannot
+  reconstruct precise final cooldowns.
+- **Builders dispatch through the explicit immutable runtime identity**, never
+  zone strings: legacy `0.2.0`/`legacy-five-zone-v1` → v1; grid
+  `0.3.0`/`grid-3x3-v1` → v2; invalid pairings are rejected.
+- **A canonical movement-event subject rule is shared by reporting and replay**:
+  `getMovementEventSubjectId` maps `knockback` and `grapple` to `targetId` and
+  every ordinary movement action to `actorId`, returning `null` for malformed
+  events so a broken event never silently moves the wrong fighter. Grid grapple
+  is therefore target movement in both reporting and replay.
+- **Final-state projection is shared, pure and never invents facts**:
+  `projectFinalFighterState` walks the event stream (integrity damage,
+  movement via the canonical subject rule, component damaged/disabled
+  incl. immobilisation, damage-resisted guard, overturns, overheat/recovery)
+  and then applies the latest authoritative `round_ended` facts; a zone outside
+  the active model is rejected rather than guessed.
+- **AI review/rebuild accept either version**: prompts, fallback review and
+  `validateReviewAgainstFacts` work for v1 and v2; v1 prompt rendering is
+  byte-identical (raw zones), v2 adds the simulator identity line and
+  human-readable grid zone names, and grid corners are never called "edges".
+- **Series v1 is the unchanged legacy contract** and remains the only record
+  `runSeries` produces.
+- **Series v2 is a reserved single-runtime grid contract**: one immutable
+  runtime identity per series (`0.3.0`/`grid-3x3-v1`/ruleset `0.2.0`/catalogue
+  `1`, match-record schema v3, factual-report schema v2) with cross-field
+  validation (seed agreement, matchId agreement, runtime agreement, unique
+  matchIds/match numbers, score ≤ entries). Repository and report rendering
+  handle both versions; v2 reports render a `Runtime:` identity line.
+- **No CLI/application grid activation**: no explicit grid canary, no grid
+  runtime default; `runMatch`/`runSeries` and normal persistence stay legacy.
+- **No balance conclusions were made**: no weapon, damage, armour, hit chance,
+  qualification or global constants changed; no benchmark partition ran; seeds
+  and fixtures are unchanged.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; Phase 3C lateral/flank integration complete;
+Phase 3D1 reporting/series compatibility foundation **complete**; explicit grid
+application canary **not implemented**; default grid activation **not
+performed**; Milestone 0.2C **not complete** pending a separately authorised
+activation-readiness decision.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

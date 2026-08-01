@@ -1,4 +1,4 @@
-import type { FactualMatchReport } from "../schemas/factual-report.schema.js";
+import type { AnyFactualMatchReport } from "../schemas/factual-report.schema.js";
 import { formatFactualReportForPrompt } from "../reports/review-formatter.js";
 
 export const REVIEW_PROMPT_VERSION = "review-v1";
@@ -18,7 +18,7 @@ export function buildReviewSystemPrompt(): string {
   ].join("\n");
 }
 
-export function buildReviewUserPrompt(report: FactualMatchReport): string {
+export function buildReviewUserPrompt(report: AnyFactualMatchReport): string {
   const factualText = formatFactualReportForPrompt(report);
 
   return [
@@ -78,7 +78,7 @@ export function buildReviewCorrectionPrompt(errors: readonly string[]): string {
   ].join("\n");
 }
 
-export function buildFallbackReview(report: FactualMatchReport): string {
+export function buildFallbackReview(report: AnyFactualMatchReport): string {
   const winner = report.winner ?? "Draw";
   return `${winner} by ${report.resultMethod} in ${report.rounds} rounds.`;
 }

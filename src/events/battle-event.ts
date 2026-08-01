@@ -142,6 +142,30 @@ export function isMovementResolved(
   return event.type === "movement_resolved";
 }
 
+/**
+ * Canonical movement-event subject (Milestone 0.2C Phase 3D1).
+ *
+ * The fighter whose zone a `movement_resolved` event applies to, frozen for all
+ * movement reconstruction (factual reporting, replay, statistics):
+ *
+ *   action = knockback → targetId
+ *   action = grapple  → targetId
+ *   all normal movement actions → actorId
+ *
+ * Normal movement includes `advance`, `retreat`, `circle_left`, `circle_right`,
+ * and `hold` (where an event exists because facing changed). Returns `null`
+ * when the required subject id is absent so a malformed or unknown movement
+ * event can never silently move the wrong fighter.
+ */
+export function getMovementEventSubjectId(event: SimulationEvent): string | null {
+  if (event.type !== "movement_resolved") return null;
+  const action = event.data?.action;
+  if (action === "knockback" || action === "grapple") {
+    return event.targetId ?? null;
+  }
+  return event.actorId ?? null;
+}
+
 export function isAttackAttempted(
   event: SimulationEvent,
 ): event is SimulationEvent & { data: AttackAttemptedData } {

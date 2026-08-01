@@ -201,6 +201,56 @@ The grid runtime remains opt-in through `runGridMatch`; the default
 application path, schema v2 persistence, and the frozen constants
 (`SIMULATOR_VERSION`/`RULESET_VERSION` `0.2.0`, catalogue `1`) are unchanged.
 
+### Version-aware reporting and series compatibility (Milestone 0.2C Phase 3D1)
+
+- `src/schemas/factual-report.schema.ts` — factual match report schemas.
+  `FactualMatchReportV1Schema` is the frozen legacy contract (schema v1,
+  legacy five-zone states, persisted cooldowns, grid corners rejected);
+  `FactualMatchReportV2Schema` represents an opt-in grid match only (schema v2
+  with frozen identity `0.3.0`/`grid-3x3-v1`/`ruleset 0.2.0`/`catalogue 1`,
+  nine grid zones, no cooldown fields). `FactualMatchReportSchema` /
+  `FactualMatchReport` remain deprecated aliases of v1. Version-aware
+  validate/serialize/deserialize dispatch on `schemaVersion`; unsupported
+  versions are rejected and v1 is never upgraded.
+- `src/events/battle-event.ts` — `getMovementEventSubjectId(event)`: the single
+  canonical rule for which fighter a `movement_resolved` event repositions
+  (`knockback`/`grapple` → `targetId`; ordinary movement → `actorId`; `null`
+  for malformed events so nothing silently moves the wrong fighter). Shared by
+  reporting and replay reconstruction.
+- `src/reports/final-state-projection.ts` — pure, positioning-aware
+  `projectFinalFighterState` shared by the v1 and v2 builders: it applies the
+  event stream (damage, movement via the canonical subject rule with zone
+  assertions, component damaged/disabled incl. immobilisation, guard
+  consumption, overturns, overheat/recovery) then the latest authoritative
+  `round_ended` facts (integrity/energy/heat/zone/conditions) and syncs binary
+  component flags. It never invents facts and rejects zones outside the active
+  model.
+- `src/reports/factual-match-report.ts` — `buildFactualReport` (v1, unchanged
+  shape), `buildGridFactualReport` (v2) and `buildFactualReportForResult`
+  (dispatch on the explicit runtime identity — never zone strings).
+  `enrichMatchSummariesWithPolicy` is generic over the report version.
+- `src/prompts/review-prompt.v1.ts`, `src/reports/review-formatter.ts`,
+  `src/agents/arena-agent.ts`, `src/agents/deepseek/deepseek-agent.ts` —
+  review/rebuild contracts and prompt/fallback/validation accept
+  `AnyFactualMatchReport`. v1 prompt rendering is byte-identical; v2 adds the
+  simulator identity line and human-readable grid zone names (corners are
+  never called "edges").
+- `src/schemas/series.schema.ts` — `SeriesRecordV1Schema` is the unchanged
+  legacy contract (the only record `runSeries` produces); `SeriesRecordV2Schema`
+  is a reserved single-runtime grid contract (one immutable runtime identity
+  per series, match-record schema v3, factual-report schema v2, cross-field
+  seed/matchId/runtime/uniqueness/score validation). Deprecated aliases keep
+  legacy callers compiling.
+- `src/persistence/series-repository.ts`, `src/reports/series-report.ts` —
+  repository and comparative report / renderer accept either series version;
+  v2 reports render a `Runtime: simulator 0.3.0 (grid-3x3-v1)` line and v1
+  renders exactly as before.
+
+Grid reporting and grid series remain opt-in: no normal `runMatch`/`runSeries`
+path produces them, and the default application path, schema v2 persistence,
+and the frozen constants (`SIMULATOR_VERSION`/`RULESET_VERSION` `0.2.0`,
+catalogue `1`) are unchanged.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.
@@ -215,10 +265,10 @@ Every agent result (design, policy, review) produces an `AgentUsageRecord` captu
 
 ### Reports
 
-- `reports/factual-match-report.ts` — builds a deterministic `FactualMatchReport` from `MatchResult` without AI involvement (D18)
-- `reports/review-formatter.ts` — converts factual report data into prompt-safe text
+- `reports/factual-match-report.ts` — builds a deterministic `FactualMatchReport` (v1) from `MatchResult` without AI involvement (D18), plus the grid v2 report and explicit-runtime dispatch (Phase 3D1)
+- `reports/review-formatter.ts` — converts factual report data into prompt-safe text (v1 and v2)
 - `reports/design-diff.ts` — structured comparison of two build proposals
-- `reports/series-report.ts` — comparative report model across a series
+- `reports/series-report.ts` — comparative report model across a series (v1 and v2)
 
 ### Seed source
 

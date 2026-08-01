@@ -1,4 +1,4 @@
-import type { SeriesRecord, SeriesMatchEntry } from "../schemas/series.schema.js";
+import type { AnySeriesMatchEntry, AnySeriesRecord } from "../schemas/series.schema.js";
 import { buildDesignDiff, formatDesignDiff, type DesignDiff } from "./design-diff.js";
 
 export interface ComparativeReportModel {
@@ -9,6 +9,9 @@ export interface ComparativeReportModel {
   performanceHistory: PerformanceEntry[];
   costSummary: CostSummary;
   winner: "ai" | "bulwark" | null;
+  /** Present only for grid (v2) series: the immutable runtime identity. */
+  simulatorVersion?: string;
+  positioningModel?: string;
 }
 
 export interface PerformanceEntry {
@@ -32,7 +35,7 @@ export interface CostSummary {
 }
 
 export function buildComparativeReportModel(
-  record: SeriesRecord,
+  record: AnySeriesRecord,
 ): ComparativeReportModel {
   const designDiffs: DesignDiff[] = [];
 
@@ -70,7 +73,7 @@ export function buildComparativeReportModel(
     buildPerformanceEntry(entry, record.competitor.id),
   );
 
-  return {
+  const model: ComparativeReportModel = {
     competitorName: record.competitor.displayName,
     totalMatches: record.entries.length,
     score: { ...record.score },
@@ -83,10 +86,17 @@ export function buildComparativeReportModel(
     },
     winner: record.winner,
   };
+
+  if (record.schemaVersion === "2") {
+    model.simulatorVersion = record.simulatorVersion;
+    model.positioningModel = record.positioningModel;
+  }
+
+  return model;
 }
 
 function buildPerformanceEntry(
-  entry: SeriesMatchEntry,
+  entry: AnySeriesMatchEntry,
   _aiCompetitorId: string,
 ): PerformanceEntry {
   // Canonical mapping: fighter_a is always the AI competitor, fighter_b is Bulwark.
@@ -160,6 +170,11 @@ export function renderSeriesReport(model: ComparativeReportModel): string {
   lines.push(
     `SERIES REPORT: ${model.totalMatches} match${model.totalMatches !== 1 ? "es" : ""}`,
   );
+  if (model.simulatorVersion && model.positioningModel) {
+    lines.push(
+      `Runtime: simulator ${model.simulatorVersion} (${model.positioningModel})`,
+    );
+  }
   lines.push(
     `Record: ${model.competitorName} ${model.score.aiWins} — The Bulwark ${model.score.bulwarkWins} (${model.score.draws} draw${model.score.draws !== 1 ? "s" : ""})`,
   );

@@ -612,7 +612,128 @@ circling; a blocked facing-only circle still emits `movement_resolved`; a
 circle that changes neither cell nor facing emits nothing. Knockback/grapple
 positional-effect planning is unchanged.
 
-## 9. Still out of scope
+## 9. Phase 3D1 — version-aware factual reporting and series compatibility foundation (2026-08-01)
+
+Phase 3D1 makes the reporting, AI-review and adaptive-series contracts capable
+of **representing** grid matches while keeping every legacy record byte-compatible.
+Grid matches remain opt-in (`runGridMatch`); no normal command produces a grid
+report or grid series; `runSeries` stays v1-only. No policy schema, seeds,
+fixtures or benchmark partitions changed.
+
+### 9.1 Factual match reports — v1 legacy, v2 grid
+
+- `FactualMatchReportV1Schema` (`schemaVersion: "1"`) is the persisted legacy
+  contract: legacy five-zone fighter states, persisted cooldown fields, and
+  rejection of grid-only corner zones. `FactualMatchReportSchema` /
+  `FactualMatchReport` remain deprecated aliases of the v1 shape, so every
+  existing legacy caller is unchanged.
+- `FactualMatchReportV2Schema` (`schemaVersion: "2"`) represents an opt-in
+  grid match only: it freezes the grid identity (`simulatorVersion` `0.3.0`,
+  `positioningModel` `grid-3x3-v1`, `rulesetVersion` `0.2.0`,
+  `catalogueVersion` `1`), accepts only the nine canonical grid zones in
+  fighter-state summaries, and omits `weaponCooldown` / `utilityCooldown`
+  because the event stream cannot reconstruct precise final cooldowns.
+- Version-aware `validateFactualMatchReport`, `serializeFactualMatchReport`
+  and `deserializeFactualMatchReport` dispatch on `schemaVersion` and return
+  string errors; unsupported versions are rejected and deserialisation never
+  upgrades or mutates a v1 report.
+
+### 9.2 Builders dispatch through explicit runtime identity
+
+`buildFactualReportForResult(AnyMatchResult)` dispatches on the frozen in-memory
+`runtime` identity — never zone strings:
+
+- legacy `0.2.0` / `legacy-five-zone-v1` → factual-report v1;
+- grid `0.3.0` / `grid-3x3-v1` → factual-report v2.
+
+Invalid runtime/model pairings are rejected. `buildFactualReport` keeps the
+v1 shape byte-for-byte; `buildGridFactualReport` produces v2 from a
+`GridMatchResult`. `enrichMatchSummariesWithPolicy` is generic over the report
+version so both v1 and v2 are enriched in place.
+
+### 9.3 Canonical movement-event subject and shared final-state projection
+
+`getMovementEventSubjectId(event)` in `src/events/battle-event.ts` is the single
+canonical rule for which fighter a `movement_resolved` event repositions:
+
+- `action: "knockback"` → `targetId`; `action: "grapple"` → `targetId`;
+- all ordinary movement actions (`advance`, `retreat`, `circle_left`,
+  `circle_right`, `hold`) → `actorId`;
+- a malformed event whose required subject id is absent returns `null`, so a
+  broken event never silently moves the wrong fighter.
+
+This rule is now shared by reporting and ASCII state reconstruction (which
+already treated `grapple` as target repositioning). `src/reports/final-state-projection.ts`
+provides the pure, positioning-aware `projectFinalFighterState` used by both
+the v1 and v2 builders. It walks the event stream (integrity damage, movement
+via the canonical subject rule with model assertions, component damaged /
+disabled including immobilisation, damage-resisted guard consumption,
+overturns, overheat and recovery) and then applies the **latest** authoritative
+`round_ended` facts (integrity, energy, heat, zone, conditions) and syncs
+binary component flags. It never invents facts: translated circling updates the
+actor's zone and facing, knockback/grapple update the target's zone, and any
+zone value outside the active model is rejected rather than guessed. Both
+builders now produce the same facts the replay would show (grid grapple is
+target movement in both reporting and replay).
+
+### 9.4 AI review and rebuild accept either version
+
+`ReviewRequest` / `RebuildContext` carry `AnyFactualMatchReport`. The deepseek
+agent's prompt builder, fallback review, `validateReviewAgainstFacts` and
+`normaliseDisabledComponents` work for v1 and v2. `formatFactualReportForPrompt`
+renders v1 byte-identically (raw five-zone values) and adds the simulator
+identity line plus human-readable grid zone names for v2 — grid corners are
+never referred to as legacy "edges". The fallback review output is unchanged
+for both versions.
+
+### 9.5 Series records — v1 legacy, v2 single-runtime grid contract
+
+- `SeriesRecordV1Schema` (`schemaVersion: "1"`) is unchanged and remains the
+  only record `runSeries` produces. Deprecated aliases `SeriesRecordSchema` /
+  `SeriesRecord` / `seriesMatchEntrySchema` / `SeriesMatchEntry` keep legacy
+  callers compiling.
+- `SeriesRecordV2Schema` (`schemaVersion: "2"`) is a **reserved** single-runtime
+  grid contract: it declares one immutable runtime identity for the whole
+  series (`simulatorVersion` `0.3.0`, `positioningModel` `grid-3x3-v1`,
+  `rulesetVersion` `0.2.0`, `catalogueVersion` `1`, `matchRecordSchemaVersion`
+  `3`, `factualReportSchemaVersion` `2`). Every entry embeds a grid factual-
+  report v2 and a match summary carrying the grid identity, and the cross-field
+  contract validates: entry seed vs match-summary seed, entry seed vs
+  factual-report seed, report and match-summary runtime vs the series runtime,
+  entry `matchId` vs match-summary `matchId`, unique `matchId`s, unique match
+  numbers, and score totals that never exceed the entry count.
+- `JsonSeriesRepository` and `buildComparativeReportModel` / `renderSeriesReport`
+  accept either version; v2 reports render a `Runtime: simulator 0.3.0
+(grid-3x3-v1)` line and v1 reports render exactly as before.
+- `app/run-series.ts` remains v1-only; no CLI or application path builds a
+  grid series.
+
+### 9.6 Phase 3D1 status and verification
+
+- Factual-report v1 frozen and byte-compatible: complete.
+- Factual-report v2 grid contract: complete.
+- Explicit-runtime builder dispatch: complete.
+- Canonical movement-event subject rule shared by reporting and replay:
+  complete.
+- Shared positioning-aware final-state projection: complete.
+- Review/rebuild accept either version: complete.
+- Series v1 legacy; series v2 reserved single-runtime grid contract: complete.
+- `runSeries` stays v1-only; persistence and report rendering handle both:
+  complete.
+- No CLI/application grid activation, no balance conclusions: confirmed.
+- New focused tests (movement subject, final-state projection, factual-report
+  v1/v2, review compatibility, series v1/v2) plus the full pre-existing suite
+  pass; typecheck, lint and CRLF formatting pass on touched files.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; Phase 3C lateral/flank integration complete;
+Phase 3D1 reporting/series compatibility foundation complete; explicit grid
+application canary **not implemented**; default grid activation **not
+performed**; Milestone 0.2C **not complete** pending a separately authorised
+activation-readiness decision.
+
+## 10. Still out of scope
 
 - **Authoritative migration**: the live simulator remains `0.2.0` legacy;
   `SIMULATOR_VERSION` / `RULESET_VERSION` remain `0.2.0`, catalogue `1`;
@@ -621,9 +742,12 @@ positional-effect planning is unchanged.
   `circle_left`/`circle_right` exist only in `runGridMatch`; the legacy runtime
   keeps turn-in-place circling. No new movement-action values or policy fields
   were added.
+- **Grid reporting/series are grid-opt-in only**: factual-report v2 and series
+  v2 are never produced by `runMatch`, `runSeries` or any normal application
+  command; `runSeries` remains v1-only.
 - **Live activation** of grid match production in the application/CLI/series.
 - **Balance conclusions**: no grid-vs-legacy balance claims are made from
-  Phase 3A through Phase 3C.
+  Phase 3A through Phase 3D1.
 - Opponent suite and adaptation evaluation (0.2D/0.2E).
 
 ### 6.5 State reconstruction

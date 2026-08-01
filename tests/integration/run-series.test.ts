@@ -570,4 +570,41 @@ describe("runSeries integration", () => {
     expect(record.status).toBe("aborted");
     expect(logs.some((l) => l.includes("SERIES COMPLETE"))).toBe(false);
   });
+
+  it("keeps the current adaptive series legacy-only (Phase 3D1)", async () => {
+    const agent = createTrackingAgent();
+    const record = await runSeries(
+      {
+        competitor: { id: "ai", displayName: "Mock AI", provider: "mock" },
+        targetWins: 1,
+        maximumMatches: 2,
+      },
+      deps(agent),
+    );
+
+    // Series record is schema v1.
+    expect(record.schemaVersion).toBe("1");
+
+    for (const entry of record.entries) {
+      // Factual report is schema v1 (legacy).
+      expect(entry.factualReport.schemaVersion).toBe("1");
+
+      // Saved match records are schema v2 (legacy runMatch persistence).
+      const saved = await matchRepo.getMatch(entry.matchId!);
+      expect(saved).not.toBeNull();
+      expect(saved!.schemaVersion).toBe("2");
+
+      // Legacy runtime identity on the underlying match.
+      expect(saved!.simulatorVersion).toBe("0.2.0");
+      expect("positioningModel" in saved!).toBe(false);
+      expect(saved!.initialState.fighterA.zone).toBe("south_edge");
+
+      // Legacy review workflow: a review (or explicit failure) is recorded.
+      if (entry.review === null) {
+        expect(entry.reviewFailure).toBeDefined();
+      } else {
+        expect(entry.review.schemaVersion).toBe("1");
+      }
+    }
+  });
 });

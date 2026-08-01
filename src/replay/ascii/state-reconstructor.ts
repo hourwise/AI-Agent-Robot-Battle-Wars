@@ -1,5 +1,6 @@
 import type { SimulationEvent } from "../../simulator/types.js";
 import { isGridZone } from "../../simulator/arena-grid.js";
+import { getMovementEventSubjectId } from "../../events/battle-event.js";
 import { POSITIONING_MODEL_LEGACY } from "../../schemas/positioning.schema.js";
 import {
   isGridReplayPositioningModel,
@@ -80,11 +81,10 @@ function applyEvent(
         }
         assertGridZone(data.to, "movement_resolved.data.to");
       }
-      // For repositioning effects (knockback, grid grapple), the fighter whose
-      // zone changed is targetId (the one moved). For normal movement it is
-      // actorId.
-      const repositionsTarget = data.action === "knockback" || data.action === "grapple";
-      const fighterId = repositionsTarget ? event.targetId : event.actorId;
+      // The canonical movement-event subject: knockback and grapple reposition
+      // the target fighter; all normal movement repositions the actor. A
+      // malformed event with no subject id moves nothing.
+      const fighterId = getMovementEventSubjectId(event);
       const facing =
         data.facing ??
         (fighterId === "fighter_a" ? state.fighterA.facing : state.fighterB.facing);

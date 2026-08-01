@@ -1,14 +1,25 @@
-import type { MatchResult, SimulationEvent, FighterState } from "../simulator/types.js";
 import type {
-  FactualMatchReport,
-  MatchMoment,
+  AnyMatchResult,
+  GridFighterState,
+  GridMatchResult,
+  MatchResult,
+  SimulationEvent,
+  FighterState,
+} from "../simulator/types.js";
+import type {
+  AnyFactualMatchReport,
+  FactualMatchReportV1,
+  FactualMatchReportV2,
   FighterMatchSummary,
   FighterStateSummary,
+  FighterStateSummaryV2,
+  MatchMoment,
 } from "../schemas/factual-report.schema.js";
+import { projectFinalFighterState } from "./final-state-projection.js";
 
 function buildFighterMatchSummary(
   fighterId: string,
-  state: FighterState,
+  state: FighterState | GridFighterState,
 ): FighterMatchSummary {
   return {
     fighterId,
@@ -27,7 +38,7 @@ function buildFighterMatchSummary(
   };
 }
 
-function buildFighterStateSummary(state: FighterState): FighterStateSummary {
+function buildFighterStateSummaryV1(state: FighterState): FighterStateSummary {
   return {
     fighterId: state.fighterId,
     machineName: state.build.proposal.machineName,
@@ -39,6 +50,27 @@ function buildFighterStateSummary(state: FighterState): FighterStateSummary {
     facing: state.facing,
     weaponCooldown: state.weaponCooldown,
     utilityCooldown: state.utilityCooldown,
+    mobilityDisabled: state.components.mobilityDisabled,
+    weaponDisabled: state.components.weaponDisabled,
+    utilityDisabled: state.components.utilityDisabled,
+    mobilityDamaged: state.comps.mobility.state === "damaged",
+    weaponDamaged: state.comps.weapon.state === "damaged",
+    utilityDamaged: state.comps.utility.state === "damaged",
+    conditions: [...state.conditions],
+  };
+}
+
+/** v2 state summary: grid zone, no cooldowns (not reconstructable). */
+function buildFighterStateSummaryV2(state: GridFighterState): FighterStateSummaryV2 {
+  return {
+    fighterId: state.fighterId,
+    machineName: state.build.proposal.machineName,
+    integrity: state.integrity,
+    maxIntegrity: state.maxIntegrity,
+    energy: state.energy,
+    heat: state.heat,
+    zone: state.zone,
+    facing: state.facing,
     mobilityDisabled: state.components.mobilityDisabled,
     weaponDisabled: state.components.weaponDisabled,
     utilityDisabled: state.components.utilityDisabled,
@@ -165,88 +197,34 @@ function findOverturns(events: readonly SimulationEvent[]): MatchMoment[] {
   return moments;
 }
 
-function computeFinalState(
-  initialState: FighterState,
-  events: readonly SimulationEvent[],
-  fighterId: string,
-): FighterState {
-  const state: FighterState = {
-    ...initialState,
-    components: { ...initialState.components },
-    comps: structuredClone(initialState.comps),
-    conditions: [...initialState.conditions],
-  };
-
-  for (const event of events) {
-    // integrity_damaged: targetId is the damaged fighter
-    if (event.type === "integrity_damaged" && event.targetId === fighterId) {
-      state.integrity = Number(event.data.remaining ?? state.integrity);
-    }
-
-    // component_damaged: targetId is the affected fighter
-    if (event.type === "component_damaged" && event.targetId === fighterId) {
-      const component = String(event.data.component ?? "");
-      if (component === "mobility") state.comps.mobility.state = "damaged";
-      if (component === "weapon") state.comps.weapon.state = "damaged";
-      if (component === "utility") state.comps.utility.state = "damaged";
-    }
-
-    // component_disabled: targetId is the affected fighter
-    if (event.type === "component_disabled" && event.targetId === fighterId) {
-      const component = String(event.data.component ?? "");
-      if (component === "mobility") {
-        state.comps.mobility.state = "disabled";
-        state.components.mobilityDisabled = true;
-      }
-      if (component === "weapon") {
-        state.comps.weapon.state = "disabled";
-        state.components.weaponDisabled = true;
-      }
-      if (component === "utility") {
-        state.comps.utility.state = "disabled";
-        state.components.utilityDisabled = true;
-      }
-    }
-
-    // component_damage_resisted: guard consumed
-    if (event.type === "component_damage_resisted" && event.targetId === fighterId) {
-      if (
-        state.comps.utility.reinforcedDriveGuard === "available" &&
-        event.data.guardStateAfter === "spent"
-      ) {
-        state.comps.utility.reinforcedDriveGuard = "spent";
-      }
-    }
-
-    // robot_overturned: targetId is the overturned fighter
-    if (event.type === "robot_overturned" && event.targetId === fighterId) {
-      if (!state.conditions.includes("overturned")) {
-        state.conditions.push("overturned");
-      }
-    }
-
-    // movement_resolved: for knockback, targetId moves; for normal, actorId moves
-    if (event.type === "movement_resolved") {
-      const action = String(event.data.action ?? "");
-      const movedFighterId = action === "knockback" ? event.targetId : event.actorId;
-      if (movedFighterId === fighterId) {
-        state.zone = String(event.data.to ?? state.zone) as typeof state.zone;
-        state.facing = String(event.data.facing ?? state.facing) as typeof state.facing;
-      }
-    }
-  }
-
-  // Sync legacy binary projection from authoritative state
-  state.components = {
-    mobilityDisabled: state.comps.mobility.state === "disabled",
-    weaponDisabled: state.comps.weapon.state === "disabled",
-    utilityDisabled: state.comps.utility.state === "disabled",
-  };
-
-  return state;
+function finalStateV1(result: MatchResult, fighterId: string): FighterState {
+  return projectFinalFighterState(
+    result.initialState[fighterId === "fighter_a" ? "fighterA" : "fighterB"],
+    result.events,
+    fighterId,
+    "legacy-five-zone-v1",
+  );
 }
 
-export function buildFactualReport(result: MatchResult): FactualMatchReport {
+function finalStateV2(result: GridMatchResult, fighterId: string): GridFighterState {
+  return projectFinalFighterState(
+    result.initialState[fighterId === "fighter_a" ? "fighterA" : "fighterB"],
+    result.events,
+    fighterId,
+    "grid-3x3-v1",
+  );
+}
+
+/**
+ * Legacy factual-report builder. Produces a schema-v1 report from a legacy
+ * `MatchResult`; the JSON shape is unchanged. Reconstructed final facts now
+ * follow the authoritative event stream (latest `round_ended` integrity,
+ * energy, heat, zone and conditions; component transitions; guard state;
+ * mobility-disable immobilisation; grapple/knockback target repositioning via
+ * the canonical movement-subject helper) — documented factual-correctness
+ * fixes that do not alter the v1 JSON shape.
+ */
+export function buildFactualReport(result: MatchResult): FactualMatchReportV1 {
   const { config, events, result: competitionResult, rounds, initialState } = result;
 
   return {
@@ -264,18 +242,79 @@ export function buildFactualReport(result: MatchResult): FactualMatchReport {
     componentFailures: findComponentFailures(events),
     overturns: findOverturns(events),
     finalStates: {
-      fighterA: buildFighterStateSummary(
-        computeFinalState(initialState.fighterA, events, "fighter_a"),
-      ),
-      fighterB: buildFighterStateSummary(
-        computeFinalState(initialState.fighterB, events, "fighter_b"),
-      ),
+      fighterA: buildFighterStateSummaryV1(finalStateV1(result, "fighter_a")),
+      fighterB: buildFighterStateSummaryV1(finalStateV1(result, "fighter_b")),
     },
   };
 }
 
-export function enrichMatchSummariesWithPolicy(
-  report: FactualMatchReport,
+/**
+ * Grid factual-report builder. Produces a schema-v2 report from an opt-in grid
+ * `GridMatchResult`, using the same event-driven projection with the explicit
+ * grid positioning model.
+ */
+export function buildGridFactualReport(result: GridMatchResult): FactualMatchReportV2 {
+  const { config, events, result: competitionResult, rounds, initialState } = result;
+
+  return {
+    schemaVersion: "2",
+    simulatorVersion: "0.3.0",
+    positioningModel: "grid-3x3-v1",
+    rulesetVersion: "0.2.0",
+    catalogueVersion: "1",
+    matchId: "pending",
+    componentQualification: config.componentQualification,
+    seed: config.seed,
+    rounds,
+    winner: competitionResult.winner,
+    resultMethod: competitionResult.method,
+    fighterA: buildFighterMatchSummary("fighter_a", initialState.fighterA),
+    fighterB: buildFighterMatchSummary("fighter_b", initialState.fighterB),
+    firstHit: findFirstHit(events),
+    criticalHits: findCriticalHits(events),
+    componentFailures: findComponentFailures(events),
+    overturns: findOverturns(events),
+    finalStates: {
+      fighterA: buildFighterStateSummaryV2(finalStateV2(result, "fighter_a")),
+      fighterB: buildFighterStateSummaryV2(finalStateV2(result, "fighter_b")),
+    },
+  };
+}
+
+/**
+ * Version-aware report builder that dispatches through the explicit immutable
+ * runtime identity — never zone strings:
+ *
+ *   legacy identity (`0.2.0` / `legacy-five-zone-v1`) → factual-report v1
+ *   grid identity (`0.3.0` / `grid-3x3-v1`) → factual-report v2
+ *
+ * Invalid runtime/model pairings are rejected.
+ */
+export function buildFactualReportForResult(
+  result: AnyMatchResult,
+): AnyFactualMatchReport {
+  const { positioningModel, simulatorVersion } = result.runtime;
+  if (positioningModel === "grid-3x3-v1") {
+    if (simulatorVersion !== "0.3.0") {
+      throw new Error(
+        `Grid report requires simulatorVersion 0.3.0; received ${String(simulatorVersion)}`,
+      );
+    }
+    return buildGridFactualReport(result as GridMatchResult);
+  }
+  if (positioningModel === "legacy-five-zone-v1") {
+    if (simulatorVersion !== "0.2.0") {
+      throw new Error(
+        `Legacy report requires simulatorVersion 0.2.0; received ${String(simulatorVersion)}`,
+      );
+    }
+    return buildFactualReport(result as MatchResult);
+  }
+  throw new Error(`Unknown positioning model: ${String(positioningModel)}`);
+}
+
+export function enrichMatchSummariesWithPolicy<R extends AnyFactualMatchReport>(
+  report: R,
   policyA: {
     opening: string;
     preferredRange: string;
@@ -290,7 +329,7 @@ export function enrichMatchSummariesWithPolicy(
     primaryTarget: string;
     secondaryTarget: string;
   },
-): FactualMatchReport {
+): R {
   return {
     ...report,
     fighterA: {
