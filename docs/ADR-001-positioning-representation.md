@@ -523,6 +523,33 @@ sequential-origin algorithm would have produced a different destination.
 - Default grid activation: **not performed**.
 - Milestone 0.2C: **not complete**.
 
+### 8.7 Phase 3B.1 — grid movement momentum correction (2026-08-01)
+
+Review of the Phase 3B grid adapter identified one gameplay-contract defect:
+the grid positioning adapter awarded ram charge momentum for **any** translated
+movement (`translated ? 1 : 0`). The frozen grid rule grants charge momentum
+only when an `advance` action actually translates the robot:
+
+```
+movement action = advance
+AND
+the movement translated to another cell
+→ momentum 1
+
+all other combinations
+→ momentum 0
+```
+
+The correction introduces the named pure function
+`getGridMovementMomentum(action, translated): 0 | 1` in
+`src/simulator/grid-runtime.ts`, which the grid adapter calls via
+`momentumFor`. A translated `retreat`, `circle_left`, `circle_right`, `hold`,
+or any future lateral action never receives charge momentum. The synthetic
+`translated: true` cases for circle and hold are tested intentionally to
+protect the invariant against future movement changes. The legacy adapter's
+historical momentum rule is untouched. This is a contract correction only: no
+balance conclusion or tuning was performed.
+
 ## 9. Still out of scope
 
 - **Authoritative migration**: the live simulator remains `0.2.0` legacy;
@@ -532,7 +559,7 @@ sequential-origin algorithm would have produced a different destination.
   in-place turns; no new lateral movement actions or policy fields exist.
 - **Live activation** of grid match production in the application/CLI/series.
 - **Balance conclusions**: no grid-vs-legacy balance claims are made from
-  Phase 3A or Phase 3B.
+  Phase 3A, Phase 3B or Phase 3B.1.
 - Opponent suite and adaptation evaluation (0.2D/0.2E).
 
 ### 6.5 State reconstruction

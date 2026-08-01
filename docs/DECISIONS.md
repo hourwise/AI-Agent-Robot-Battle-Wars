@@ -242,6 +242,42 @@ Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
 policy-driven lateral movement **not implemented**; default grid activation
 **not performed**; Milestone 0.2C **not complete**.
 
+## D37: Grid movement momentum restricted to translated advance (2026-08-01)
+
+Milestone 0.2C Phase 3B.1 corrects a gameplay-contract defect found in the
+opt-in grid runtime before any policy-driven lateral movement or default
+activation:
+
+- **Grid movement momentum is granted only to translated `advance`.** The
+  frozen rule is `action = advance AND translated = true → momentum 1`; every
+  other combination yields `0`. It is implemented as the named pure function
+  `getGridMovementMomentum(action, translated)` in
+  `src/simulator/grid-runtime.ts`, which the grid positioning adapter calls
+  via `momentumFor`.
+- **Retreat and lateral/circle movement never receive charge momentum.** A
+  translated `retreat`, `circle_left`, `circle_right`, `hold`, or any future
+  lateral action must never receive ram charge momentum. Synthetic
+  `translated: true` cases for circle and hold are tested intentionally to
+  protect the invariant against future movement changes.
+- **The previous adapter implementation was corrected before lateral
+  movement.** The Phase 3A/3B adapter awarded momentum for any translated
+  movement (`translated ? 1 : 0`), which would have granted charge momentum to
+  a translated retreat. This was corrected now, before lateral movement
+  exists.
+- **Legacy momentum semantics remain unchanged.** The legacy adapter keeps its
+  historical rule (momentum only on `advance`), and the legacy event streams,
+  persistence (schema v2) and component-lifecycle checksums are unchanged.
+- **No balance conclusion or tuning was performed.** This is a contract
+  correction only: no weapon, damage, armour, qualification or global
+  constants changed; no benchmark partition ran; seeds and fixtures are
+  unchanged.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; policy-driven translated lateral movement
+**not implemented**; default grid activation **not performed**; Milestone 0.2C
+**not complete**.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

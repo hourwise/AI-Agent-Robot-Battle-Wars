@@ -163,6 +163,16 @@ remain `0.2.0`, catalogue `1`.
   keeps the legacy runtime's historical sequential-origin behaviour
   byte-for-byte identical (grid `true`, legacy `false`).
 
+### Grid movement momentum (Milestone 0.2C Phase 3B.1)
+
+`getGridMovementMomentum(action, translated)` in `src/simulator/grid-runtime.ts`
+freezes the grid charge-momentum invariant: ram charge momentum is granted only
+when an `advance` action actually translates the robot to another cell. A
+translated `retreat`, `circle_left`, `circle_right`, `hold`, or any future
+lateral action never receives charge momentum. The grid positioning adapter
+uses this function via `momentumFor`; the legacy adapter keeps its historical
+momentum rule unchanged.
+
 The grid runtime remains opt-in through `runGridMatch`; the default
 application path, schema v2 persistence, and the frozen constants
 (`SIMULATOR_VERSION`/`RULESET_VERSION` `0.2.0`, catalogue `1`) are unchanged.

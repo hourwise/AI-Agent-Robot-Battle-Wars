@@ -157,6 +157,27 @@ export function resolveGridGrapple(
   return path.length >= 2 ? (path[1] ?? null) : null;
 }
 
+/**
+ * Frozen grid momentum invariant (Milestone 0.2C Phase 3B.1).
+ *
+ * Ram charge momentum is granted only when an `advance` action actually
+ * translates the robot to another cell:
+ *
+ *   action = advance AND translated = true  → momentum 1
+ *   all other combinations                  → momentum 0
+ *
+ * A translated `retreat`, `circle_left`, `circle_right`, `hold`, or any future
+ * lateral action must never receive charge momentum. The synthetic
+ * `translated: true` cases for circle and hold are intentional: they protect
+ * the invariant against future movement changes.
+ */
+export function getGridMovementMomentum(
+  action: MovementAction,
+  translated: boolean,
+): 0 | 1 {
+  return action === "advance" && translated ? 1 : 0;
+}
+
 const GRID_POSITIONING_ADAPTER: PositioningAdapter<GridZone> = {
   resolveMovement: (state, opponent, action) =>
     resolveGridMovement(state as GridFighterState, opponent as GridFighterState, action),
@@ -177,7 +198,7 @@ const GRID_POSITIONING_ADAPTER: PositioningAdapter<GridZone> = {
     resolveGridGrapple(attackerZone, defenderZone),
   enableGrappleRepositioning: true,
   planFromSharedSnapshot: true,
-  momentumFor: (_action, translated) => (translated ? 1 : 0),
+  momentumFor: getGridMovementMomentum,
 };
 
 export function applyGridRound(
