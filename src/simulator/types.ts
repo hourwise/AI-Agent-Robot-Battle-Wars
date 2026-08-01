@@ -1,4 +1,6 @@
 import type { ValidatedBuild } from "../validation/validation.types.js";
+import type { GridZone } from "./arena-grid.js";
+export type { GridZone } from "./arena-grid.js";
 import type {
   ComponentQualificationId,
   ComponentQualificationMetadata,
@@ -62,6 +64,46 @@ export interface FighterState {
   components: ComponentState;
   conditions: Condition[];
 }
+
+/**
+ * Every fighter field except the positioning zone. Shared by the legacy
+ * five-zone runtime and the opt-in 3×3 grid runtime so that damage, component,
+ * energy/heat and victory logic can be reused without weakening either zone
+ * type to a common unrestricted union.
+ */
+export type FighterCoreState = Omit<FighterState, "zone">;
+
+/** A fighter state parameterised by its positioning zone type. */
+export type ZoneFighterState<Z> = FighterCoreState & { zone: Z };
+
+/** Grid runtime fighter state — canonical grid zone, all other facts shared. */
+export interface GridFighterState extends FighterCoreState {
+  zone: GridZone;
+}
+
+/**
+ * Explicit immutable in-memory runtime identity. The legacy runtime reports
+ * simulator 0.2.0 / legacy-five-zone-v1; the opt-in grid runtime reports
+ * simulator 0.3.0 / grid-3x3-v1. Never inferred from zone string values.
+ */
+export type PositioningIdentity =
+  | {
+      readonly simulatorVersion: "0.2.0";
+      readonly positioningModel: "legacy-five-zone-v1";
+    }
+  | {
+      readonly simulatorVersion: "0.3.0";
+      readonly positioningModel: "grid-3x3-v1";
+    };
+
+export type LegacyRuntimeIdentity = Extract<
+  PositioningIdentity,
+  { positioningModel: "legacy-five-zone-v1" }
+>;
+export type GridRuntimeIdentity = Extract<
+  PositioningIdentity,
+  { positioningModel: "grid-3x3-v1" }
+>;
 
 export type OpeningBehaviour = "rush" | "cautious" | "flank" | "hold";
 export type PreferredRange = "close" | "medium" | "far";
@@ -137,7 +179,22 @@ export interface MatchResult {
   result: CompetitionResult;
   rounds: number;
   initialState: { fighterA: FighterState; fighterB: FighterState };
+  /** Explicit runtime identity; always populated by `runMatch`. */
+  runtime: LegacyRuntimeIdentity;
 }
+
+/** Opt-in grid runtime result with grid fighter state and grid identity. */
+export interface GridMatchResult {
+  config: MatchConfig;
+  events: SimulationEvent[];
+  result: CompetitionResult;
+  rounds: number;
+  initialState: { fighterA: GridFighterState; fighterB: GridFighterState };
+  runtime: GridRuntimeIdentity;
+}
+
+/** A result from either runtime, discriminated by `runtime`. */
+export type AnyMatchResult = MatchResult | GridMatchResult;
 
 export interface SimulationEvent {
   readonly schemaVersion: string;

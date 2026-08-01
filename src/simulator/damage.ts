@@ -1,11 +1,15 @@
 import type {
   FighterState,
+  GridFighterState,
+  FighterCoreState,
   ArmourState,
   ArenaZone,
   PrimaryTarget,
   SecondaryTarget,
 } from "./types.js";
 import type { SeededRandom } from "./seeded-random.js";
+import type { GridZone } from "./arena-grid.js";
+import { getRelativeBearing, getPlanarExposedArmourZones } from "./arena-grid.js";
 import {
   DAMAGE_VARIANCE,
   ARMOUR_ABSORPTION_FACTOR,
@@ -35,6 +39,18 @@ export interface AttackResult {
   grappleReposition: boolean;
 }
 
+const MISS_RESULT: AttackResult = {
+  hit: false,
+  hitZone: "front",
+  rawDamage: 0,
+  armourAtHitZone: 0,
+  effectiveDamage: 0,
+  isCritical: false,
+  overturnSuccess: false,
+  knockback: false,
+  grappleReposition: false,
+};
+
 export function calculateAttack(
   attacker: FighterState,
   defender: FighterState,
@@ -44,33 +60,70 @@ export function calculateAttack(
   primaryTarget?: PrimaryTarget,
   secondaryTarget?: SecondaryTarget,
 ): AttackResult {
-  const isOverturned = defender.conditions.includes("overturned");
-  const adjustedHitChance = applyOverturnedEvasionPenalty(hitChance, isOverturned);
+  const adjustedHitChance = applyOverturnedEvasionPenalty(
+    hitChance,
+    defender.conditions.includes("overturned"),
+  );
   const hit = rng.chance(adjustedHitChance);
+  if (!hit) return MISS_RESULT;
 
-  if (!hit) {
-    return {
-      hit: false,
-      hitZone: "front",
-      rawDamage: 0,
-      armourAtHitZone: 0,
-      effectiveDamage: 0,
-      isCritical: false,
-      overturnSuccess: false,
-      knockback: false,
-      grappleReposition: false,
-    };
-  }
-
-  const weaponId = attacker.build.proposal.weaponId;
   const hitZone = determineHitZone(
     attacker,
     defender,
-    weaponId,
+    attacker.build.proposal.weaponId,
     rng,
     primaryTarget,
     secondaryTarget,
   );
+  return computeHitAttack(attacker, defender, movementMomentum, rng, hitZone);
+}
+
+/**
+ * Grid attack path: identical damage, variance, armour absorption, minimum
+ * damage, critical probability and overturn/knockback/grapple rolls, with the
+ * hit zone selected from the grid planar exposure mapping instead of the
+ * legacy five-zone exposure.
+ */
+export function calculateGridAttack(
+  attacker: GridFighterState,
+  defender: GridFighterState,
+  hitChance: number,
+  movementMomentum: number,
+  rng: SeededRandom,
+  primaryTarget?: PrimaryTarget,
+  secondaryTarget?: SecondaryTarget,
+): AttackResult {
+  const adjustedHitChance = applyOverturnedEvasionPenalty(
+    hitChance,
+    defender.conditions.includes("overturned"),
+  );
+  const hit = rng.chance(adjustedHitChance);
+  if (!hit) return MISS_RESULT;
+
+  const hitZone = determineGridHitZone(
+    attacker,
+    defender,
+    attacker.build.proposal.weaponId,
+    primaryTarget,
+    secondaryTarget,
+  );
+  return computeHitAttack(attacker, defender, movementMomentum, rng, hitZone);
+}
+
+/**
+ * Position-independent damage core shared by the legacy and grid runtimes.
+ * Consumes RNG in the exact legacy order: variance, critical, overturn,
+ * knockback and grapple.
+ */
+function computeHitAttack(
+  attacker: FighterCoreState,
+  defender: FighterCoreState,
+  movementMomentum: number,
+  rng: SeededRandom,
+  hitZone: keyof ArmourState,
+): AttackResult {
+  const isOverturned = defender.conditions.includes("overturned");
+  const weaponId = attacker.build.proposal.weaponId;
 
   const baseDamage =
     weaponId === "grappler" ? GRAPPLER_BASE_DAMAGE : getWeaponBaseDamage(weaponId);
@@ -201,6 +254,54 @@ export function getExposedZones(
   return zones;
 }
 
+/**
+ * Grid planar exposure (ADR-001): the defender-relative bearing maps to the
+ * planar armour table; top armour is exposed only through the existing
+ * weapon-specific overhead behaviour (hammer).
+ */
+export function getGridExposedZones(
+  attackerZone: GridZone,
+  defenderZone: GridZone,
+  defenderFacing: FighterState["facing"],
+  weaponId: string,
+): Array<keyof ArmourState> {
+  const bearing = getRelativeBearing(attackerZone, defenderZone, defenderFacing);
+  const zones: Array<keyof ArmourState> = [];
+  if (weaponId === "hammer") {
+    zones.push("top");
+  }
+  zones.push(...getPlanarExposedArmourZones(bearing));
+  return zones;
+}
+
+/**
+ * Grid hit-zone selection. Preserves the legacy selection order: requested
+ * primary target when exposed, then requested secondary target, then front
+ * fallback.
+ */
+export function determineGridHitZone(
+  attacker: GridFighterState,
+  defender: GridFighterState,
+  weaponId: string,
+  primaryTarget?: PrimaryTarget,
+  secondaryTarget?: SecondaryTarget,
+): keyof ArmourState {
+  const exposed = getGridExposedZones(
+    attacker.zone,
+    defender.zone,
+    defender.facing,
+    weaponId,
+  );
+  const primary: keyof ArmourState =
+    primaryTarget ?? (weaponId === "hammer" ? "top" : "front");
+  const secondary: keyof ArmourState = secondaryTarget ?? "front";
+
+  if (exposed.includes(primary)) return primary;
+  if (exposed.includes(secondary)) return secondary;
+  // Per RULESET.md: if neither primary nor secondary is exposed, default to front.
+  return "front";
+}
+
 function isNorthOf(attacker: ArenaZone, defender: ArenaZone): boolean {
   if (attacker === "north_edge") return true;
   if (attacker === "center" && defender === "south_edge") return true;
@@ -231,8 +332,8 @@ function getArmourValue(armour: ArmourState, zone: keyof ArmourState): number {
 
 function checkOverturn(
   rng: SeededRandom,
-  attacker: FighterState,
-  defender: FighterState,
+  attacker: FighterCoreState,
+  defender: FighterCoreState,
 ): boolean {
   const attackerPower =
     attacker.build.proposal.chassisId === "heavy"
@@ -252,7 +353,7 @@ function checkOverturn(
   return roll < chance;
 }
 
-function getStability(state: FighterState): number {
+function getStability(state: FighterCoreState): number {
   const chassisStability =
     state.build.proposal.chassisId === "heavy"
       ? 9

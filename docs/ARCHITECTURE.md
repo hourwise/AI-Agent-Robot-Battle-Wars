@@ -91,6 +91,42 @@ authorised runtime-migration phase.
 - `src/replay/zone-format.ts` — shared human-readable zone formatting for both
   legacy and grid zone names.
 
+### Opt-in deterministic grid runtime (Milestone 0.2C Phase 3A)
+
+- `src/simulator/types.ts` — `FighterCoreState` (position-independent),
+  `ZoneFighterState<Z>`, `GridFighterState`, and the explicit `runtime`
+  identity (`LegacyRuntimeIdentity` / `GridRuntimeIdentity`) carried by match
+  results.
+- `src/simulator/simulator.ts` — generic `runMatchForZone(config, adapter)`:
+  the shared deterministic match loop over a `MatchRuntimeAdapter<Z>`
+  (initial zones/facing, action derivation, round application,
+  `competition_started` facts, event simulator version, runtime identity).
+  `runMatch` remains the legacy five-zone wrapper.
+- `src/simulator/reducer.ts` — generic `applyRoundForZone` over a
+  `PositioningAdapter<Z>` (movement, distance, attack, knockback, grapple,
+  momentum). `applyRound` remains the thin legacy wrapper; legacy behaviour is
+  byte-for-byte identical.
+- `src/simulator/grid-runtime.ts` — the **opt-in** `runGridMatch(config)`
+  entry point with the `GRID_POSITIONING_ADAPTER` and `GRID_MATCH_ADAPTER`
+  (deterministic grid movement, proximity-based actions, planar exposure,
+  knockback/grapple repositioning). It is never wired into normal CLI, series,
+  battle or application commands.
+- `src/persistence/match-converter.ts` — `matchResultToRecord` routes by the
+  explicit runtime identity: legacy → schema v2 (unchanged production path);
+  grid → schema v3 (`positioningModel: "grid-3x3-v1"`). Invalid identity
+  combinations are rejected; `mapLegacyZoneToGridZone` is never used during
+  persistence.
+- `src/replay/positioning-model.ts` — raw-result dispatch reads
+  `result.runtime.positioningModel`; the model is never inferred from zone
+  values.
+- `src/replay/text-replay-renderer.ts` and `src/replay/ascii/ascii-replay-renderer.ts`
+  — accept `AnyMatchResult` and thread the positioning model through
+  reconstruction and rendering.
+
+The default application path is unchanged: `runMatch` (legacy `0.2.0`),
+schema v2 persistence, v1/v2 replay. `SIMULATOR_VERSION` / `RULESET_VERSION`
+remain `0.2.0`, catalogue `1`.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

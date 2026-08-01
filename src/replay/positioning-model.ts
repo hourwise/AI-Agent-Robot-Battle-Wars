@@ -3,7 +3,7 @@ import {
   POSITIONING_MODEL_GRID,
   POSITIONING_MODEL_LEGACY,
 } from "../schemas/positioning.schema.js";
-import type { MatchResult } from "../simulator/types.js";
+import type { AnyMatchResult } from "../simulator/types.js";
 
 /**
  * Explicit replay positioning discriminator.
@@ -22,14 +22,13 @@ export function resolveRecordPositioningModel(
 }
 
 /**
- * The current simulator (0.2.0) emits legacy five-zone results, so any replay
- * operating directly on a raw `MatchResult` resolves explicitly to the legacy
- * model. Grid results will only exist once the 0.3 runtime is active.
+ * Resolves the positioning model for a raw in-memory match result from its
+ * explicit immutable runtime identity. Zone strings are never inspected.
  */
 export function resolveMatchResultPositioningModel(
-  _result: MatchResult,
+  result: AnyMatchResult,
 ): ReplayPositioningModel {
-  return POSITIONING_MODEL_LEGACY;
+  return result.runtime.positioningModel;
 }
 
 export function isGridReplayPositioningModel(model: ReplayPositioningModel): boolean {

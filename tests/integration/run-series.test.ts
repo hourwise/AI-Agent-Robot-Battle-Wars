@@ -321,6 +321,10 @@ describe("runSeries integration", () => {
         events: match!.events,
         result: match!.result,
         rounds: match!.rounds,
+        runtime: {
+          simulatorVersion: "0.2.0",
+          positioningModel: "legacy-five-zone-v1",
+        },
       } as import("../../src/simulator/types.js").MatchResult;
 
       const replay = renderTextReplay(matchAsResult);

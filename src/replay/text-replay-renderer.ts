@@ -1,8 +1,8 @@
-import type { MatchResult, SimulationEvent } from "../simulator/types.js";
+import type { AnyMatchResult, SimulationEvent } from "../simulator/types.js";
 import { sanitizeTerminalText, resolveDisplayName } from "../shared/text-sanitise.js";
 import { formatZoneName } from "./zone-format.js";
 
-function getFighterName(fighterId: string | undefined, result: MatchResult): string {
+function getFighterName(fighterId: string | undefined, result: AnyMatchResult): string {
   if (!fighterId) return "Unknown";
   const nameA = sanitizeTerminalText(result.config.fighterA.build.proposal.machineName);
   const nameB = sanitizeTerminalText(result.config.fighterB.build.proposal.machineName);
@@ -20,7 +20,7 @@ function formatWeapon(weapon: string): string {
     .join(" ");
 }
 
-export function describeEvent(event: SimulationEvent, result: MatchResult): string {
+export function describeEvent(event: SimulationEvent, result: AnyMatchResult): string {
   const actor = getFighterName(event.actorId, result);
   const target = getFighterName(event.targetId, result);
 
@@ -135,7 +135,7 @@ export function describeEvent(event: SimulationEvent, result: MatchResult): stri
   }
 }
 
-export function renderTextReplay(result: MatchResult): string {
+export function renderTextReplay(result: AnyMatchResult): string {
   const lines: string[] = [];
 
   const nameA = resolveDisplayName(

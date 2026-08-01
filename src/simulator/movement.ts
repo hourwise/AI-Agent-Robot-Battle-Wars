@@ -54,7 +54,7 @@ function getOppositeEdge(zone: ArenaZone): ArenaZone {
   }
 }
 
-function rotateLeft(facing: Direction): Direction {
+export function rotateLeft(facing: Direction): Direction {
   switch (facing) {
     case "north":
       return "west";
@@ -67,7 +67,7 @@ function rotateLeft(facing: Direction): Direction {
   }
 }
 
-function rotateRight(facing: Direction): Direction {
+export function rotateRight(facing: Direction): Direction {
   switch (facing) {
     case "north":
       return "east";

@@ -1,25 +1,77 @@
-import type { MatchConfig, MatchResult, FighterState, SimulationEvent } from "./types.js";
+import type {
+  MatchConfig,
+  MatchResult,
+  SimulationEvent,
+  ZoneFighterState,
+  ArenaZone,
+  GridZone,
+  Direction,
+  RoundAction,
+  ActionPolicy,
+  CompetitionResult,
+  LegacyRuntimeIdentity,
+  GridRuntimeIdentity,
+} from "./types.js";
 import { SeededRandom } from "./seeded-random.js";
 import { deriveAction } from "./actions.js";
-import { applyRound, RoundState } from "./reducer.js";
+import { applyRound, type RoundState } from "./reducer.js";
 import { checkVictory } from "./victory.js";
-import {
-  MAX_ROUNDS,
-  STARTING_ENERGY,
-  STARTING_HEAT,
-  SIMULATOR_VERSION,
-} from "./constants.js";
+import { MAX_ROUNDS, STARTING_ENERGY, STARTING_HEAT } from "./constants.js";
 import {
   DEFAULT_COMPONENT_QUALIFICATION_ID,
   getComponentQualificationConfig,
   getComponentQualificationMetadata,
+  type ComponentQualificationConfig,
 } from "./component-qualification-registry.js";
 import {
   createInitialComponentStates,
   deriveBinaryComponents,
 } from "./component-state.js";
 
-export function runMatch(config: MatchConfig): MatchResult {
+/**
+ * The runtime surface the shared deterministic match loop depends on.
+ * The legacy adapter keeps the historical five-zone `runMatch` semantics;
+ * the opt-in grid adapter provides the frozen 3×3 semantics via
+ * `runGridMatch` without changing the application default.
+ */
+export interface MatchRuntimeAdapter<Z extends ArenaZone | GridZone> {
+  readonly initialZones: { readonly fighterA: Z; readonly fighterB: Z };
+  readonly initialFacing: { readonly fighterA: Direction; readonly fighterB: Direction };
+  readonly deriveAction: (
+    state: ZoneFighterState<Z>,
+    policy: ActionPolicy,
+    opponent: ZoneFighterState<Z>,
+    rng: SeededRandom,
+  ) => RoundAction;
+  readonly applyRound: (
+    state: RoundState<Z>,
+    actions: { fighterA: RoundAction; fighterB: RoundAction },
+    rng: SeededRandom,
+    round: number,
+    timestampMs: number,
+    policyA: ActionPolicy | undefined,
+    policyB: ActionPolicy | undefined,
+    qualificationConfig: ComponentQualificationConfig,
+  ) => RoundState<Z>;
+  /** Extra `competition_started` facts; legacy adds none. */
+  readonly competitionStartedExtra: Record<string, unknown>;
+  readonly eventSimulatorVersion: "0.2.0" | "0.3.0";
+  readonly runtime: LegacyRuntimeIdentity | GridRuntimeIdentity;
+}
+
+export interface ZoneMatchResult<Z extends ArenaZone | GridZone, R> {
+  config: MatchConfig;
+  events: SimulationEvent[];
+  result: CompetitionResult;
+  rounds: number;
+  initialState: { fighterA: ZoneFighterState<Z>; fighterB: ZoneFighterState<Z> };
+  runtime: R;
+}
+
+export function runMatchForZone<Z extends ArenaZone | GridZone, R>(
+  config: MatchConfig,
+  adapter: MatchRuntimeAdapter<Z> & { readonly runtime: R },
+): ZoneMatchResult<Z, R> {
   const qualificationConfig = getComponentQualificationConfig(
     config.componentQualificationId ?? DEFAULT_COMPONENT_QUALIFICATION_ID,
   );
@@ -30,22 +82,22 @@ export function runMatch(config: MatchConfig): MatchResult {
     componentQualification,
   };
   const rng = new SeededRandom(config.seed);
-  const stateA = createFighterState(
+  const stateA = createZoneFighterState(
     config.fighterA.build,
     "fighter_a",
-    "south_edge",
-    "north",
+    adapter.initialZones.fighterA,
+    adapter.initialFacing.fighterA,
   );
-  const stateB = createFighterState(
+  const stateB = createZoneFighterState(
     config.fighterB.build,
     "fighter_b",
-    "north_edge",
-    "south",
+    adapter.initialZones.fighterB,
+    adapter.initialFacing.fighterB,
   );
 
   let seq = 0;
 
-  let roundState: RoundState = {
+  let roundState: RoundState<Z> = {
     fighterA: stateA,
     fighterB: stateB,
     events: [],
@@ -80,26 +132,27 @@ export function runMatch(config: MatchConfig): MatchResult {
     seed: resolvedConfig.seed,
     rulesetVersion: resolvedConfig.rulesetVersion,
     catalogueVersion: resolvedConfig.catalogueVersion,
-    simulatorVersion: SIMULATOR_VERSION,
+    simulatorVersion: adapter.eventSimulatorVersion,
     componentQualificationId: resolvedConfig.componentQualificationId,
     componentQualification: resolvedConfig.componentQualification,
     fighterA: { id: stateA.fighterId, build: stateA.build.proposal },
     fighterB: { id: stateB.fighterId, build: stateB.build.proposal },
+    ...adapter.competitionStartedExtra,
   });
 
-  let finalResult = null;
+  let finalResult: CompetitionResult | null = null;
 
   for (let round = 1; round <= MAX_ROUNDS; round++) {
     const roundTs = round * 1000;
     emit("round_started", round, roundTs);
 
-    const actionA = deriveAction(
+    const actionA = adapter.deriveAction(
       roundState.fighterA,
       config.fighterA.policy,
       roundState.fighterB,
       rng,
     );
-    const actionB = deriveAction(
+    const actionB = adapter.deriveAction(
       roundState.fighterB,
       config.fighterB.policy,
       roundState.fighterA,
@@ -113,7 +166,7 @@ export function runMatch(config: MatchConfig): MatchResult {
       action: actionB,
     });
 
-    roundState = applyRound(
+    roundState = adapter.applyRound(
       roundState,
       { fighterA: actionA, fighterB: actionB },
       rng,
@@ -185,15 +238,36 @@ export function runMatch(config: MatchConfig): MatchResult {
         ? MAX_ROUNDS
         : roundState.events.filter((e) => e.type === "round_ended").length,
     initialState: { fighterA: stateA, fighterB: stateB },
+    runtime: adapter.runtime,
   };
 }
 
-function createFighterState(
+const LEGACY_MATCH_ADAPTER: MatchRuntimeAdapter<ArenaZone> & {
+  readonly runtime: LegacyRuntimeIdentity;
+} = {
+  initialZones: { fighterA: "south_edge", fighterB: "north_edge" },
+  initialFacing: { fighterA: "north", fighterB: "south" },
+  deriveAction,
+  applyRound,
+  competitionStartedExtra: {},
+  eventSimulatorVersion: "0.2.0",
+  runtime: {
+    simulatorVersion: "0.2.0",
+    positioningModel: "legacy-five-zone-v1",
+  },
+};
+
+/** Default application path — always the legacy five-zone runtime. */
+export function runMatch(config: MatchConfig): MatchResult {
+  return runMatchForZone(config, LEGACY_MATCH_ADAPTER);
+}
+
+export function createZoneFighterState<Z>(
   build: MatchConfig["fighterA"]["build"],
   fighterId: string,
-  zone: FighterState["zone"],
-  facing: FighterState["facing"],
-): FighterState {
+  zone: Z,
+  facing: Direction,
+): ZoneFighterState<Z> {
   return {
     fighterId,
     build,

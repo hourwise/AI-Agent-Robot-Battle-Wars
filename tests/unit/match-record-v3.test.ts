@@ -299,3 +299,159 @@ describe("MatchRecord schema v3", () => {
     expect(result.ok).toBe(true);
   });
 });
+
+describe("v3 authoritative event contract hardening", () => {
+  function withEvents(events: readonly unknown[]): ReturnType<typeof makeV3Record> {
+    return makeV3Record({
+      events: events as never,
+    });
+  }
+
+  const validMovement = {
+    schemaVersion: "1",
+    sequence: 1,
+    round: 1,
+    timestampMs: 0,
+    type: "movement_resolved",
+    actorId: "fighter_a",
+    data: { from: "south", to: "center", facing: "north", action: "advance" },
+  };
+  const validRoundEnd = {
+    schemaVersion: "1",
+    sequence: 2,
+    round: 1,
+    timestampMs: 0,
+    type: "round_ended",
+    data: {
+      fighterA: { zone: "center", integrity: 100 },
+      fighterB: { zone: "north", integrity: 100 },
+    },
+  };
+
+  it("accepts complete valid v3 positioning events", () => {
+    const record = makeV3Record({
+      events: [
+        {
+          schemaVersion: "1",
+          sequence: 0,
+          round: 0,
+          timestampMs: 0,
+          type: "competition_started",
+          data: { seed: 7 },
+        },
+        validMovement,
+        validRoundEnd,
+      ],
+    });
+    expect(validateMatchRecord(record).ok).toBe(true);
+  });
+
+  it("rejects a missing movement from", () => {
+    const record = withEvents([
+      validMovement,
+      { ...validMovement, sequence: 3, data: { to: "center", facing: "north" } },
+    ]);
+    const result = validateMatchRecord(record);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors).toContain("data.from");
+  });
+
+  it("rejects a missing movement to", () => {
+    const record = withEvents([
+      validMovement,
+      { ...validMovement, sequence: 3, data: { from: "south", facing: "north" } },
+    ]);
+    const result = validateMatchRecord(record);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors).toContain("data.to");
+  });
+
+  it("rejects a missing round-end fighterA", () => {
+    const record = withEvents([
+      validMovement,
+      {
+        ...validRoundEnd,
+        sequence: 3,
+        data: { fighterB: { zone: "north" } },
+      },
+    ]);
+    const result = validateMatchRecord(record);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors).toContain("data.fighterA");
+  });
+
+  it("rejects a missing round-end fighterB", () => {
+    const record = withEvents([
+      validMovement,
+      {
+        ...validRoundEnd,
+        sequence: 3,
+        data: { fighterA: { zone: "center" } },
+      },
+    ]);
+    const result = validateMatchRecord(record);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors).toContain("data.fighterB");
+  });
+
+  it("rejects a missing round-end zone on either fighter", () => {
+    const missingA = withEvents([
+      validMovement,
+      {
+        ...validRoundEnd,
+        sequence: 3,
+        data: { fighterA: {}, fighterB: { zone: "north" } },
+      },
+    ]);
+    const resultA = validateMatchRecord(missingA);
+    expect(resultA.ok).toBe(false);
+    if (!resultA.ok) expect(resultA.errors).toContain("data.fighterA.zone");
+
+    const missingB = withEvents([
+      validMovement,
+      {
+        ...validRoundEnd,
+        sequence: 3,
+        data: { fighterA: { zone: "center" }, fighterB: {} },
+      },
+    ]);
+    const resultB = validateMatchRecord(missingB);
+    expect(resultB.ok).toBe(false);
+    if (!resultB.ok) expect(resultB.errors).toContain("data.fighterB.zone");
+  });
+
+  it("rejects null or malformed positioning payloads", () => {
+    expect(validateMatchRecord(withEvents([{ ...validMovement, data: null }])).ok).toBe(
+      false,
+    );
+    expect(
+      validateMatchRecord(withEvents([{ ...validMovement, data: "bogus" }])).ok,
+    ).toBe(false);
+    expect(validateMatchRecord(withEvents([{ ...validRoundEnd, data: null }])).ok).toBe(
+      false,
+    );
+    expect(
+      validateMatchRecord(
+        withEvents([
+          { ...validRoundEnd, data: { fighterA: null, fighterB: { zone: "north" } } },
+        ]),
+      ).ok,
+    ).toBe(false);
+    expect(
+      validateMatchRecord(
+        withEvents([
+          { ...validRoundEnd, data: { fighterA: { zone: "center" }, fighterB: "x" } },
+        ]),
+      ).ok,
+    ).toBe(false);
+  });
+
+  it("leaves v1/v2 validation unchanged by the hardening", () => {
+    // A v2 record may carry a movement event without zone facts at all.
+    const v2 = makeV2Record();
+    expect(validateMatchRecord(v2).ok).toBe(true);
+
+    const v1 = { ...makeV2Record(), schemaVersion: "1" };
+    expect(validateMatchRecord(v1).ok).toBe(true);
+  });
+});

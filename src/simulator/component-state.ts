@@ -1,5 +1,5 @@
 import type {
-  FighterState,
+  FighterCoreState,
   ComponentKind,
   ComponentStatus,
   ComponentStates,
@@ -22,7 +22,7 @@ import type { SeededRandom } from "./seeded-random.js";
 
 // ── Effective-stat helpers ──
 
-export function getEffectiveSpeed(fighter: FighterState): number {
+export function getEffectiveSpeed(fighter: FighterCoreState): number {
   const baseSpeed = getBaseSpeed(fighter);
   if (fighter.comps.mobility.state === "damaged") {
     return Math.max(1, baseSpeed - DAMAGED_MOBILITY_SPEED_PENALTY);
@@ -31,7 +31,7 @@ export function getEffectiveSpeed(fighter: FighterState): number {
 }
 
 export function getEffectiveWeaponDamage(
-  fighter: FighterState,
+  fighter: FighterCoreState,
   baseDamage: number,
 ): number {
   if (fighter.comps.weapon.state === "damaged") {
@@ -40,7 +40,7 @@ export function getEffectiveWeaponDamage(
   return baseDamage;
 }
 
-export function getEffectiveCoolingBonus(fighter: FighterState): number {
+export function getEffectiveCoolingBonus(fighter: FighterCoreState): number {
   if (!fighter.comps.utility.installed) return 0;
   if (fighter.comps.utility.state === "disabled") return 0;
   if (fighter.comps.utility.state === "damaged") return DAMAGED_COOLING_BONUS;
@@ -194,9 +194,7 @@ export function checkComponentQualification(
 ): QualificationResult {
   const configChecksum = getComponentQualificationConfigChecksum(config);
   const thresholdBand =
-    config.model === "armour-band-component-impact"
-      ? band
-      : undefined;
+    config.model === "armour-band-component-impact" ? band : undefined;
   if (!thresholdBand && config.model === "armour-band-component-impact") {
     throw new Error("Armour-band qualification requires a resolved band");
   }
@@ -442,7 +440,7 @@ export function applyTransition(
 
 // ── Base speed lookup ──
 
-function getBaseSpeed(fighter: FighterState): number {
+function getBaseSpeed(fighter: FighterCoreState): number {
   const mobilityId = fighter.build.proposal.mobilityId;
   switch (mobilityId) {
     case "wheels":

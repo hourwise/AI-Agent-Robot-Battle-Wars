@@ -1,10 +1,16 @@
 import type {
   FighterState,
+  ZoneFighterState,
+  GridZone,
   RoundAction,
   SimulationEvent,
   ArenaZone,
   Condition,
   ActionPolicy,
+  MovementAction,
+  PrimaryTarget,
+  SecondaryTarget,
+  Direction,
 } from "./types.js";
 import type { SeededRandom } from "./seeded-random.js";
 import { resolveMovement } from "./movement.js";
@@ -67,13 +73,73 @@ function getWeaponCooldown(weaponId: string): number {
   return weapon?.cooldown ?? 0;
 }
 
-export interface RoundState {
-  fighterA: FighterState;
-  fighterB: FighterState;
+export interface RoundState<Z extends ArenaZone | GridZone = ArenaZone> {
+  fighterA: ZoneFighterState<Z>;
+  fighterB: ZoneFighterState<Z>;
   events: SimulationEvent[];
   damageDealt: { a: number; b: number };
   roundsAttacked: { a: number; b: number };
 }
+
+/**
+ * The positioning surface the shared round core depends on. The legacy
+ * adapter implements the five-zone semantics; the grid adapter implements the
+ * frozen 3×3 semantics. Shared combat, component and energy/heat logic is
+ * therefore written once and never drifts between runtimes.
+ */
+export interface PositioningAdapter<Z extends ArenaZone | GridZone> {
+  /**
+   * Resolve one fighter's movement from the shared start-of-round state.
+   * Both fighters are passed so opponent-relative grid movement stays
+   * deterministic and free of fighter-A ordering advantage.
+   */
+  resolveMovement(
+    state: ZoneFighterState<Z>,
+    opponent: ZoneFighterState<Z>,
+    action: MovementAction,
+  ): { zone: Z; facing: Direction; translated: boolean };
+  computeDistance(zoneA: Z, zoneB: Z): "close" | "medium" | "far";
+  computeAttack(
+    attacker: ZoneFighterState<Z>,
+    defender: ZoneFighterState<Z>,
+    hitChance: number,
+    momentum: number,
+    rng: SeededRandom,
+    primaryTarget?: PrimaryTarget,
+    secondaryTarget?: SecondaryTarget,
+  ): AttackResult;
+  resolveKnockback(attackerZone: Z, attackerFacing: Direction, defenderZone: Z): Z | null;
+  resolveGrapple(attackerZone: Z, defenderZone: Z): Z | null;
+  /** Grid enables target-relative grapple repositioning; legacy does not. */
+  enableGrappleRepositioning: boolean;
+  momentumFor(action: MovementAction, translated: boolean): number;
+}
+
+const LEGACY_POSITIONING_ADAPTER: PositioningAdapter<ArenaZone> = {
+  resolveMovement(state, _opponent, action) {
+    const resolved = resolveMovement(state as FighterState, action);
+    return {
+      ...resolved,
+      translated: resolved.zone !== state.zone,
+    };
+  },
+  computeDistance: (zoneA, zoneB) => getDistance(zoneA, zoneB),
+  computeAttack: (attacker, defender, hitChance, momentum, rng, primary, secondary) =>
+    calculateAttack(
+      attacker as FighterState,
+      defender as FighterState,
+      hitChance,
+      momentum,
+      rng,
+      primary,
+      secondary,
+    ),
+  resolveKnockback: (attackerZone, _attackerFacing, defenderZone) =>
+    getKnockbackZone(attackerZone, defenderZone),
+  resolveGrapple: () => null,
+  enableGrappleRepositioning: false,
+  momentumFor: (action) => (action === "advance" ? 1 : 0),
+};
 
 export function applyRound(
   state: RoundState,
@@ -85,6 +151,37 @@ export function applyRound(
   policyB?: ActionPolicy,
   qualificationConfig: ComponentQualificationConfig = getDefaultComponentQualificationConfig(),
 ): RoundState {
+  return applyRoundForZone(
+    state,
+    actions,
+    rng,
+    round,
+    timestampMs,
+    policyA,
+    policyB,
+    qualificationConfig,
+    LEGACY_POSITIONING_ADAPTER,
+  );
+}
+
+/**
+ * Shared deterministic round core parameterised by the positioning adapter.
+ * The legacy adapter reproduces the historical five-zone semantics exactly;
+ * the grid adapter freezes the 3×3 semantics. All non-positioning logic
+ * (recovery, cooldowns, energy/heat, attacks, component lifecycle, events) is
+ * shared.
+ */
+export function applyRoundForZone<Z extends ArenaZone | GridZone>(
+  state: RoundState<Z>,
+  actions: { fighterA: RoundAction; fighterB: RoundAction },
+  rng: SeededRandom,
+  round: number,
+  timestampMs: number,
+  policyA: ActionPolicy | undefined,
+  policyB: ActionPolicy | undefined,
+  qualificationConfig: ComponentQualificationConfig,
+  positioning: PositioningAdapter<Z>,
+): RoundState<Z> {
   let a = { ...state.fighterA };
   let b = { ...state.fighterB };
   const events: SimulationEvent[] = [];
@@ -126,8 +223,8 @@ export function applyRound(
     });
   }
 
-  const resolvedA = resolveMovement(a, actions.fighterA.movement);
-  const resolvedB = resolveMovement(b, actions.fighterB.movement);
+  const resolvedA = positioning.resolveMovement(a, b, actions.fighterA.movement);
+  const resolvedB = positioning.resolveMovement(b, a, actions.fighterB.movement);
 
   if (resolvedA.zone !== a.zone || resolvedA.facing !== a.facing) {
     emit("movement_resolved", a.fighterId, undefined, {
@@ -149,8 +246,14 @@ export function applyRound(
     b = { ...b, zone: resolvedB.zone, facing: resolvedB.facing };
   }
 
-  const momentumA = actions.fighterA.movement === "advance" ? 1 : 0;
-  const momentumB = actions.fighterB.movement === "advance" ? 1 : 0;
+  const momentumA = positioning.momentumFor(
+    actions.fighterA.movement,
+    resolvedA.translated,
+  );
+  const momentumB = positioning.momentumFor(
+    actions.fighterB.movement,
+    resolvedB.translated,
+  );
 
   const attackA =
     actions.fighterA.combat === "attack" &&
@@ -162,10 +265,10 @@ export function applyRound(
     b.weaponCooldown <= 0;
 
   const attackResultA = attackA
-    ? calculateAttack(
+    ? positioning.computeAttack(
         a,
         b,
-        computeHitChance(a, b, rng),
+        computeHitChance(a, b, positioning),
         momentumA,
         rng,
         policyA?.primaryTarget,
@@ -173,10 +276,10 @@ export function applyRound(
       )
     : null;
   const attackResultB = attackB
-    ? calculateAttack(
+    ? positioning.computeAttack(
         b,
         a,
-        computeHitChance(b, a, rng),
+        computeHitChance(b, a, positioning),
         momentumB,
         rng,
         policyB?.primaryTarget,
@@ -246,7 +349,7 @@ export function applyRound(
       }
 
       if (attackResultA.knockback) {
-        const newZone = getKnockbackZone(a.zone, b.zone);
+        const newZone = positioning.resolveKnockback(a.zone, a.facing, b.zone);
         if (newZone && newZone !== b.zone) {
           const originalZone = b.zone;
           b = { ...b, zone: newZone };
@@ -255,6 +358,20 @@ export function applyRound(
             to: newZone,
             facing: b.facing,
             action: "knockback",
+          });
+        }
+      }
+
+      if (positioning.enableGrappleRepositioning && attackResultA.grappleReposition) {
+        const newZone = positioning.resolveGrapple(a.zone, b.zone);
+        if (newZone && newZone !== b.zone) {
+          const originalZone = b.zone;
+          b = { ...b, zone: newZone };
+          emit("movement_resolved", a.fighterId, b.fighterId, {
+            from: originalZone,
+            to: newZone,
+            facing: b.facing,
+            action: "grapple",
           });
         }
       }
@@ -466,7 +583,7 @@ export function applyRound(
       }
 
       if (attackResultB.knockback) {
-        const newZone = getKnockbackZone(b.zone, a.zone);
+        const newZone = positioning.resolveKnockback(b.zone, b.facing, a.zone);
         if (newZone && newZone !== a.zone) {
           const originalZone = a.zone;
           a = { ...a, zone: newZone };
@@ -475,6 +592,20 @@ export function applyRound(
             to: newZone,
             facing: a.facing,
             action: "knockback",
+          });
+        }
+      }
+
+      if (positioning.enableGrappleRepositioning && attackResultB.grappleReposition) {
+        const newZone = positioning.resolveGrapple(b.zone, a.zone);
+        if (newZone && newZone !== a.zone) {
+          const originalZone = a.zone;
+          a = { ...a, zone: newZone };
+          emit("movement_resolved", b.fighterId, a.fighterId, {
+            from: originalZone,
+            to: newZone,
+            facing: a.facing,
+            action: "grapple",
           });
         }
       }
@@ -665,14 +796,14 @@ export function applyRound(
   };
 }
 
-function computeHitChance(
-  attacker: FighterState,
-  defender: FighterState,
-  _rng: SeededRandom,
+function computeHitChance<Z extends ArenaZone | GridZone>(
+  attacker: ZoneFighterState<Z>,
+  defender: ZoneFighterState<Z>,
+  positioning: PositioningAdapter<Z>,
 ): number {
   const weaponSpec = attacker.build.proposal.weaponId;
   const baseAccuracy = getWeaponAccuracy(weaponSpec);
-  const range = getDistance(attacker.zone, defender.zone);
+  const range = positioning.computeDistance(attacker.zone, defender.zone);
   const rangeMod = range === "close" ? 1.0 : range === "medium" ? 0.8 : 0.5;
 
   return (baseAccuracy / 100) * BASE_HIT_CHANCE * rangeMod;
@@ -724,7 +855,9 @@ function getKnockbackZone(
   return null;
 }
 
-function applyHeatAndEnergy(state: FighterState): FighterState {
+function applyHeatAndEnergy<Z extends ArenaZone | GridZone>(
+  state: ZoneFighterState<Z>,
+): ZoneFighterState<Z> {
   const coolingBonus = getEffectiveCoolingBonus(state);
   const dissipation = HEAT_DISSIPATION_PER_ROUND + coolingBonus;
 

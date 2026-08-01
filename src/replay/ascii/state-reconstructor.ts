@@ -80,10 +80,11 @@ function applyEvent(
         }
         assertGridZone(data.to, "movement_resolved.data.to");
       }
-      // For knockback events, the fighter whose zone changed is targetId (the one knocked back).
-      // For normal movement, it is actorId.
-      const isKnockback = data.action === "knockback";
-      const fighterId = isKnockback ? event.targetId : event.actorId;
+      // For repositioning effects (knockback, grid grapple), the fighter whose
+      // zone changed is targetId (the one moved). For normal movement it is
+      // actorId.
+      const repositionsTarget = data.action === "knockback" || data.action === "grapple";
+      const fighterId = repositionsTarget ? event.targetId : event.actorId;
       const facing =
         data.facing ??
         (fighterId === "fighter_a" ? state.fighterA.facing : state.fighterB.facing);

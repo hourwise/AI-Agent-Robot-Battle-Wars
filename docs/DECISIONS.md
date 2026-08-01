@@ -135,6 +135,57 @@ started; simulator `0.3.0` not active; grid movement/action/damage integration
 not implemented; policy-driven lateral movement not implemented. Milestone
 0.2C is not complete.
 
+## D35: Opt-in deterministic grid combat runtime core (2026-07-31)
+
+Milestone 0.2C Phase 3A implements the full deterministic 3×3 grid combat core
+as an **opt-in** runtime that must not become the default:
+
+- **Explicit in-memory runtime identity**: `MatchResult` carries a required
+  `runtime` identity — legacy `{ simulatorVersion: "0.2.0",
+positioningModel: "legacy-five-zone-v1" }`, grid
+  `{ simulatorVersion: "0.3.0", positioningModel: "grid-3x3-v1" }`. Replay
+  dispatch and persistence routing read this identity directly; the model is
+  never inferred from zone strings (`center` exists in both models).
+- **Legacy/grid state separation**: `FighterCoreState` is position-independent;
+  `ZoneFighterState<Z>` is the core plus a zone; grid uses `GridZone`, legacy
+  uses `ArenaZone`. There is no mixed-zone union for runtime functions.
+- **Shared core**: the deterministic match loop, round reducer, component
+  lifecycle, energy/heat, victory and event production are shared through
+  generic `PositioningAdapter<Z>` and `MatchRuntimeAdapter<Z>` contracts.
+  Legacy behaviour is byte-for-byte identical (lifecycle checksums and the
+  full legacy test surface unchanged).
+- **Deterministic grid movement**: `advance` steps along the frozen
+  `north → east → south → west` shortest path; `retreat` picks the
+  greatest-distance orthogonal neighbour (NESW ties); circle/hold turn or
+  preserve in place; movement never wraps. RNG consumption order (movement
+  first, then combat roll) is preserved.
+- **Grid distance/actions**: distance uses combat proximity (Chebyshev
+  `close`/`medium`/`far`); `deriveGridAction` uses the grid proximity band; no
+  new policy fields are introduced.
+- **Grid exposure/targeting**: defender-relative bearing → planar armour
+  zones; hammer additionally exposes `top`; hit zone resolves
+  primary → secondary → front.
+- **Knockback and grapple repositioning**: deterministic greatest-distance
+  neighbours; grid grapple repositions the target one shortest-path step
+  toward the attacker and is emitted as `movement_resolved` with
+  `action: "grapple"` and `targetId`; reconstruction treats `knockback` and
+  `grapple` as target-repositioning movements.
+- **Opt-in entry point**: `runGridMatch(config)` returns a `GridMatchResult`
+  with `0.3.0` / `grid-3x3-v1` identity. The normal application still calls
+  `runMatch` (legacy) and persists schema v2; `runGridMatch` is not wired into
+  CLI, series, battle or application commands.
+- **Persistence by identity**: legacy results persist as schema v2; grid
+  results persist as schema v3 with `positioningModel: "grid-3x3-v1"`.
+  Invalid identity combinations are rejected; `mapLegacyZoneToGridZone` is
+  never used for automatic conversion.
+- **No balance conclusions**: Phase 3A makes no grid-vs-legacy balance claims.
+
+Status: Phase 3A grid runtime core complete and tested (781 tests total, 54
+new). Authoritative runtime migration is **not** performed: `SIMULATOR_VERSION`
+and `RULESET_VERSION` remain `0.2.0`, catalogue `1`, C2 remains the runtime
+default, and normal persistence remains schema v2. Policy-driven lateral
+movement is unimplemented. Milestone 0.2C is not complete.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

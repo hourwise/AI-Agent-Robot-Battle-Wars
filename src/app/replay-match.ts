@@ -115,6 +115,10 @@ async function main() {
     events: record.events,
     result: record.result,
     rounds: record.rounds,
+    runtime: {
+      simulatorVersion: "0.2.0",
+      positioningModel: "legacy-five-zone-v1",
+    },
   } as import("../simulator/types.js").MatchResult;
 
   const textReplay = renderTextReplay(matchResult);
@@ -135,6 +139,10 @@ async function main() {
       events: record.events,
       result: record.result,
       rounds: record.rounds,
+      runtime: {
+        simulatorVersion: "0.2.0",
+        positioningModel: "legacy-five-zone-v1",
+      },
     } as import("../simulator/types.js").MatchResult;
     const statistics = computeMatchStatistics(matchResult);
     console.log("");

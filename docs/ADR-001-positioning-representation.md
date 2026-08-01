@@ -328,6 +328,113 @@ facing arrows and the existing component/condition marker precedence.
 `src/replay/ascii/arena-renderer.ts` dispatches between the two renderers by
 positioning model.
 
+## 7. Phase 3A — opt-in deterministic grid combat runtime (2026-07-31)
+
+Phase 3A implements the full deterministic grid combat core as an **opt-in**
+runtime. The legacy five-zone `runMatch` remains the application default;
+`runGridMatch` is a separate entry point that is never wired into the normal
+CLI, series, battle or application commands.
+
+### 7.1 Explicit runtime identity
+
+`MatchResult` now carries a required in-memory `runtime` identity:
+
+- legacy: `{ simulatorVersion: "0.2.0", positioningModel: "legacy-five-zone-v1" }`;
+- grid: `{ simulatorVersion: "0.3.0", positioningModel: "grid-3x3-v1" }`.
+
+Replay dispatch and persistence routing read this identity directly; the model
+is **never** inferred from zone strings (`center` exists in both models).
+
+### 7.2 Shared core, adapter-separated positioning
+
+The deterministic match loop, round reducer, component lifecycle, energy/heat,
+victory and event production are shared between runtimes via generic adapters:
+
+- `PositioningAdapter<Z>` — `resolveMovement`, `computeDistance`,
+  `computeAttack`, `resolveKnockback`, `resolveGrapple`,
+  `enableGrappleRepositioning`, `momentumFor`;
+- `MatchRuntimeAdapter<Z>` — initial zones/facing, action derivation, round
+  application, `competition_started` extra facts, event simulator version and
+  the runtime identity.
+
+Legacy behaviour is proven identical: the lifecycle-suite checksums and the
+entire legacy test surface are unchanged (see §7.9).
+
+### 7.3 Grid movement (deterministic)
+
+- `advance` — one orthogonal step along the frozen `north → east → south →
+west` shortest path; no translation when sharing a cell.
+- `retreat` — greatest-distance orthogonal neighbour from the opponent with
+  `north → east → south → west` ties; no translation when blocked.
+- `circle_left` / `circle_right` — turn in place (Phase 3A; no lateral
+  translation).
+- `hold` — preserve zone and facing.
+- Out-of-bounds movement never wraps.
+
+### 7.4 Grid distance and action derivation
+
+`computeDistance` uses combat proximity (Chebyshev: `close` / `medium` / `far`).
+`deriveGridAction` preserves the legacy RNG consumption order — movement is
+derived first, then the combat roll — while using the grid proximity band for
+engagement decisions. No new policy fields are introduced.
+
+### 7.5 Grid exposure and targeting
+
+`getGridExposedZones` maps the defender-relative bearing to planar armour
+zones (ADR-001 §2.7); the hammer additionally exposes `top`. `determineGridHitZone`
+resolves the primary → secondary → front fallback chain deterministically.
+
+### 7.6 Grid knockback and grapple repositioning
+
+- Knockback: different cells → greatest-distance orthogonal neighbour from the
+  attacker (NESW ties), none if blocked; same cell → one step in the attacker's
+  facing, else first valid NESW neighbour; never wraps.
+- Grapple repositioning (enabled for the grid adapter): when the fighters
+  occupy different cells, move the target one shortest-path step toward the
+  attacker; emitted as `movement_resolved` with `action: "grapple"` and
+  `targetId`.
+- Legacy reconstruction treats both `knockback` and `grapple` as
+  target-repositioning movements.
+
+### 7.7 Persistence routing
+
+`matchResultToRecord` routes by explicit identity only:
+
+- legacy `0.2.0` → schema v2 (unchanged production path);
+- grid `0.3.0` → schema v3 with `positioningModel: "grid-3x3-v1"`.
+
+Invalid combinations are rejected (grid-with-0.2.0, legacy-with-0.3.0,
+grid-with-legacy-edge, legacy-with-grid-corner, unknown model).
+`mapLegacyZoneToGridZone` is never used during persistence.
+
+### 7.8 Entry point
+
+`runGridMatch(config)` returns a `GridMatchResult` with the `0.3.0` /
+`grid-3x3-v1` identity. The normal application continues to call `runMatch`
+and persists schema v2.
+
+### 7.9 Verification
+
+- Full suite: 781 tests (727 pre-existing + 54 new grid/runtime/identity tests).
+- `npm run check`, `npm run lint` and `prettier --end-of-line crlf --check`
+  all pass on touched files.
+- Legacy lifecycle checksums (C1 `2a40a56f97062ca3`, C2 `13548462df34a183`,
+  AB2 `6b9f70450d3f10b8`) are unchanged; C2 remains the runtime default.
+- No benchmark partitions ran; seeds, fixtures and held-out/`all` partitions
+  remain sealed; no external API calls.
+
+## 8. Still out of scope
+
+- **Authoritative migration**: the live simulator remains `0.2.0` legacy;
+  `SIMULATOR_VERSION` / `RULESET_VERSION` remain `0.2.0`, catalogue `1`;
+  normal persistence remains schema v2.
+- **Policy-driven lateral movement**: `circle_left`/`circle_right` remain
+  in-place turns; no new lateral movement actions or policy fields exist.
+- **Live activation** of grid match production in the application/CLI/series.
+- **Balance conclusions**: no grid-vs-legacy balance claims are made from
+  Phase 3A.
+- Opponent suite and adaptation evaluation (0.2D/0.2E).
+
 ### 6.5 State reconstruction
 
 `state-reconstructor.ts` accepts an explicit positioning model (defaulting to

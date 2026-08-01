@@ -39,6 +39,7 @@ function makeCurrentLegacyResult(): MatchResult {
     ],
     result: { winner: null, loser: null, method: "draw" },
     rounds: 1,
+    runtime: { simulatorVersion: "0.2.0", positioningModel: "legacy-five-zone-v1" },
   } as unknown as MatchResult;
 }
 

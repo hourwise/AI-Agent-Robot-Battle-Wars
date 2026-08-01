@@ -1,4 +1,4 @@
-import type { FighterState, CompetitionResult, JudgeScore } from "./types.js";
+import type { FighterCoreState, CompetitionResult, JudgeScore } from "./types.js";
 import {
   JUDGE_DAMAGE_WEIGHT,
   JUDGE_MOBILITY_WEIGHT,
@@ -9,8 +9,8 @@ import {
 } from "./constants.js";
 
 export function checkVictory(
-  fighterA: FighterState,
-  fighterB: FighterState,
+  fighterA: FighterCoreState,
+  fighterB: FighterCoreState,
   round: number,
   maxRounds: number,
   damageDealt: { a: number; b: number },
@@ -66,8 +66,8 @@ export function checkVictory(
 }
 
 export function judgeDecision(
-  fighterA: FighterState,
-  fighterB: FighterState,
+  fighterA: FighterCoreState,
+  fighterB: FighterCoreState,
   damageDealt: { a: number; b: number },
   roundsAttacked: { a: number; b: number },
   totalRounds: number,
@@ -113,7 +113,7 @@ export function judgeDecision(
 }
 
 function computeJudgeScore(
-  fighter: FighterState,
+  fighter: FighterCoreState,
   damageInflicted: number,
   roundsAttacked: number,
   totalRounds: number,
@@ -148,14 +148,14 @@ function computeJudgeScore(
   };
 }
 
-function getMobilityScore(fighter: FighterState): number {
+function getMobilityScore(fighter: FighterCoreState): number {
   if (fighter.components.mobilityDisabled) return 0;
 
   const speed = getSpeed(fighter);
   return Math.min(100, speed * 10);
 }
 
-function getSpeed(fighter: FighterState): number {
+function getSpeed(fighter: FighterCoreState): number {
   const id = fighter.build.proposal.mobilityId;
   switch (id) {
     case "wheels":
@@ -170,8 +170,8 @@ function getSpeed(fighter: FighterState): number {
 }
 
 function tieBreak(
-  fighterA: FighterState,
-  fighterB: FighterState,
+  fighterA: FighterCoreState,
+  fighterB: FighterCoreState,
   damageDealt: { a: number; b: number },
 ): { winner: string | null; loser: string | null } {
   const mobA = getMobilityScore(fighterA);

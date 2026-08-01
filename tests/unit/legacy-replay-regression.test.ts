@@ -115,6 +115,10 @@ describe("legacy (v1/v2) regression", () => {
       events: record.events,
       result: record.result,
       rounds: record.rounds,
+      runtime: {
+        simulatorVersion: "0.2.0",
+        positioningModel: "legacy-five-zone-v1",
+      },
     } as unknown as MatchResult;
 
     const text = renderTextReplay(result);

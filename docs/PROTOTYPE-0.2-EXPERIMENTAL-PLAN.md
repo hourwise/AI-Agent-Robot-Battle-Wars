@@ -54,9 +54,33 @@ The next permitted implementation milestone after the 0.2B closure is
   authorised evaluation cycle.
 
 Milestone 0.2C Phase 1 (pure geometry foundation) is implemented by the
-`agent/0.2c-grid-foundation` task; the authoritative runtime migration,
-schema v3, replay migration and ASCII 3×3 rendering remain separate future
-phases.
+`agent/0.2c-grid-foundation` task; Phase 2 (schema v3 + versioned replay
+foundation) is implemented by the `agent/0.2c-schema-v3-replay` task; Phase 3A
+(opt-in deterministic grid combat runtime core) is implemented by the
+`agent/0.2c-grid-runtime-core` task. The authoritative runtime migration,
+policy-driven lateral movement and live grid match production remain future,
+separately authorised phases.
+
+**Milestone 0.2C progress (2026-07-31):**
+
+- Phase 1 — 3×3 geometry foundation: **complete**.
+- Phase 2 — grid match schema v3, explicit positioning identifier,
+  version-aware replay dispatch, 3×3 ASCII renderer: **complete**.
+- Phase 3A — opt-in deterministic grid combat runtime core: **complete**.
+  `runGridMatch` provides a full deterministic grid match (movement,
+  proximity-based actions, planar exposure/targeting, knockback and grapple
+  repositioning, shared damage/component/victory core) with explicit
+  `0.3.0` / `grid-3x3-v1` identity, persisting schema v3.
+- Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
+  `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
+  still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not
+  wired into CLI, series, battle or application commands.
+- Policy-driven lateral movement: **not implemented**. `circle_left` /
+  `circle_right` are in-place turns only; no new movement actions or policy
+  fields exist.
+- Balance evaluation of the grid runtime: **not performed**; no grid-vs-legacy
+  balance conclusions are made.
+- Milestone 0.2C is **not complete**.
 
 This is an evidence-led plan, not a feature wishlist. Every proposed change is driven by a specific limitation observed in Prototype 0.1.
 
@@ -486,14 +510,14 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
 
 Decision questions to resolve before implementation. Recommended order reflects dependencies.
 
-| #       | ADR                                | Question                                                                                                                                                               | Depends on                  |
-| ------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| #       | ADR                                | Question                                                                                                                                                                | Depends on                  |
+| ------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
 | ADR-001 | Positioning representation         | **Accepted for phased implementation:** 3×3 grid frozen in `docs/ADR-001-positioning-representation.md`; Phase 1 pure geometry implemented, runtime migration deferred. | Nothing                     |
-| ADR-002 | Component damage lifecycle         | **Accepted:** healthy→damaged→disabled. Candidate C1 is implemented and viable for lifecycle coverage, but 0.2B acceptance awaits split gates and diagnostic fixtures. | Volatility benchmark (0.2A) |
-| ADR-003 | Deterministic seed-bank evaluation | Fixed seeds, sample size, held-out protocol?                                                                                                                           | Nothing                     |
-| ADR-004 | Multi-opponent fixture format      | How are opponent builds and policies stored and versioned?                                                                                                             | Nothing                     |
-| ADR-005 | Simulator version compatibility    | How do old matches replay under new rules? Version-gating vs separate code paths?                                                                                      | ADR-001, ADR-002            |
-| ADR-006 | Adaptation success metrics         | What thresholds define improvement? How is overfitting detected?                                                                                                       | ADR-003                     |
+| ADR-002 | Component damage lifecycle         | **Accepted:** healthy→damaged→disabled. Candidate C1 is implemented and viable for lifecycle coverage, but 0.2B acceptance awaits split gates and diagnostic fixtures.  | Volatility benchmark (0.2A) |
+| ADR-003 | Deterministic seed-bank evaluation | Fixed seeds, sample size, held-out protocol?                                                                                                                            | Nothing                     |
+| ADR-004 | Multi-opponent fixture format      | How are opponent builds and policies stored and versioned?                                                                                                              | Nothing                     |
+| ADR-005 | Simulator version compatibility    | How do old matches replay under new rules? Version-gating vs separate code paths?                                                                                       | ADR-001, ADR-002            |
+| ADR-006 | Adaptation success metrics         | What thresholds define improvement? How is overfitting detected?                                                                                                        | ADR-003                     |
 
 Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are independent). ADR-001 is now accepted for phased implementation (Phase 1 pure geometry complete). ADR-002's lifecycle and Candidate C qualification architecture are accepted; Candidate C1 is implemented, but split gate approval and diagnostic fixture confirmation remain outstanding. ADR-005 depends on decisions made in ADR-001 and ADR-002. ADR-006 is last — it needs the evaluation protocol defined.
 
@@ -705,10 +729,10 @@ hard.
 Both registered configurations were run over the five-fixture development
 suite, 480 simulations each:
 
-| Qualification | Representative qualifying | Damaged / disabled | Terminal incidence | Suite checksum   |
-| ------------- | -------------------------: | -----------------: | -----------------: | ---------------- |
-| C1            |                  292 / 362 |          188 / 104 |              92.5% | `3289f1c9e4ab8398` |
-| C2            |                  271 / 402 |           176 / 95 |              87.5% | `801981a42474b5b6` |
+| Qualification | Representative qualifying | Damaged / disabled | Terminal incidence | Suite checksum     |
+| ------------- | ------------------------: | -----------------: | -----------------: | ------------------ |
+| C1            |                 292 / 362 |          188 / 104 |              92.5% | `3289f1c9e4ab8398` |
+| C2            |                 271 / 402 |           176 / 95 |              87.5% | `801981a42474b5b6` |
 
 The historical guarded, unguarded, Glass Cannon, and asymmetric outcome
 checksums are unchanged under their respective C1/C2 configurations. Neither

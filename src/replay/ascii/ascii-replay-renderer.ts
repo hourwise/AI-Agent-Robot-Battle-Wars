@@ -1,4 +1,4 @@
-import type { MatchResult } from "../../simulator/types.js";
+import type { AnyMatchResult } from "../../simulator/types.js";
 import type {
   AsciiReplayInput,
   AsciiRenderOptions,
@@ -10,8 +10,10 @@ import { populateHighlightStates, getInitialState } from "./state-reconstructor.
 import { renderMoment, renderOpeningFrame } from "./moment-renderer.js";
 import { renderResultCard } from "./result-card-renderer.js";
 import { SEPARATOR, padCenter, ARENA_WIDTH, resolveDisplayName } from "./ascii-layout.js";
+import { POSITIONING_MODEL_LEGACY } from "../../schemas/positioning.schema.js";
+import type { ReplayPositioningModel } from "../positioning-model.js";
 
-function adaptFighterVisual(fighter: MatchResult["initialState"]["fighterA"]): {
+function adaptFighterVisual(fighter: AnyMatchResult["initialState"]["fighterA"]): {
   fighterId: string;
   build: typeof fighter.build;
   integrity: number;
@@ -53,7 +55,7 @@ function adaptFighterVisual(fighter: MatchResult["initialState"]["fighterA"]): {
   };
 }
 
-function adaptMatchResult(result: MatchResult): AsciiReplayInput {
+function adaptMatchResult(result: AnyMatchResult): AsciiReplayInput {
   return {
     config: result.config,
     initialState: {
@@ -94,8 +96,9 @@ function renderFighterCards(state: CompetitionState): string {
 }
 
 export function renderAsciiReplay(
-  input: MatchResult | AsciiReplayInput,
+  input: AnyMatchResult | AsciiReplayInput,
   options: AsciiRenderOptions = { mode: "ascii" },
+  positioningModel: ReplayPositioningModel = POSITIONING_MODEL_LEGACY,
 ): string {
   const replayInput = isAsciiReplayInput(input) ? input : adaptMatchResult(input);
   const maxHighlights = options.maxHighlights ?? 5;
@@ -105,20 +108,24 @@ export function renderAsciiReplay(
   lines.push(padCenter("FORGE ARENA — ASCII REPLAY", ARENA_WIDTH));
   lines.push("");
 
-  const initialState = getInitialState(replayInput);
+  const initialState = getInitialState(replayInput, positioningModel);
   lines.push(renderFighterCards(initialState));
 
-  lines.push(renderOpeningFrame(initialState, replayInput.config.seed));
+  lines.push(renderOpeningFrame(initialState, replayInput.config.seed, positioningModel));
 
   const combatHighlights = selectHighlights(
     replayInput.events,
     replayInput.result,
     maxHighlights,
   );
-  const populatedHighlights = populateHighlightStates(replayInput, combatHighlights);
+  const populatedHighlights = populateHighlightStates(
+    replayInput,
+    combatHighlights,
+    positioningModel,
+  );
 
   for (const moment of populatedHighlights) {
-    lines.push(renderMoment(moment));
+    lines.push(renderMoment(moment, positioningModel));
   }
 
   lines.push(
@@ -135,7 +142,7 @@ export function renderAsciiReplay(
 }
 
 function isAsciiReplayInput(
-  input: MatchResult | AsciiReplayInput,
+  input: AnyMatchResult | AsciiReplayInput,
 ): input is AsciiReplayInput {
   return (
     "initialState" in input && "fighterA" in (input as AsciiReplayInput).initialState

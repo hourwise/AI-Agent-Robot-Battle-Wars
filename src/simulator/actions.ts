@@ -1,5 +1,7 @@
 import type {
   FighterState,
+  GridFighterState,
+  FighterCoreState,
   ActionPolicy,
   RoundAction,
   DistanceBand,
@@ -7,6 +9,7 @@ import type {
 } from "./types.js";
 import type { SeededRandom } from "./seeded-random.js";
 import { isComponentDisabled } from "./component-state.js";
+import { getCombatProximity } from "./arena-grid.js";
 
 export function deriveAction(
   state: FighterState,
@@ -14,6 +17,33 @@ export function deriveAction(
   opponent: FighterState,
   rng: SeededRandom,
 ): RoundAction {
+  const early = deriveEarlyAction(state, policy);
+  if (early) return early;
+  const distance = computeDistance(state.zone, opponent.zone);
+  return derivePositionedAction(policy, rng, distance, state.weaponCooldown > 0);
+}
+
+/**
+ * Grid action path: identical policy fields, thresholds and decision ordering
+ * to the legacy path, replacing only the positioning calculation with the grid
+ * combat proximity band.
+ */
+export function deriveGridAction(
+  state: GridFighterState,
+  policy: ActionPolicy,
+  opponent: GridFighterState,
+  rng: SeededRandom,
+): RoundAction {
+  const early = deriveEarlyAction(state, policy);
+  if (early) return early;
+  const distance = getCombatProximity(state.zone, opponent.zone);
+  return derivePositionedAction(policy, rng, distance, state.weaponCooldown > 0);
+}
+
+function deriveEarlyAction(
+  state: FighterCoreState,
+  policy: ActionPolicy,
+): RoundAction | null {
   const integrityPercent = (state.integrity / state.maxIntegrity) * 100;
   const heatPercent = (state.heat / 100) * 100;
 
@@ -40,16 +70,12 @@ export function deriveAction(
     return { movement: "hold", combat: "defend" };
   }
 
-  if (state.weaponCooldown > 0) {
-    return deriveCooldownAction(state, opponent, policy, rng);
-  }
-
-  return deriveEngagementAction(state, opponent, policy, rng);
+  return null;
 }
 
 function deriveFallback(
   fallback: ActionPolicy["fallback"],
-  state: FighterState,
+  state: FighterCoreState,
 ): RoundAction {
   switch (fallback) {
     case "retreat":
@@ -63,27 +89,23 @@ function deriveFallback(
   }
 }
 
-function deriveCooldownAction(
-  state: FighterState,
-  opponent: FighterState,
+/**
+ * Shared positioned action core. Preserves the legacy RNG order exactly:
+ * `deriveMovement` consumes RNG first, then (for engagement) the aggression
+ * combat roll. Cooldown rounds always defend without an extra roll.
+ */
+function derivePositionedAction(
   policy: ActionPolicy,
   rng: SeededRandom,
+  distance: DistanceBand,
+  isCooldown: boolean,
 ): RoundAction {
-  const distance = computeDistance(state.zone, opponent.zone);
   const movement = deriveMovement(distance, policy, rng);
-  return { movement, combat: "defend" };
-}
-
-function deriveEngagementAction(
-  state: FighterState,
-  opponent: FighterState,
-  policy: ActionPolicy,
-  rng: SeededRandom,
-): RoundAction {
-  const distance = computeDistance(state.zone, opponent.zone);
-  const movement = deriveMovement(distance, policy, rng);
-  const combat =
-    policy.aggression > 50 || rng.chance(policy.aggression / 100) ? "attack" : "defend";
+  const combat = isCooldown
+    ? "defend"
+    : policy.aggression > 50 || rng.chance(policy.aggression / 100)
+      ? "attack"
+      : "defend";
   return { movement, combat };
 }
 

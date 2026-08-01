@@ -2,10 +2,7 @@ import { z } from "zod";
 import { machineBuildProposalSchema } from "./build.schema.js";
 import { actionPolicySchema } from "./policy.schema.js";
 import { MatchReviewSchema } from "./review.schema.js";
-import {
-  gridZoneSchema,
-  POSITIONING_MODEL_GRID,
-} from "./positioning.schema.js";
+import { gridZoneSchema, POSITIONING_MODEL_GRID } from "./positioning.schema.js";
 import { isGridZone } from "../simulator/arena-grid.js";
 
 const componentQualificationIdSchema = z.enum([
@@ -224,6 +221,10 @@ export const MatchRecordV2Schema = z.object({
  * records. Only `movement_resolved` and `round_ended` carry arena zone facts
  * that must be canonical grid zones; other event payloads are left generic.
  * This is deliberately scoped and does not redesign the generic event schema.
+ *
+ * For v3 records every such payload must be complete: missing `data`,
+ * missing movement `from`/`to`, missing round-end `fighterA`/`fighterB`, or a
+ * missing zone fails validation exactly like an invalid legacy-edge value.
  */
 function validateV3PositioningFacts(events: readonly unknown[]): string[] {
   const errors: string[] = [];
@@ -232,33 +233,42 @@ function validateV3PositioningFacts(events: readonly unknown[]): string[] {
     const envelope = event as { type?: unknown; data?: unknown };
 
     if (envelope.type === "movement_resolved") {
-      const data = envelope.data as { from?: unknown; to?: unknown } | undefined;
-      if (typeof data === "object" && data !== null) {
-        for (const field of ["from", "to"] as const) {
-          if (!isGridZone(data[field])) {
-            errors.push(
-              `movement_resolved.data.${field} must be a canonical grid zone; received ${String(data[field])}`,
-            );
-          }
-        }
+      const data = envelope.data;
+      if (typeof data !== "object" || data === null) {
+        errors.push("movement_resolved.data must be an object");
+        continue;
+      }
+      const fields = data as { from?: unknown; to?: unknown };
+      if (!isGridZone(fields.from)) {
+        errors.push(
+          `movement_resolved.data.from must be a canonical grid zone; received ${String(fields.from)}`,
+        );
+      }
+      if (!isGridZone(fields.to)) {
+        errors.push(
+          `movement_resolved.data.to must be a canonical grid zone; received ${String(fields.to)}`,
+        );
       }
     }
 
     if (envelope.type === "round_ended") {
-      const data = envelope.data as
-        | { fighterA?: { zone?: unknown }; fighterB?: { zone?: unknown } }
-        | undefined;
-      if (typeof data === "object" && data !== null) {
-        for (const side of ["fighterA", "fighterB"] as const) {
-          const fighter = data[side];
-          if (typeof fighter === "object" && fighter !== null) {
-            const zone = (fighter as { zone?: unknown }).zone;
-            if (!isGridZone(zone)) {
-              errors.push(
-                `round_ended.data.${side}.zone must be a canonical grid zone; received ${String(zone)}`,
-              );
-            }
-          }
+      const data = envelope.data;
+      if (typeof data !== "object" || data === null) {
+        errors.push("round_ended.data must be an object");
+        continue;
+      }
+      const record = data as { fighterA?: unknown; fighterB?: unknown };
+      for (const side of ["fighterA", "fighterB"] as const) {
+        const fighter = record[side];
+        if (typeof fighter !== "object" || fighter === null) {
+          errors.push(`round_ended.data.${side} must be an object`);
+          continue;
+        }
+        const zone = (fighter as { zone?: unknown }).zone;
+        if (!isGridZone(zone)) {
+          errors.push(
+            `round_ended.data.${side}.zone must be a canonical grid zone; received ${String(zone)}`,
+          );
         }
       }
     }
