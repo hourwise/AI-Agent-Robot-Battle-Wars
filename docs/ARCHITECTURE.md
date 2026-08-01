@@ -127,6 +127,46 @@ The default application path is unchanged: `runMatch` (legacy `0.2.0`),
 schema v2 persistence, v1/v2 replay. `SIMULATOR_VERSION` / `RULESET_VERSION`
 remain `0.2.0`, catalogue `1`.
 
+### Grid runtime hardening (Milestone 0.2C Phase 3B)
+
+- `src/simulator/runtime-identity.ts` — canonical **frozen** runtime identities
+  (`LEGACY_RUNTIME_IDENTITY` `0.2.0`/`legacy-five-zone-v1`; `GRID_RUNTIME_IDENTITY`
+  `0.3.0`/`grid-3x3-v1`), `Object.freeze`d at runtime. Adapters and match
+  results share these immutable constants; an identity can never be modified
+  through a returned result, so an attempted mutation of one match cannot
+  affect later matches.
+- `src/simulator/types.ts` — the discriminated runtime profile
+  (`LegacyZoneProfile` / `GridZoneProfile` / `ZoneRuntimeProfile`) and
+  `RuntimeIdentityFor<Z>` pair each zone type with its only permitted identity.
+  `MatchRuntimeAdapter<Z>` and `ZoneMatchResult<Z>` use the derived identity,
+  so legacy initial zones cannot be supplied to a grid profile, grid-only
+  corners cannot be supplied to a legacy profile, and an adapter's zone type
+  and runtime identity can never be paired independently through normal typed
+  use.
+- `src/simulator/grid-runtime.ts` — `runGridMatch` enforces the frozen grid
+  version contract (`0.3.0` / `grid-3x3-v1` / `ruleset 0.2.0` / `catalogue 1`):
+  configurations with any other `rulesetVersion` or `catalogueVersion` are
+  rejected before simulation.
+- `src/schemas/match-record.schema.ts` — v3-only cross-field contract:
+  `simulatorVersion` must be `0.3.0`, `positioningModel` must be
+  `grid-3x3-v1`, and top-level vs embedded-config `rulesetVersion`,
+  `catalogueVersion` and `seed` must agree. v1/v2 keep their historical
+  validation.
+- `src/persistence/match-converter.ts` — `matchResultToRecord` validates each
+  constructed v2/v3 record with its authoritative schema and throws a clear
+  error at the converter boundary (before repository access) if construction
+  produced an invalid record.
+- `src/simulator/reducer.ts` — simultaneous positional-effect planning. Both
+  fighters' knockback/grapple destinations are planned from the common
+  post-movement snapshot (`PlannedReposition<Z>`), then applied with stable
+  fighter-A-then-B event ordering. The `planFromSharedSnapshot` adapter flag
+  keeps the legacy runtime's historical sequential-origin behaviour
+  byte-for-byte identical (grid `true`, legacy `false`).
+
+The grid runtime remains opt-in through `runGridMatch`; the default
+application path, schema v2 persistence, and the frozen constants
+(`SIMULATOR_VERSION`/`RULESET_VERSION` `0.2.0`, catalogue `1`) are unchanged.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

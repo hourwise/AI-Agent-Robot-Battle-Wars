@@ -105,6 +105,40 @@ export type GridRuntimeIdentity = Extract<
   { positioningModel: "grid-3x3-v1" }
 >;
 
+/**
+ * Discriminated runtime profiles (Milestone 0.2C Phase 3B). Each profile pairs
+ * a positioning zone type with the only runtime identity that may accompany it:
+ * `ArenaZone` pairs only with the legacy identity, `GridZone` pairs only with
+ * the grid identity. The `center` zone exists in both models, so the pairing
+ * is structural (via the profile union), never derived from zone membership.
+ */
+export interface LegacyZoneProfile {
+  readonly kind: "legacy";
+  readonly zone: ArenaZone;
+  readonly runtime: LegacyRuntimeIdentity;
+}
+
+export interface GridZoneProfile {
+  readonly kind: "grid";
+  readonly zone: GridZone;
+  readonly runtime: GridRuntimeIdentity;
+}
+
+export type ZoneRuntimeProfile = LegacyZoneProfile | GridZoneProfile;
+
+/**
+ * The identity mandated by a zone type. Derived from the discriminated
+ * profile union so the pairing cannot drift: `RuntimeIdentityFor<GridZone>`
+ * is `GridRuntimeIdentity`, `RuntimeIdentityFor<ArenaZone>` is
+ * `LegacyRuntimeIdentity`. Used by the shared adapter and result contracts so
+ * an adapter's zone type and runtime identity can never be paired
+ * independently through normal typed use.
+ */
+export type RuntimeIdentityFor<Z extends ArenaZone | GridZone> = Extract<
+  ZoneRuntimeProfile,
+  { zone: Z }
+>["runtime"];
+
 export type OpeningBehaviour = "rush" | "cautious" | "flank" | "hold";
 export type PreferredRange = "close" | "medium" | "far";
 export type PrimaryTarget = "front" | "rear" | "left" | "right" | "top";

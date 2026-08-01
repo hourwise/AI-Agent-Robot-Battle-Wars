@@ -57,11 +57,14 @@ Milestone 0.2C Phase 1 (pure geometry foundation) is implemented by the
 `agent/0.2c-grid-foundation` task; Phase 2 (schema v3 + versioned replay
 foundation) is implemented by the `agent/0.2c-schema-v3-replay` task; Phase 3A
 (opt-in deterministic grid combat runtime core) is implemented by the
-`agent/0.2c-grid-runtime-core` task. The authoritative runtime migration,
-policy-driven lateral movement and live grid match production remain future,
-separately authorised phases.
+`agent/0.2c-grid-runtime-core` task; Phase 3B (activation hardening — frozen
+runtime identities, paired zone/identity types, grid version contract,
+converter-boundary validation and simultaneous positional effects) is
+implemented by the `agent/0.2c-grid-runtime-hardening` task. The authoritative
+runtime migration, policy-driven lateral movement and live grid match
+production remain future, separately authorised phases.
 
-**Milestone 0.2C progress (2026-07-31):**
+**Milestone 0.2C progress (2026-08-01):**
 
 - Phase 1 — 3×3 geometry foundation: **complete**.
 - Phase 2 — grid match schema v3, explicit positioning identifier,
@@ -71,6 +74,18 @@ separately authorised phases.
   proximity-based actions, planar exposure/targeting, knockback and grapple
   repositioning, shared damage/component/victory core) with explicit
   `0.3.0` / `grid-3x3-v1` identity, persisting schema v3.
+- Phase 3B — activation hardening: **complete**. Runtime identities are frozen
+  at runtime (`Object.freeze`, not just `readonly`); zone type and identity
+  profiles are paired so invalid combinations cannot be constructed through
+  normal typed use; the grid version contract is frozen at
+  `0.3.0 / grid-3x3-v1 / ruleset 0.2.0 / catalogue 1` and enforced by
+  `runGridMatch` and the v3 schema; `matchResultToRecord` validates every
+  constructed record at the converter boundary before returning; and grid
+  knockback/grapple destinations are planned simultaneously from the common
+  post-movement snapshot (A-before-B remains event ordering only, not
+  positional initiative). A bounded deterministic correctness matrix proves
+  canonical zones, valid v3 records, replay reconstruction and deterministic
+  repetition without any balance conclusions.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

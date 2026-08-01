@@ -276,6 +276,70 @@ function validateV3PositioningFacts(events: readonly unknown[]): string[] {
   return errors;
 }
 
+/**
+ * v3 version contract (Milestone 0.2C Phase 3B). A grid record must carry the
+ * frozen grid identity and internally consistent version facts:
+ *
+ * - `simulatorVersion` must be `0.3.0` and `positioningModel` must be
+ *   `grid-3x3-v1`;
+ * - top-level and config `rulesetVersion` must agree;
+ * - top-level and config `catalogueVersion` must agree;
+ * - top-level and config `seed` must agree.
+ *
+ * The positioning change is a simulator version change; it does not introduce
+ * a new balance ruleset, so a valid grid record carries ruleset `0.2.0` and
+ * catalogue `1` (enforced at the `runGridMatch` boundary) while the schema
+ * itself enforces agreement. These requirements are v3-only and are not
+ * retroactively applied to v1 or v2 records, which keep their historical
+ * validation.
+ */
+function validateV3VersionContract(
+  record: {
+    simulatorVersion: string;
+    positioningModel: string;
+    rulesetVersion: string;
+    catalogueVersion: string;
+    seed: number;
+    config: {
+      rulesetVersion: string;
+      catalogueVersion: string;
+      seed: number;
+    };
+  },
+  ctx: z.RefinementCtx,
+): void {
+  if (record.simulatorVersion !== "0.3.0") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `v3 simulatorVersion must be 0.3.0; received ${String(record.simulatorVersion)}`,
+    });
+  }
+  if (record.positioningModel !== "grid-3x3-v1") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `v3 positioningModel must be grid-3x3-v1; received ${String(record.positioningModel)}`,
+    });
+  }
+  if (record.rulesetVersion !== record.config.rulesetVersion) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `v3 top-level rulesetVersion ${String(record.rulesetVersion)} disagrees with config ${String(record.config.rulesetVersion)}`,
+    });
+  }
+  if (record.catalogueVersion !== record.config.catalogueVersion) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `v3 top-level catalogueVersion ${String(record.catalogueVersion)} disagrees with config ${String(record.config.catalogueVersion)}`,
+    });
+  }
+  if (record.seed !== record.config.seed) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `v3 top-level seed ${record.seed} disagrees with config ${record.config.seed}`,
+    });
+  }
+}
+
 export const MatchRecordV3Schema = z
   .object({
     schemaVersion: z.literal("3"),
@@ -303,6 +367,7 @@ export const MatchRecordV3Schema = z
     for (const message of validateV3PositioningFacts(record.events)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message });
     }
+    validateV3VersionContract(record, ctx);
   });
 
 export type MatchRecordV1 = z.infer<typeof MatchRecordV1Schema>;

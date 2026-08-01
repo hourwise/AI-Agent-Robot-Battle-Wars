@@ -9,9 +9,9 @@ import type {
   RoundAction,
   ActionPolicy,
   CompetitionResult,
-  LegacyRuntimeIdentity,
-  GridRuntimeIdentity,
+  RuntimeIdentityFor,
 } from "./types.js";
+import { LEGACY_RUNTIME_IDENTITY } from "./runtime-identity.js";
 import { SeededRandom } from "./seeded-random.js";
 import { deriveAction } from "./actions.js";
 import { applyRound, type RoundState } from "./reducer.js";
@@ -33,6 +33,11 @@ import {
  * The legacy adapter keeps the historical five-zone `runMatch` semantics;
  * the opt-in grid adapter provides the frozen 3×3 semantics via
  * `runGridMatch` without changing the application default.
+ *
+ * The zone type and runtime identity are paired through the discriminated
+ * runtime profile: `MatchRuntimeAdapter<ArenaZone>` requires the legacy
+ * identity and `MatchRuntimeAdapter<GridZone>` requires the grid identity.
+ * An invalid pairing cannot be constructed through normal typed use.
  */
 export interface MatchRuntimeAdapter<Z extends ArenaZone | GridZone> {
   readonly initialZones: { readonly fighterA: Z; readonly fighterB: Z };
@@ -56,22 +61,22 @@ export interface MatchRuntimeAdapter<Z extends ArenaZone | GridZone> {
   /** Extra `competition_started` facts; legacy adds none. */
   readonly competitionStartedExtra: Record<string, unknown>;
   readonly eventSimulatorVersion: "0.2.0" | "0.3.0";
-  readonly runtime: LegacyRuntimeIdentity | GridRuntimeIdentity;
+  readonly runtime: RuntimeIdentityFor<Z>;
 }
 
-export interface ZoneMatchResult<Z extends ArenaZone | GridZone, R> {
+export interface ZoneMatchResult<Z extends ArenaZone | GridZone> {
   config: MatchConfig;
   events: SimulationEvent[];
   result: CompetitionResult;
   rounds: number;
   initialState: { fighterA: ZoneFighterState<Z>; fighterB: ZoneFighterState<Z> };
-  runtime: R;
+  runtime: RuntimeIdentityFor<Z>;
 }
 
-export function runMatchForZone<Z extends ArenaZone | GridZone, R>(
+export function runMatchForZone<Z extends ArenaZone | GridZone>(
   config: MatchConfig,
-  adapter: MatchRuntimeAdapter<Z> & { readonly runtime: R },
-): ZoneMatchResult<Z, R> {
+  adapter: MatchRuntimeAdapter<Z>,
+): ZoneMatchResult<Z> {
   const qualificationConfig = getComponentQualificationConfig(
     config.componentQualificationId ?? DEFAULT_COMPONENT_QUALIFICATION_ID,
   );
@@ -242,19 +247,14 @@ export function runMatchForZone<Z extends ArenaZone | GridZone, R>(
   };
 }
 
-const LEGACY_MATCH_ADAPTER: MatchRuntimeAdapter<ArenaZone> & {
-  readonly runtime: LegacyRuntimeIdentity;
-} = {
+const LEGACY_MATCH_ADAPTER: MatchRuntimeAdapter<ArenaZone> = {
   initialZones: { fighterA: "south_edge", fighterB: "north_edge" },
   initialFacing: { fighterA: "north", fighterB: "south" },
   deriveAction,
   applyRound,
   competitionStartedExtra: {},
   eventSimulatorVersion: "0.2.0",
-  runtime: {
-    simulatorVersion: "0.2.0",
-    positioningModel: "legacy-five-zone-v1",
-  },
+  runtime: LEGACY_RUNTIME_IDENTITY,
 };
 
 /** Default application path — always the legacy five-zone runtime. */

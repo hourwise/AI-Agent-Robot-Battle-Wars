@@ -1,14 +1,17 @@
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import type {
   AnyMatchResult,
   GridMatchResult,
   MatchConfig,
   MatchResult,
 } from "../simulator/types.js";
-import type {
-  MatchRecord,
-  MatchRecordV2,
-  MatchRecordV3,
+import {
+  MatchRecordV2Schema,
+  MatchRecordV3Schema,
+  type MatchRecord,
+  type MatchRecordV2,
+  type MatchRecordV3,
 } from "../schemas/match-record.schema.js";
 import { LEGACY_ARENA_ZONES } from "../schemas/positioning.schema.js";
 import type { AgentUsageRecord } from "../types/agent-usage.js";
@@ -90,11 +93,33 @@ function buildRecordConfig(result: { config: MatchConfig }): MatchRecord["config
   };
 }
 
+/**
+ * Converter-boundary validation (Milestone 0.2C Phase 3B).
+ *
+ * `matchResultToRecord` must never return a typed record that fails its
+ * authoritative schema: after constructing a v2 or v3 record it is validated
+ * with the matching schema and the parsed valid record is returned. If
+ * construction produced an invalid record a clear error is thrown here, at the
+ * converter boundary, rather than being deferred to repository save-time
+ * validation. For grid results this catches malformed initial zones,
+ * malformed `movement_resolved` / `round_ended` positioning facts, and
+ * inconsistent runtime/version/model, ruleset, catalogue or seed facts.
+ */
+function parseOrThrow<T>(schema: z.ZodType<T>, record: unknown, label: string): T {
+  const parsed = schema.safeParse(record);
+  if (!parsed.success) {
+    throw new Error(
+      `matchResultToRecord produced an invalid ${label} record: ${parsed.error.message}`,
+    );
+  }
+  return parsed.data;
+}
+
 function matchResultToRecordV2(
   result: MatchResult,
   agentUsage: readonly AgentUsageRecord[],
 ): MatchRecordV2 {
-  return {
+  const record: MatchRecordV2 = {
     schemaVersion: "2",
     matchId: randomUUID(),
     createdAt: new Date().toISOString(),
@@ -120,13 +145,14 @@ function matchResultToRecordV2(
     rounds: result.rounds,
     agentUsage: [...agentUsage],
   };
+  return parseOrThrow(MatchRecordV2Schema, record, "v2");
 }
 
 function matchResultToRecordV3(
   result: GridMatchResult,
   agentUsage: readonly AgentUsageRecord[],
 ): MatchRecordV3 {
-  return {
+  const record: MatchRecordV3 = {
     schemaVersion: "3",
     positioningModel: "grid-3x3-v1",
     matchId: randomUUID(),
@@ -153,4 +179,5 @@ function matchResultToRecordV3(
     rounds: result.rounds,
     agentUsage: [...agentUsage],
   };
+  return parseOrThrow(MatchRecordV3Schema, record, "v3");
 }

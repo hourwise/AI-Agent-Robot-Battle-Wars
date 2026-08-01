@@ -17,9 +17,9 @@ import type {
   Direction,
   RoundAction,
   ActionPolicy,
-  GridRuntimeIdentity,
   ZoneFighterState,
 } from "./types.js";
+import { GRID_RUNTIME_IDENTITY } from "./runtime-identity.js";
 import type { SeededRandom } from "./seeded-random.js";
 import type { GridZone } from "./arena-grid.js";
 import {
@@ -176,6 +176,7 @@ const GRID_POSITIONING_ADAPTER: PositioningAdapter<GridZone> = {
   resolveGrapple: (attackerZone, defenderZone) =>
     resolveGridGrapple(attackerZone, defenderZone),
   enableGrappleRepositioning: true,
+  planFromSharedSnapshot: true,
   momentumFor: (_action, translated) => (translated ? 1 : 0),
 };
 
@@ -202,19 +203,14 @@ export function applyGridRound(
   );
 }
 
-const GRID_MATCH_ADAPTER: MatchRuntimeAdapter<GridZone> & {
-  readonly runtime: GridRuntimeIdentity;
-} = {
+const GRID_MATCH_ADAPTER: MatchRuntimeAdapter<GridZone> = {
   initialZones: { fighterA: "south", fighterB: "north" },
   initialFacing: { fighterA: "north", fighterB: "south" },
   deriveAction,
   applyRound: applyGridRound,
   competitionStartedExtra: { positioningModel: "grid-3x3-v1" },
   eventSimulatorVersion: "0.3.0",
-  runtime: {
-    simulatorVersion: "0.3.0",
-    positioningModel: "grid-3x3-v1",
-  },
+  runtime: GRID_RUNTIME_IDENTITY,
 };
 
 function deriveAction(
@@ -234,9 +230,30 @@ function deriveAction(
 /**
  * Opt-in deterministic grid match entry point. Returns a grid result with
  * explicit simulator `0.3.0` / `grid-3x3-v1` identity; persists as schema v3.
+ *
+ * The grid version contract (Phase 3B) is enforced here: the 3×3 positioning
+ * change is a *simulator* version change (`0.3.0`) and does not introduce a
+ * new balance ruleset in this milestone, so a valid grid configuration must
+ * run ruleset `0.2.0` against catalogue `1`. Configurations naming any other
+ * ruleset or catalogue are rejected before any simulation begins. The legacy
+ * `runMatch` path is untouched.
  */
 export function runGridMatch(config: MatchConfig): GridMatchResult {
+  assertGridVersionContract(config);
   return runMatchForZone(config, GRID_MATCH_ADAPTER);
+}
+
+function assertGridVersionContract(config: MatchConfig): void {
+  if (config.rulesetVersion !== "0.2.0") {
+    throw new Error(
+      `Grid runtime requires rulesetVersion 0.2.0; received ${String(config.rulesetVersion)}`,
+    );
+  }
+  if (config.catalogueVersion !== "1") {
+    throw new Error(
+      `Grid runtime requires catalogueVersion 1; received ${String(config.catalogueVersion)}`,
+    );
+  }
 }
 
 export { createZoneFighterState };

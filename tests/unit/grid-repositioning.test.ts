@@ -39,7 +39,7 @@ function makeInput(events: readonly SimulationEvent[]): AsciiReplayInput {
       seed: 7,
       fighterA: { build: V3_FIXTURE_BUILD, policy: V3_FIXTURE_POLICY },
       fighterB: { build: V3_FIXTURE_BUILD, policy: V3_FIXTURE_POLICY },
-      rulesetVersion: "0.3.0",
+      rulesetVersion: "0.2.0",
       catalogueVersion: "1",
     },
     initialState: {

@@ -25,7 +25,7 @@ function gridConfig() {
     seed: 42,
     fighterA: { build, policy: BULWARK_POLICY },
     fighterB: { build, policy: BULWARK_POLICY },
-    rulesetVersion: "0.3.0",
+    rulesetVersion: "0.2.0",
     catalogueVersion: CATALOGUE_V1.version,
   };
 }

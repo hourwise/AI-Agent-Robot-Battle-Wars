@@ -30,7 +30,7 @@ function gridConfig(seed: number) {
     seed,
     fighterA: { build, policy: BULWARK_POLICY },
     fighterB: { build, policy: BULWARK_POLICY },
-    rulesetVersion: "0.3.0",
+    rulesetVersion: "0.2.0",
     catalogueVersion: CATALOGUE_V1.version,
   };
 }
@@ -173,7 +173,7 @@ describe("grid match integration", () => {
       seed: 1,
       fighterA: { build: spinner, policy: SPINNER_POLICY },
       fighterB: { build: spinner, policy: SPINNER_POLICY },
-      rulesetVersion: "0.3.0",
+      rulesetVersion: "0.2.0",
       catalogueVersion: CATALOGUE_V1.version,
     });
     const damaged = result.events.filter((event) => event.type === "component_damaged");

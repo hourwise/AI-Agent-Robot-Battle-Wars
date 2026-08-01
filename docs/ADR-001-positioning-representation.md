@@ -423,7 +423,107 @@ and persists schema v2.
 - No benchmark partitions ran; seeds, fixtures and held-out/`all` partitions
   remain sealed; no external API calls.
 
-## 8. Still out of scope
+## 8. Phase 3B — grid runtime hardening (2026-08-01)
+
+Phase 3B hardens the opt-in grid runtime contract before any policy-driven
+lateral movement or default activation. It does not make the grid runtime the
+application default, changes no global constant, and tunes nothing.
+
+### 8.1 Frozen runtime identities
+
+Canonical runtime identities live in `src/simulator/runtime-identity.ts`:
+
+- `LEGACY_RUNTIME_IDENTITY` — `0.2.0` / `legacy-five-zone-v1`;
+- `GRID_RUNTIME_IDENTITY` — `0.3.0` / `grid-3x3-v1`.
+
+Both are `Object.freeze`d at runtime, not merely TypeScript-`readonly`. Adapters
+and every match result share these frozen constants, so a caller cannot modify
+an identity through a returned result, and an attempted mutation of one match
+result can never affect a later match. Persistence and replay keep reading the
+explicit identity; it is never inferred from zone strings.
+
+### 8.2 Zone type ↔ identity pairing
+
+The discriminated runtime profile (`LegacyZoneProfile` / `GridZoneProfile` /
+`ZoneRuntimeProfile` in `src/simulator/types.ts`) pairs each zone type with the
+only identity that may accompany it. `RuntimeIdentityFor<Z>` derives the
+identity from the profile union, and `MatchRuntimeAdapter<Z>` / `ZoneMatchResult<Z>`
+use it, so an adapter's zone type and runtime identity can never be paired
+independently through normal typed use. Legacy initial zones cannot be supplied
+to a grid profile and grid-only corners cannot be supplied to a legacy profile
+(compile-time `@ts-expect-error` assertions enforce this). The shared runtime
+functions are not weakened to a mixed-zone state.
+
+### 8.3 Grid version contract
+
+The 3×3 positioning change is a **simulator** version change (`0.3.0`); it does
+not introduce a new balance ruleset in this milestone. The grid contract is:
+
+```
+simulatorVersion: 0.3.0
+positioningModel: grid-3x3-v1
+rulesetVersion:   0.2.0
+catalogueVersion: 1
+```
+
+`runGridMatch` rejects any configuration whose `rulesetVersion` is not `0.2.0`
+or whose `catalogueVersion` is not `1`, before simulation. The v3 schema
+cross-field contract requires `simulatorVersion` `0.3.0`, `positioningModel`
+`grid-3x3-v1`, and agreement between top-level and embedded-config
+`rulesetVersion`, `catalogueVersion` and `seed`. These requirements are v3-only;
+v1/v2 keep their historical validation.
+
+### 8.4 Converter-boundary validation
+
+`matchResultToRecord` validates each constructed v2/v3 record with its
+authoritative schema before returning and throws a clear error if construction
+produced an invalid record. For grid results this detects malformed initial
+zones, malformed `movement_resolved` / `round_ended` positioning facts, and
+inconsistent runtime/version/model, ruleset, catalogue or seed facts at the
+converter boundary — before repository access — rather than relying on
+save-time validation. Valid legacy v2 production is preserved.
+
+### 8.5 Simultaneous positional effects
+
+Grid combat freezes that both fighters' knockback/grapple destinations are
+planned from the **same post-movement snapshot**:
+
+1. Both ordinary movements are calculated from the same start-of-round state.
+2. Both translated movement results are applied.
+3. Both attacks and their hit/exposure facts are calculated from the same
+   post-movement state.
+4. Both knockback/grapple destinations are planned from that same post-movement
+   positioning snapshot (`PlannedReposition<Z>`).
+5. Damage, component and event application retains stable fighter-A then
+   fighter-B event ordering.
+6. Planned destinations do not change merely because the other fighter's event
+   was applied first.
+7. Both planned destinations may be applied; same-cell occupancy remains legal.
+
+This removes fighter-A positional initiative without changing deterministic
+event ordering. The legacy runtime's historical sequential-origin behaviour is
+preserved via the `planFromSharedSnapshot` adapter flag (grid `true`, legacy
+`false`) and is proven byte-for-byte unchanged (lifecycle checksums and the
+legacy test surface are unchanged). A regression test demonstrates that the old
+sequential-origin algorithm would have produced a different destination.
+
+### 8.6 Phase 3B status
+
+- Runtime identities frozen at runtime: complete.
+- Zone type / identity profiles paired at compile time: complete.
+- Grid version contract `0.3.0 / grid-3x3-v1 / ruleset 0.2.0 / catalogue 1`:
+  complete.
+- Record conversion validates before returning: complete.
+- Simultaneous positional effects from the common post-movement snapshot:
+  complete.
+- A-before-B remains event ordering only, not positional initiative: complete.
+- Grid correctness matrix (unit/integration, not the benchmark harness):
+  complete and bounded.
+- Policy-driven lateral movement: **not implemented**.
+- Default grid activation: **not performed**.
+- Milestone 0.2C: **not complete**.
+
+## 9. Still out of scope
 
 - **Authoritative migration**: the live simulator remains `0.2.0` legacy;
   `SIMULATOR_VERSION` / `RULESET_VERSION` remain `0.2.0`, catalogue `1`;
@@ -432,7 +532,7 @@ and persists schema v2.
   in-place turns; no new lateral movement actions or policy fields exist.
 - **Live activation** of grid match production in the application/CLI/series.
 - **Balance conclusions**: no grid-vs-legacy balance claims are made from
-  Phase 3A.
+  Phase 3A or Phase 3B.
 - Opponent suite and adaptation evaluation (0.2D/0.2E).
 
 ### 6.5 State reconstruction

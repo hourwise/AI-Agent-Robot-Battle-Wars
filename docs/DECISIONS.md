@@ -186,6 +186,62 @@ and `RULESET_VERSION` remain `0.2.0`, catalogue `1`, C2 remains the runtime
 default, and normal persistence remains schema v2. Policy-driven lateral
 movement is unimplemented. Milestone 0.2C is not complete.
 
+## D36: Grid runtime hardening — identity, version contract and positional symmetry (2026-08-01)
+
+Milestone 0.2C Phase 3B hardens the opt-in grid runtime before any
+policy-driven lateral movement or default activation. It makes the grid runtime
+**no closer to the default**: `SIMULATOR_VERSION`/`RULESET_VERSION` remain
+`0.2.0`, catalogue `1`, normal application commands still use legacy `runMatch`,
+and normal persistence still produces schema v2.
+
+- **Runtime identities are frozen at runtime**: `LEGACY_RUNTIME_IDENTITY`
+  (`0.2.0` / `legacy-five-zone-v1`) and `GRID_RUNTIME_IDENTITY` (`0.3.0` /
+  `grid-3x3-v1`) are `Object.freeze`d in `src/simulator/runtime-identity.ts`.
+  A caller cannot modify an identity through a returned result, and an
+  attempted mutation of one match result cannot affect later matches.
+- **Zone type and identity profiles are paired**: the discriminated runtime
+  profile (`LegacyZoneProfile` / `GridZoneProfile` / `ZoneRuntimeProfile`) and
+  `RuntimeIdentityFor<Z>` make it impossible to pair `ArenaZone` with the grid
+  identity, `GridZone` with the legacy identity, legacy initial zones with a
+  grid profile, or grid-only corners with a legacy profile through normal
+  typed use (compile-time `@ts-expect-error` assertions).
+- **Grid version contract**: `0.3.0 / grid-3x3-v1 / ruleset 0.2.0 /
+catalogue 1`. The positioning change is a _simulator_ version change and does
+  not introduce a new balance ruleset, so `runGridMatch` rejects any
+  configuration whose `rulesetVersion` is not `0.2.0` or whose
+  `catalogueVersion` is not `1`. The v3 schema enforces `simulatorVersion`
+  `0.3.0`, `positioningModel` `grid-3x3-v1`, and agreement between top-level and
+  config `rulesetVersion`, `catalogueVersion` and `seed` (v3-only; v1/v2 keep
+  their historical validation).
+- **Record conversion validates before returning**: `matchResultToRecord`
+  validates every constructed v2/v3 record with its authoritative schema and
+  throws a clear error on an invalid record at the converter boundary — before
+  repository access — instead of relying on save-time validation.
+- **Simultaneous positional effects**: both fighters' knockback/grapple
+  destinations are planned from the common post-movement snapshot
+  (`PlannedReposition<Z>`); A-before-B remains **event ordering only**, not
+  positional initiative. The legacy adapter keeps its historical
+  sequential-origin behaviour via `planFromSharedSnapshot: false` and is proven
+  byte-for-byte unchanged (lifecycle checksums and the legacy test surface are
+  unchanged; legacy grapple still does not reposition; legacy persistence
+  remains v2).
+- **Grid correctness matrix**: a bounded deterministic unit/integration matrix
+  (not the benchmark harness) covers all five weapons, three chassis, three
+  mobility types, guarded/unguarded utilities, front/side/rear/diagonal/
+  same-cell exposure, normal movement/knockback/grapple, and damaged/disabled
+  components — proving no exceptions, canonical zones, valid v3 records,
+  replay reconstruction of final positioning and deterministic repetition.
+- **Legacy runtime remains unchanged**; the grid runtime remains opt-in through
+  `runGridMatch` only.
+- **No balance conclusions were made** in Phase 3B. No constants, seeds,
+  fixtures, checksums (C1 `2a40a56f97062ca3`, C2 `13548462df34a183`, AB2
+  `6b9f70450d3f10b8`) or partitions changed; C2 remains the default.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete;
+policy-driven lateral movement **not implemented**; default grid activation
+**not performed**; Milestone 0.2C **not complete**.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

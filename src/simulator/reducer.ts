@@ -112,7 +112,58 @@ export interface PositioningAdapter<Z extends ArenaZone | GridZone> {
   resolveGrapple(attackerZone: Z, defenderZone: Z): Z | null;
   /** Grid enables target-relative grapple repositioning; legacy does not. */
   enableGrappleRepositioning: boolean;
+  /**
+   * When true, both fighters' knockback/grapple destinations are planned from
+   * the same post-movement snapshot (simultaneous semantics, Phase 3B). When
+   * false, the historical sequential-origin behaviour is preserved: fighter
+   * B's plan is computed from the state after fighter A's plan was applied.
+   * The grid adapter enables this; the legacy adapter must not change its
+   * historical positional-effect behaviour.
+   */
+  planFromSharedSnapshot: boolean;
   momentumFor(action: MovementAction, translated: boolean): number;
+}
+
+/**
+ * A planned positional effect (knockback or grapple) derived from a weapon's
+ * existing attack-result facts — no extra RNG is consumed. Grid combat freezes
+ * that both fighters' destinations are calculated from the common
+ * post-movement positioning snapshot (Phase 3B); `from` is that snapshot
+ * origin, and no event is emitted when the planned destination equals the
+ * origin.
+ */
+export interface PlannedReposition<Z extends ArenaZone | GridZone> {
+  targetId: string;
+  from: Z;
+  to: Z;
+  facing: Direction;
+  action: "knockback" | "grapple";
+}
+
+function planReposition<Z extends ArenaZone | GridZone>(
+  attack: AttackResult | null,
+  attacker: ZoneFighterState<Z>,
+  defender: ZoneFighterState<Z>,
+  positioning: PositioningAdapter<Z>,
+  targetId: string,
+): PlannedReposition<Z> | null {
+  if (attack === null || !attack.hit) return null;
+  let to: Z | null = null;
+  let action: "knockback" | "grapple" = "knockback";
+  if (attack.knockback) {
+    to = positioning.resolveKnockback(attacker.zone, attacker.facing, defender.zone);
+  } else if (positioning.enableGrappleRepositioning && attack.grappleReposition) {
+    to = positioning.resolveGrapple(attacker.zone, defender.zone);
+    action = "grapple";
+  }
+  if (to === null || to === defender.zone) return null;
+  return {
+    targetId,
+    from: defender.zone,
+    to,
+    facing: defender.facing,
+    action,
+  };
 }
 
 const LEGACY_POSITIONING_ADAPTER: PositioningAdapter<ArenaZone> = {
@@ -138,6 +189,7 @@ const LEGACY_POSITIONING_ADAPTER: PositioningAdapter<ArenaZone> = {
     getKnockbackZone(attackerZone, defenderZone),
   resolveGrapple: () => null,
   enableGrappleRepositioning: false,
+  planFromSharedSnapshot: false,
   momentumFor: (action) => (action === "advance" ? 1 : 0),
 };
 
@@ -287,6 +339,30 @@ export function applyRoundForZone<Z extends ArenaZone | GridZone>(
       )
     : null;
 
+  // Simultaneous positional-effect planning (Phase 3B). Both attacks and
+  // their hit/exposure facts were calculated from the same post-movement
+  // state above; the same shared snapshot is now the origin for both fighters'
+  // planned knockback/grapple destinations. Fighter A's applied movement (and
+  // later, its applied repositioning) never becomes fighter B's calculation
+  // origin. Destinations are then applied with the stable A-then-B event
+  // ordering; both may be applied and same-cell occupancy remains legal. The
+  // legacy adapter keeps its historical sequential-origin behaviour.
+  const snapshotA = a;
+  const snapshotB = b;
+
+  const planA = planReposition(
+    attackResultA,
+    snapshotA,
+    snapshotB,
+    positioning,
+    b.fighterId,
+  );
+
+  const bAfterPlanA = planA ? { ...b, zone: planA.to } : b;
+  const planB = positioning.planFromSharedSnapshot
+    ? planReposition(attackResultB, snapshotB, snapshotA, positioning, a.fighterId)
+    : planReposition(attackResultB, bAfterPlanA, a, positioning, a.fighterId);
+
   let damageAtoB = 0;
   let damageBtoA = 0;
 
@@ -348,32 +424,14 @@ export function applyRoundForZone<Z extends ArenaZone | GridZone>(
         emit("robot_overturned", a.fighterId, b.fighterId, {});
       }
 
-      if (attackResultA.knockback) {
-        const newZone = positioning.resolveKnockback(a.zone, a.facing, b.zone);
-        if (newZone && newZone !== b.zone) {
-          const originalZone = b.zone;
-          b = { ...b, zone: newZone };
-          emit("movement_resolved", a.fighterId, b.fighterId, {
-            from: originalZone,
-            to: newZone,
-            facing: b.facing,
-            action: "knockback",
-          });
-        }
-      }
-
-      if (positioning.enableGrappleRepositioning && attackResultA.grappleReposition) {
-        const newZone = positioning.resolveGrapple(a.zone, b.zone);
-        if (newZone && newZone !== b.zone) {
-          const originalZone = b.zone;
-          b = { ...b, zone: newZone };
-          emit("movement_resolved", a.fighterId, b.fighterId, {
-            from: originalZone,
-            to: newZone,
-            facing: b.facing,
-            action: "grapple",
-          });
-        }
+      if (planA) {
+        b = { ...b, zone: planA.to };
+        emit("movement_resolved", a.fighterId, b.fighterId, {
+          from: planA.from,
+          to: planA.to,
+          facing: planA.facing,
+          action: planA.action,
+        });
       }
 
       // 0.2B: qualification-based component lifecycle
@@ -582,32 +640,14 @@ export function applyRoundForZone<Z extends ArenaZone | GridZone>(
         emit("robot_overturned", b.fighterId, a.fighterId, {});
       }
 
-      if (attackResultB.knockback) {
-        const newZone = positioning.resolveKnockback(b.zone, b.facing, a.zone);
-        if (newZone && newZone !== a.zone) {
-          const originalZone = a.zone;
-          a = { ...a, zone: newZone };
-          emit("movement_resolved", b.fighterId, a.fighterId, {
-            from: originalZone,
-            to: newZone,
-            facing: a.facing,
-            action: "knockback",
-          });
-        }
-      }
-
-      if (positioning.enableGrappleRepositioning && attackResultB.grappleReposition) {
-        const newZone = positioning.resolveGrapple(b.zone, a.zone);
-        if (newZone && newZone !== a.zone) {
-          const originalZone = a.zone;
-          a = { ...a, zone: newZone };
-          emit("movement_resolved", b.fighterId, a.fighterId, {
-            from: originalZone,
-            to: newZone,
-            facing: a.facing,
-            action: "grapple",
-          });
-        }
+      if (planB) {
+        a = { ...a, zone: planB.to };
+        emit("movement_resolved", b.fighterId, a.fighterId, {
+          from: planB.from,
+          to: planB.to,
+          facing: planB.facing,
+          action: planB.action,
+        });
       }
 
       // 0.2B: qualification-based component lifecycle
