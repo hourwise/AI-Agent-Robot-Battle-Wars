@@ -35,10 +35,10 @@ import {
   type MatchReview,
 } from "../schemas/review.schema.js";
 import {
-  deserializeGridMatchCanaryManifest,
+  deserializeGridMatchCanaryManifestV2,
   serializeGridMatchCanaryManifest,
-  validateGridMatchCanaryManifest,
-  type GridMatchCanaryManifestV1,
+  validateGridMatchCanaryManifestV2,
+  type GridMatchCanaryManifestV2,
 } from "../schemas/grid-match-canary.schema.js";
 import {
   createGridCanaryScenario,
@@ -50,6 +50,9 @@ import {
   verifyGridCanaryDeterminism,
   type GridCanaryEvidence,
 } from "../canary/grid-match-canary-evidence.js";
+import { validateGridMatchCanaryBundle } from "../canary/grid-match-canary-bundle.js";
+import { sha256Hex } from "../canary/grid-canary-digest.js";
+import { assertCanaryOutputRootIsolation } from "./grid-canary-output-root.js";
 import type { GridMatchResult, MatchConfig } from "../simulator/types.js";
 import type { FighterStateSummaryV2 } from "../schemas/factual-report.schema.js";
 
@@ -135,7 +138,7 @@ export interface GridMatchCanaryResult {
   evidence: GridCanaryEvidence;
   artifactDirectory: string;
   artifacts: Array<{ name: string; path: string }>;
-  manifest: GridMatchCanaryManifestV1;
+  manifest: GridMatchCanaryManifestV2;
 }
 
 function isCode(e: unknown, code: string): boolean {
@@ -192,6 +195,14 @@ function normaliseDisabledComponents(
   return result;
 }
 
+function requireTrue(value: boolean, label: string): asserts value is true {
+  if (!value) {
+    throw new Error(
+      `Grid canary manifest requires ${label}; inspection did not establish it`,
+    );
+  }
+}
+
 function buildCanaryManifest(params: {
   canaryId: string;
   createdAt: string;
@@ -200,9 +211,18 @@ function buildCanaryManifest(params: {
   record: MatchRecordV3;
   report: FactualMatchReportV2;
   evidence: GridCanaryEvidence;
-}): GridMatchCanaryManifestV1 {
-  const manifest: GridMatchCanaryManifestV1 = {
-    schemaVersion: "1",
+  digests: GridMatchCanaryManifestV2["digests"];
+}): GridMatchCanaryManifestV2 {
+  // The evidence inspector derives these and fails closed; the manifest only
+  // records the derived values (never hard-coded).
+  requireTrue(params.evidence.lateralFlankObserved, "a canonical lateral flank");
+  requireTrue(
+    params.evidence.stationaryFighterCellUnchanged,
+    "the stationary fighter cell to remain unchanged",
+  );
+
+  const manifest: GridMatchCanaryManifestV2 = {
+    schemaVersion: "2",
     canaryKind: "grid-match",
     scenarioVersion: GRID_CANARY_SCENARIO_VERSION,
     status: "passed",
@@ -223,13 +243,19 @@ function buildCanaryManifest(params: {
     evidence: {
       translatedCircleEvents: params.evidence.translatedCircleEvents,
       cornerZonesVisited: params.evidence.cornerZonesVisited,
-      rearExposureObserved: true,
+      lateralFlankObserved: params.evidence.lateralFlankObserved,
+      observedFlankBearings: [...params.evidence.observedFlankBearings],
+      strictRearExposureObserved: params.evidence.strictRearExposureObserved,
+      stationaryFighterCellUnchanged: params.evidence.stationaryFighterCellUnchanged,
       allMovementZonesCanonical: true,
       recordRoundTripPassed: true,
       reportRoundTripPassed: true,
       replayFinalStateAgreement: true,
       fallbackReviewGenerated: true,
+      allArtifactsReadBack: true,
+      bundleCrossAgreementPassed: true,
     },
+    digests: params.digests,
     artifacts: {
       match: GRID_CANARY_ARTIFACT_NAMES.match,
       factualReport: GRID_CANARY_ARTIFACT_NAMES.factualReport,
@@ -240,7 +266,7 @@ function buildCanaryManifest(params: {
       manifest: GRID_CANARY_ARTIFACT_NAMES.manifest,
     },
   };
-  const validated = validateGridMatchCanaryManifest(manifest);
+  const validated = validateGridMatchCanaryManifestV2(manifest);
   if (!validated.ok) {
     throw new Error(
       `Grid canary manifest failed its authoritative schema: ${validated.errors}`,
@@ -254,23 +280,132 @@ interface BundleArtifact {
   content: string;
 }
 
+interface VerifiedBundle {
+  record: MatchRecordV3;
+  report: FactualMatchReportV2;
+  review: MatchReview;
+  manifest: GridMatchCanaryManifestV2;
+  contents: Record<string, string>;
+}
+
 /**
- * Atomic and isolated artifact bundle publication.
+ * Reads every artifact of a bundle at `dir` and verifies the complete bundle:
+ * byte-for-byte equality of all seven artifacts (the six non-manifest artifacts
+ * against the strings that were written, and `manifest.json` against the
+ * exact serialized manifest the service wrote), authoritative deserialization
+ * of the four JSON artifacts, manifest schema v2, and the pure bundle
+ * cross-agreement validator (including every SHA-256 digest).
+ */
+async function verifyCanaryBundleAtPath(
+  fs: CanaryFileSystem,
+  dir: string,
+  artifacts: readonly BundleArtifact[],
+  serializedManifest: string,
+): Promise<VerifiedBundle> {
+  const contents: Record<string, string> = {};
+  for (const name of [
+    GRID_CANARY_ARTIFACT_NAMES.match,
+    GRID_CANARY_ARTIFACT_NAMES.factualReport,
+    GRID_CANARY_ARTIFACT_NAMES.textReplay,
+    GRID_CANARY_ARTIFACT_NAMES.asciiReplay,
+    GRID_CANARY_ARTIFACT_NAMES.reviewPrompt,
+    GRID_CANARY_ARTIFACT_NAMES.fallbackReview,
+    GRID_CANARY_MANIFEST_FILE,
+  ]) {
+    contents[name] = await fs.readFile(join(dir, name), "utf-8");
+  }
+
+  for (const artifact of artifacts) {
+    if (contents[artifact.name] !== artifact.content) {
+      throw new Error(
+        `Grid canary read-back: ${artifact.name} does not byte-for-byte match the written artifact`,
+      );
+    }
+  }
+  if (contents[GRID_CANARY_MANIFEST_FILE] !== serializedManifest) {
+    throw new Error(
+      "Grid canary read-back: manifest.json does not byte-for-byte match the written manifest",
+    );
+  }
+
+  const recordParsed = deserializeMatchRecord(
+    contents[GRID_CANARY_ARTIFACT_NAMES.match]!,
+  );
+  if (!recordParsed.ok || !isV3Record(recordParsed.record)) {
+    throw new Error(
+      `Grid canary read-back: invalid match record: ${recordParsed.ok ? "not schema v3" : recordParsed.errors}`,
+    );
+  }
+  const reportParsed = deserializeFactualMatchReport(
+    contents[GRID_CANARY_ARTIFACT_NAMES.factualReport]!,
+  );
+  if (!reportParsed.ok || !isFactualReportV2(reportParsed.report)) {
+    throw new Error(
+      `Grid canary read-back: invalid factual report: ${reportParsed.ok ? "not schema v2" : reportParsed.errors}`,
+    );
+  }
+  const reviewParsed = deserializeMatchReview(
+    contents[GRID_CANARY_ARTIFACT_NAMES.fallbackReview]!,
+  );
+  if (!reviewParsed.ok) {
+    throw new Error(
+      `Grid canary read-back: invalid fallback review: ${reviewParsed.errors instanceof Error ? reviewParsed.errors.message : String(reviewParsed.errors)}`,
+    );
+  }
+  const manifestParsed = deserializeGridMatchCanaryManifestV2(
+    contents[GRID_CANARY_MANIFEST_FILE]!,
+  );
+  if (!manifestParsed.ok) {
+    throw new Error(
+      `Grid canary read-back: invalid manifest (v2 required): ${manifestParsed.errors}`,
+    );
+  }
+
+  validateGridMatchCanaryBundle({
+    manifest: manifestParsed.manifest,
+    record: recordParsed.record,
+    report: reportParsed.report,
+    fallbackReview: reviewParsed.review,
+    textReplay: contents[GRID_CANARY_ARTIFACT_NAMES.textReplay]!,
+    asciiReplay: contents[GRID_CANARY_ARTIFACT_NAMES.asciiReplay]!,
+    reviewPrompt: contents[GRID_CANARY_ARTIFACT_NAMES.reviewPrompt]!,
+    serializedMatch: contents[GRID_CANARY_ARTIFACT_NAMES.match]!,
+    serializedFactualReport: contents[GRID_CANARY_ARTIFACT_NAMES.factualReport]!,
+    serializedFallbackReview: contents[GRID_CANARY_ARTIFACT_NAMES.fallbackReview]!,
+  });
+
+  return {
+    record: recordParsed.record,
+    report: reportParsed.report,
+    review: reviewParsed.review,
+    manifest: manifestParsed.manifest,
+    contents,
+  };
+}
+
+/**
+ * Atomic and isolated artifact bundle publication (Phase 3D2A.1).
  *
  * The complete bundle is constructed in a sibling temporary directory
- * `.tmp-<canaryId>`, `manifest.json` is written last, every artifact is read
- * back and the machine-readable artifacts are revalidated, and only then is
- * the completed temporary directory atomically renamed to `<canaryId>`. On any
- * failure no final canary directory exists, the temporary directory is removed
- * recursively and the original error is preserved. An existing final canary
- * directory is never overwritten.
+ * `.tmp-<canaryId>`, `manifest.json` is written last, then every one of the
+ * seven files is read back: the six non-manifest artifacts must match the
+ * written strings byte-for-byte, all four JSON artifacts are deserialized and
+ * validated, the manifest must be schema v2, the pure bundle cross-agreement
+ * validator (identity, result, review, text contracts and every SHA-256
+ * digest) must pass, and only then is the completed temporary directory
+ * atomically renamed to `<canaryId>`. After the rename the complete final
+ * bundle is reread and reverified; if final-path verification fails the final
+ * directory is removed recursively and the original verification error is
+ * preserved. On any failure no final canary directory exists, the temporary
+ * directory is removed recursively and the original error is preserved. An
+ * existing final canary directory is never overwritten.
  */
 async function publishCanaryBundle(
   fs: CanaryFileSystem,
   outputRoot: string,
   canaryId: string,
   artifacts: readonly BundleArtifact[],
-  manifest: GridMatchCanaryManifestV1,
+  manifest: GridMatchCanaryManifestV2,
 ): Promise<string> {
   const finalDir = join(outputRoot, canaryId);
   const tmpDir = join(outputRoot, `.tmp-${canaryId}`);
@@ -302,50 +437,34 @@ async function publishCanaryBundle(
       "utf-8",
     );
 
-    // Read every artifact back; revalidate the machine-readable ones.
-    const recordBack = await fs.readFile(
-      join(tmpDir, GRID_CANARY_ARTIFACT_NAMES.match),
-      "utf-8",
+    // Verify the complete temporary bundle before publishing.
+    await verifyCanaryBundleAtPath(
+      fs,
+      tmpDir,
+      artifacts,
+      serializeGridMatchCanaryManifest(manifest),
     );
-    const recordParsed = deserializeMatchRecord(recordBack);
-    if (!recordParsed.ok || !isV3Record(recordParsed.record)) {
-      throw new Error(
-        `Grid canary read-back: invalid match record: ${recordParsed.ok ? "not schema v3" : recordParsed.errors}`,
-      );
-    }
-    const reportBack = await fs.readFile(
-      join(tmpDir, GRID_CANARY_ARTIFACT_NAMES.factualReport),
-      "utf-8",
-    );
-    const reportParsed = deserializeFactualMatchReport(reportBack);
-    if (!reportParsed.ok || !isFactualReportV2(reportParsed.report)) {
-      throw new Error(
-        `Grid canary read-back: invalid factual report: ${reportParsed.ok ? "not schema v2" : reportParsed.errors}`,
-      );
-    }
-    const reviewBack = await fs.readFile(
-      join(tmpDir, GRID_CANARY_ARTIFACT_NAMES.fallbackReview),
-      "utf-8",
-    );
-    const reviewParsed = deserializeMatchReview(reviewBack);
-    if (!reviewParsed.ok) {
-      throw new Error(
-        `Grid canary read-back: invalid fallback review: ${reviewParsed.errors instanceof Error ? reviewParsed.errors.message : String(reviewParsed.errors)}`,
-      );
-    }
-    const manifestBack = await fs.readFile(
-      join(tmpDir, GRID_CANARY_MANIFEST_FILE),
-      "utf-8",
-    );
-    const manifestParsed = deserializeGridMatchCanaryManifest(manifestBack);
-    if (!manifestParsed.ok) {
-      throw new Error(
-        `Grid canary read-back: invalid manifest: ${manifestParsed.errors}`,
-      );
-    }
 
     // Atomically publish the completed temporary directory.
     await fs.rename(tmpDir, finalDir);
+
+    // Verify the complete final bundle at the published path. On failure
+    // remove the final directory and preserve the original verification error.
+    try {
+      await verifyCanaryBundleAtPath(
+        fs,
+        finalDir,
+        artifacts,
+        serializeGridMatchCanaryManifest(manifest),
+      );
+    } catch (finalError) {
+      try {
+        await fs.rm(finalDir, { recursive: true, force: true });
+      } catch {
+        // best-effort removal of the final directory
+      }
+      throw finalError;
+    }
   } catch (e) {
     try {
       await fs.rm(tmpDir, { recursive: true, force: true });
@@ -365,6 +484,11 @@ export async function runGridMatchCanary(
   const createUuid = dependencies.createUuid ?? randomUUID;
   const now = dependencies.now ?? (() => new Date());
   const fs = dependencies.fs ?? defaultCanaryFs;
+
+  // 0. Output-root isolation guard: runs before any directory is created or
+  // any match is executed. Protected normal storage roots and any non-canary
+  // root inside the repository data tree are rejected.
+  assertCanaryOutputRootIsolation(request.outputRoot);
 
   // 1. Validate the seed.
   if (!Number.isInteger(request.seed) || request.seed < 0) {
@@ -449,8 +573,10 @@ export async function runGridMatchCanary(
   if (reportRoundTrip.report.matchId !== record.matchId) {
     throw new Error("Grid canary factual report round trip changed the bound match ID");
   }
+  const serializedReview = serializeMatchReview(fallbackReview);
 
-  // 17. Build the manifest only after all checks pass.
+  // 17. Build the manifest only after all checks and all six artifact contents
+  // and digests exist.
   const canaryId = createUuid();
   const manifest = buildCanaryManifest({
     canaryId,
@@ -460,6 +586,14 @@ export async function runGridMatchCanary(
     record,
     report,
     evidence,
+    digests: {
+      match: sha256Hex(serializedRecord),
+      factualReport: sha256Hex(serializedReport),
+      textReplay: sha256Hex(textReplay),
+      asciiReplay: sha256Hex(asciiReplay),
+      reviewPrompt: sha256Hex(reviewPrompt),
+      fallbackReview: sha256Hex(serializedReview),
+    },
   });
 
   // 18-19. Persist one atomic canary bundle and validate the completed bundle.
@@ -475,7 +609,7 @@ export async function runGridMatchCanary(
       { name: GRID_CANARY_ARTIFACT_NAMES.reviewPrompt, content: reviewPrompt },
       {
         name: GRID_CANARY_ARTIFACT_NAMES.fallbackReview,
-        content: serializeMatchReview(fallbackReview),
+        content: serializedReview,
       },
     ],
     manifest,

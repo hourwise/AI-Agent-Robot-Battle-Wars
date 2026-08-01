@@ -568,6 +568,121 @@ reporting hardening complete; Phase 3D2A isolated grid match canary
 **not performed**; Milestone 0.2C **not complete** pending a separately
 authorised activation-readiness decision.
 
+## D42: Canary evidence and artifact verification hardening (2026-08-01)
+
+Milestone 0.2C Phase 3D2A.1 corrects three issues found in the Phase 3D2A
+review before a grid adaptive-series canary is added: the manifest claimed rear
+exposure it did not prove, bundle publication did not reread or cross-validate
+all artifacts, and the exported service did not prevent callers from selecting
+normal match or series storage as its output root. No simulator, policy or
+combat semantics changed and no grid series was introduced.
+
+- **The previous corner-adjacency proxy was not proof of rear exposure**: Phase
+  3D2A inferred `rearExposureObserved: true` when the moving fighter reached a
+  canonical corner adjacent to the stationary fighter. That proxy is removed.
+- **Canonical bearings are now the only exposure evidence**: all exposure is
+  derived through the existing `getRelativeBearing` and
+  `getPlanarExposedArmourZones` functions; a corner's name or adjacency is
+  never sufficient to infer exposure and no new bearing/exposure
+  implementation was added.
+- **The frozen scenario proves lateral side flanking and currently observes
+  `right`**: fighter B holds at `north` facing `south`; fighter A's observed
+  `north_west` position is defender-relative `right` (exposing `right`, not
+  `rear`). The canary requires at least one canonical flank bearing
+  (`left`, `right`, `rear_left`, `rear_right` or `rear`); `front_left` and
+  `front_right` never count as a successful flank.
+- **Strict rear exposure is reported separately and truthfully**: the evidence
+  result replaces `rearExposureObserved: true` with
+  `lateralFlankObserved` / `observedFlankBearings` /
+  `strictRearExposureObserved`. `strictRearExposureObserved` is false for the
+  frozen scenario and is set true only when the canonical exposed zones
+  actually contain `rear`. Neither boolean is hard-coded; both are derived from
+  inspected positions, and the frozen-scenario role invariants (fighter A
+  translates, fighter B never changes cell, fighter B faces south, at least
+  one translated circle, no combat events) are verified and fail closed.
+- **Manifest v2 supersedes the pre-hardening manifest-v1 evidence contract**:
+  `GridMatchCanaryManifestV2Schema` / `GridMatchCanaryManifestV2` require
+  `lateralFlankObserved: true`, a non-empty unique `observedFlankBearings`
+  array, a derived `strictRearExposureObserved` boolean,
+  `stationaryFighterCellUnchanged: true`, `allArtifactsReadBack: true` and
+  `bundleCrossAgreementPassed: true`, and never contain
+  `rearExposureObserved`. Manifest-v1 types are retained only for historical
+  inspection (`isGridMatchCanaryManifestV1`/`isGridMatchCanaryManifestV2`);
+  version-aware deserialization may read both versions, but current bundle
+  validation requires v2 and a v1 artifact is never accepted as current passing
+  canary evidence. Artifacts produced by the pre-hardening Phase 3D2A commit
+  are superseded and must not be treated as current canary proof.
+- **Manifest v2 contains SHA-256 digests for all non-manifest artifacts**:
+  `match`, `factualReport`, `textReplay`, `asciiReplay`, `reviewPrompt` and
+  `fallbackReview` each carry a lowercase 64-char SHA-256 hex digest
+  (`^[a-f0-9]{64}$`) computed from the exact UTF-8 string written to disk using
+  the Node standard cryptography library (no dependency added). The manifest is
+  constructed only after all six artifact contents and digests exist, and
+  `manifest.json` is never digested inside itself.
+- **Every artifact is reread and cross-validated**: bundle publication now
+  reads back all seven files, compares all seven strings byte-for-byte with the
+  strings that were written (including the serialized manifest), deserializes
+  and validates all four JSON artifacts, requires manifest v2, runs the pure
+  bundle cross-agreement validator, and only then atomically renames the
+  temporary directory. The complete final bundle is reread and reverified at
+  the published path; if final-path verification fails the final directory is
+  removed recursively and the original verification error is preserved.
+- **Bundle artifacts are cross-validated by a pure validator**:
+  `validateGridMatchCanaryBundle` verifies identity agreement
+  (`manifest.matchId = record.matchId = report.matchId`, `seed` agreement, and
+  simulator/positioning/ruleset/catalogue/schema-version agreement), result
+  agreement (`rounds`, `winner`, `resultMethod`, `eventCount =
+record.events.length`), fallback-review agreement (winner, method, rounds,
+  both final integrity values, both disabled-component lists), text-artifact
+  requirements (non-empty, no NUL, valid UTF-8, plus renderer-output markers:
+  text replay contains the completion marker, ASCII replay contains the grid
+  rendering header and a canonical 3×3 corner label, review prompt contains the
+  grid simulator identity and human-readable grid positioning) and every SHA-256
+  digest. It never mutates its inputs and throws a clear canary-bundle boundary
+  error.
+- **Protected normal storage roots are rejected by the service itself**:
+  `assertCanaryOutputRootIsolation` resolves and normalises absolute paths and
+  rejects `data/matches`, `data/series` and every descendant, the repository
+  `data` root and any non-canary child under repository `data` (the only
+  accepted in-repo root is the canonical `data/canary/grid-match`); arbitrary
+  external temporary roots remain allowed for tests. Path traversal and
+  equivalent normalized forms are handled, and Windows drive/path comparisons
+  are case-insensitive. The guard runs before any directory is created or any
+  match is executed.
+- **The CLI is truthful**: `match:grid:canary` prints
+  `Lateral flank observed: yes`, `Observed flank bearings: right` and
+  `Strict rear exposure observed: no` from inspected evidence and never prints
+  a positive claim inferred from a zone name. The argument contract and
+  existing package scripts are unchanged.
+- **Corruption is rejected with full cleanup**: a filesystem adapter that
+  changes any single artifact after writing but before read-back (match record
+  to another schema-valid v3 record, factual report to another schema-valid v2
+  report, fallback review to another schema-valid review, manifest to another
+  schema-valid v2 manifest, or any text artifact) fails publication, leaves no
+  final directory, removes the temporary directory, preserves the original
+  failure and never writes to normal match or series storage.
+- **No simulator, policy or combat semantics changed**: `runGridMatch`
+  behaviour, initial positions/facings, lateral/flank scoring, damage/armour/
+  qualification/victory logic and the no-combat canary policies are unchanged.
+  The frozen event stream, match-record v3 and factual-report v2 output are
+  preserved.
+- **No grid series or default activation occurred**: no grid adaptive-series
+  runner, runtime selector, provider integration, benchmark execution or
+  balance conclusion was made; no external API call occurred; the normal
+  `match`/`series` commands remain legacy; match v2, report v1, series v1,
+  C1/C2/AB2 checksums and qualification constants are unchanged with C2 the
+  default; held-out and `all` partitions remain sealed.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; Phase 3C lateral/flank integration complete;
+Phase 3D1 reporting/series compatibility foundation complete; Phase 3D1.1
+reporting hardening complete; Phase 3D2A isolated grid match canary
+**implemented**; Phase 3D2A.1 canary evidence and artifact hardening
+**complete**; grid canary series **not implemented**; default grid activation
+**not performed**; Milestone 0.2C **not complete** pending a separately
+authorised activation-readiness decision.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

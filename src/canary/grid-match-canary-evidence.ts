@@ -6,7 +6,6 @@ import type {
 } from "../simulator/types.js";
 import type { GridZone } from "../simulator/arena-grid.js";
 import {
-  getGridCoordinate,
   getPlanarExposedArmourZones,
   getRelativeBearing,
   isGridZone,
@@ -14,21 +13,30 @@ import {
 import { getMovementEventSubjectId } from "../events/battle-event.js";
 import type { FactualMatchReportV2 } from "../schemas/factual-report.schema.js";
 import { POSITIONING_MODEL_GRID } from "../schemas/positioning.schema.js";
+import {
+  GRID_CANARY_FLANK_BEARINGS,
+  type GridCanaryFlankBearing,
+} from "../schemas/grid-match-canary.schema.js";
 import { toAsciiReplayInput } from "../replay/ascii/ascii-replay-renderer.js";
 import { getStateAfterEvents } from "../replay/ascii/state-reconstructor.js";
 import { runGridMatch } from "../simulator/grid-runtime.js";
 
 /**
- * Pure grid canary evidence inspection (Milestone 0.2C Phase 3D2A).
+ * Pure grid canary evidence inspection (Milestone 0.2C Phase 3D2A.1).
  *
  * `inspectGridCanaryEvidence` inspects a direct `runGridMatch` result and
  * fails closed (throws `GridCanaryEvidenceError`) when any required evidence
- * is absent. `assertGridCanaryFinalAgreement` verifies that the final
- * `round_ended` event, the factual-report final states and the replay
- * reconstruction agree. Both reuse the canonical movement-event subject helper
- * and the existing geometry/bearing helpers only — they never re-implement
- * movement subjects, zone membership or exposure, and no check mutates the
- * result, the report or any event.
+ * is absent. All exposure evidence is derived only through the canonical
+ * `getRelativeBearing` / `getPlanarExposedArmourZones` functions — a corner's
+ * name or adjacency is never sufficient to infer exposure. The frozen scenario
+ * observes a canonical lateral flank (`right`); strict rear exposure is
+ * reported separately and truthfully (it may be false).
+ *
+ * `assertGridCanaryFinalAgreement` verifies that the final `round_ended`
+ * event, the factual-report final states and the replay reconstruction agree.
+ * Both reuse the canonical movement-event subject helper and the existing
+ * geometry/bearing helpers only, and no check mutates the result, the report
+ * or any event.
  */
 export class GridCanaryEvidenceError extends Error {
   constructor(message: string) {
@@ -41,8 +49,14 @@ export interface GridCanaryEvidence {
   translatedCircleEvents: number;
   cornerZonesVisited: number;
   cornerZones: readonly string[];
-  rearExposureObserved: true;
-  allMovementZonesCanonical: true;
+  lateralFlankObserved: boolean;
+  observedFlankBearings: readonly GridCanaryFlankBearing[];
+  strictRearExposureObserved: boolean;
+  stationaryFighterCellUnchanged: boolean;
+  allMovementZonesCanonical: boolean;
+  fighterATranslated: boolean;
+  fighterBStationary: boolean;
+  fighterBFacingSouth: boolean;
   combatEvents: readonly string[];
   finalZoneA: string;
   finalZoneB: string;
@@ -66,15 +80,12 @@ const CORNER_ZONES: ReadonlySet<string> = new Set<string>([
   "south_east",
 ]);
 
+const FLANK_BEARING_SET: ReadonlySet<string> = new Set<string>(
+  GRID_CANARY_FLANK_BEARINGS,
+);
+
 function isCanonicalCorner(zone: string): boolean {
   return CORNER_ZONES.has(zone);
-}
-
-function zonesAdjacent(a: GridZone, b: GridZone): boolean {
-  const ca = getGridCoordinate(a);
-  const cb = getGridCoordinate(b);
-  const chebyshev = Math.max(Math.abs(ca.x - cb.x), Math.abs(ca.y - cb.y));
-  return chebyshev <= 1 && !(ca.x === cb.x && ca.y === cb.y);
 }
 
 /**
@@ -115,10 +126,17 @@ export function inspectGridCanaryEvidence(result: GridMatchResult): GridCanaryEv
   }
 
   const visitedZones = new Set<string>();
+  const observedFlankBearings = new Set<GridCanaryFlankBearing>();
   let translatedCircleEvents = 0;
   let strictRearExposure = false;
-  let cornerFlankExposure = false;
   const combatEvents: string[] = [];
+
+  // Frozen-scenario role invariants.
+  const fighterCellChanges: Record<"fighter_a" | "fighter_b", number> = {
+    fighter_a: 0,
+    fighter_b: 0,
+  };
+  let fighterBFacing: string = state.fighter_b.facing;
 
   const fighterState = (fighter: "fighter_a" | "fighter_b"): GridFighterState =>
     fighter === "fighter_a" ? state.fighter_a : state.fighter_b;
@@ -128,27 +146,28 @@ export function inspectGridCanaryEvidence(result: GridMatchResult): GridCanaryEv
     zone: GridZone,
     facing: Direction,
   ): void => {
-    const next = { ...fighterState(fighter), zone, facing };
+    const previous = fighterState(fighter);
+    if (previous.zone !== zone) fighterCellChanges[fighter] += 1;
+    const next = { ...previous, zone, facing };
     if (fighter === "fighter_a") state.fighter_a = next;
-    else state.fighter_b = next;
+    else {
+      state.fighter_b = next;
+      fighterBFacing = facing;
+    }
   };
 
   const evaluatePosition = (): void => {
     const movingState = fighterState(moving);
     const stationaryState = fighterState(stationary);
-    const exposed = getPlanarExposedArmourZones(
-      getRelativeBearing(
-        movingState.zone,
-        stationaryState.zone,
-        stationaryState.facing as Direction,
-      ),
+    const bearing = getRelativeBearing(
+      movingState.zone,
+      stationaryState.zone,
+      stationaryState.facing as Direction,
     );
+    const exposed = getPlanarExposedArmourZones(bearing);
     if (exposed.includes("rear")) strictRearExposure = true;
-    if (
-      isCanonicalCorner(movingState.zone) &&
-      zonesAdjacent(movingState.zone, stationaryState.zone)
-    ) {
-      cornerFlankExposure = true;
+    if (FLANK_BEARING_SET.has(bearing)) {
+      observedFlankBearings.add(bearing as GridCanaryFlankBearing);
     }
   };
 
@@ -201,6 +220,12 @@ export function inspectGridCanaryEvidence(result: GridMatchResult): GridCanaryEv
           `round_ended zones must be canonical grid zones; received ${String(zoneA)} / ${String(zoneB)}`,
         );
       }
+      if (state.fighter_a.zone !== (zoneA as GridZone)) {
+        fighterCellChanges.fighter_a += 1;
+      }
+      if (state.fighter_b.zone !== (zoneB as GridZone)) {
+        fighterCellChanges.fighter_b += 1;
+      }
       state.fighter_a = { ...state.fighter_a, zone: zoneA as GridZone };
       state.fighter_b = { ...state.fighter_b, zone: zoneB as GridZone };
       evaluatePosition();
@@ -209,17 +234,26 @@ export function inspectGridCanaryEvidence(result: GridMatchResult): GridCanaryEv
     }
   }
 
-  if (translatedCircleEvents < 1) {
+  const fighterATranslated = fighterCellChanges.fighter_a > 0;
+  const fighterBStationary = fighterCellChanges.fighter_b === 0;
+  const fighterBFacingSouth = fighterBFacing === "south";
+  const stationaryFighterCellUnchanged = fighterCellChanges[stationary] === 0;
+  const lateralFlankObserved = observedFlankBearings.size > 0;
+
+  // Scenario role invariants fail closed first.
+  if (!fighterATranslated) {
     throw new GridCanaryEvidenceError(
-      "no translated circle_left/circle_right event was observed",
+      "scenario invariant failed: fighter A produced no translated movement",
     );
   }
-  if (visitedZones.size < 1) {
-    throw new GridCanaryEvidenceError("no canonical corner zone was visited");
-  }
-  if (!strictRearExposure && !cornerFlankExposure) {
+  if (!fighterBStationary) {
     throw new GridCanaryEvidenceError(
-      "no position exposes rear or rear-diagonal armour relative to the stationary opponent",
+      "scenario invariant failed: fighter B changed cells",
+    );
+  }
+  if (!fighterBFacingSouth) {
+    throw new GridCanaryEvidenceError(
+      "scenario invariant failed: fighter B facing is not south",
     );
   }
   if (combatEvents.length > 0) {
@@ -228,12 +262,33 @@ export function inspectGridCanaryEvidence(result: GridMatchResult): GridCanaryEv
     );
   }
 
+  // Evidence requirements fail closed.
+  if (translatedCircleEvents < 1) {
+    throw new GridCanaryEvidenceError(
+      "no translated circle_left/circle_right event was observed",
+    );
+  }
+  if (visitedZones.size < 1) {
+    throw new GridCanaryEvidenceError("no canonical corner zone was visited");
+  }
+  if (!lateralFlankObserved) {
+    throw new GridCanaryEvidenceError(
+      "no canonical flank bearing (left/right/rear_left/rear_right/rear) was observed",
+    );
+  }
+
   return {
     translatedCircleEvents,
     cornerZonesVisited: visitedZones.size,
     cornerZones: [...visitedZones],
-    rearExposureObserved: true,
+    lateralFlankObserved,
+    observedFlankBearings: [...observedFlankBearings],
+    strictRearExposureObserved: strictRearExposure,
+    stationaryFighterCellUnchanged,
     allMovementZonesCanonical: true,
+    fighterATranslated,
+    fighterBStationary,
+    fighterBFacingSouth,
     combatEvents,
     finalZoneA: state.fighter_a.zone,
     finalZoneB: state.fighter_b.zone,

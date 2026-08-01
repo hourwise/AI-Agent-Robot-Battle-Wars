@@ -37,6 +37,8 @@ interface FakeFsHooks {
   failWriteAt?: (path: string) => boolean;
   failRenameAt?: (from: string, to: string) => boolean;
   corruptReadAt?: (path: string) => boolean;
+  /** Returns replacement content for a read-back path, or undefined to passthrough. */
+  transformReadAt?: (path: string, content: string) => string | undefined;
 }
 
 /** Real filesystem with injectable failure hooks for the canary bundle. */
@@ -53,6 +55,10 @@ function makeFakeFs(hooks: FakeFsHooks): CanaryFileSystem {
       await writeFile(path, data, encoding);
     },
     readFile: async (path, encoding) => {
+      if (hooks.transformReadAt) {
+        const transformed = hooks.transformReadAt(path, await readFile(path, encoding));
+        if (transformed !== undefined) return transformed;
+      }
       if (hooks.corruptReadAt && hooks.corruptReadAt(path)) {
         return "{ corrupted json";
       }
@@ -254,5 +260,142 @@ describe("grid match canary atomic bundle (Phase 3D2A)", () => {
       runGridMatchCanary({ seed: -5, outputRoot: root }, deps(fs)),
     ).rejects.toThrow(/non-negative integer/);
     expect(await readdir(root)).toEqual([]);
+  });
+});
+
+describe("grid match canary artifact corruption (Phase 3D2A.1)", () => {
+  const tmpOnly = (path: string) => path.includes(".tmp-");
+
+  async function assertCorruptionFails(fs: CanaryFileSystem): Promise<void> {
+    const root = await makeTempRoot();
+    await expect(
+      runGridMatchCanary({ seed: 3, outputRoot: root }, deps(fs)),
+    ).rejects.toThrow(/read-back/);
+    // No final directory, no leftover temporary directory.
+    expect(await pathExists(join(root, FIXED_CANARY_ID))).toBe(false);
+    expect((await readdir(root)).filter((f) => f.startsWith(".tmp-"))).toEqual([]);
+  }
+
+  it("rejects a match record corrupted to another schema-valid v3 record", async () => {
+    await assertCorruptionFails(
+      makeFakeFs({
+        transformReadAt: (path, content) => {
+          if (tmpOnly(path) && path.endsWith("match.json")) {
+            const record = JSON.parse(content);
+            record.matchId = "99999999-8888-4777-8666-555555555555";
+            return JSON.stringify(record, null, 2);
+          }
+          return undefined;
+        },
+      }),
+    );
+  });
+
+  it("rejects a factual report corrupted to another schema-valid v2 report", async () => {
+    await assertCorruptionFails(
+      makeFakeFs({
+        transformReadAt: (path, content) => {
+          if (tmpOnly(path) && path.endsWith("factual-report.json")) {
+            const report = JSON.parse(content);
+            report.matchId = "99999999-8888-4777-8666-555555555555";
+            return JSON.stringify(report, null, 2);
+          }
+          return undefined;
+        },
+      }),
+    );
+  });
+
+  it("rejects a fallback review corrupted to another schema-valid review", async () => {
+    await assertCorruptionFails(
+      makeFakeFs({
+        transformReadAt: (path, content) => {
+          if (tmpOnly(path) && path.endsWith("fallback-review.json")) {
+            const review = JSON.parse(content);
+            review.observedOutcome.rounds = 19;
+            return JSON.stringify(review, null, 2);
+          }
+          return undefined;
+        },
+      }),
+    );
+  });
+
+  it("rejects a manifest corrupted to another schema-valid v2 manifest", async () => {
+    await assertCorruptionFails(
+      makeFakeFs({
+        transformReadAt: (path, content) => {
+          if (tmpOnly(path) && path.endsWith("manifest.json")) {
+            const manifest = JSON.parse(content);
+            manifest.seed = manifest.seed + 1;
+            return JSON.stringify(manifest, null, 2);
+          }
+          return undefined;
+        },
+      }),
+    );
+  });
+
+  it("rejects a corrupted text replay artifact", async () => {
+    await assertCorruptionFails(
+      makeFakeFs({
+        transformReadAt: (path, content) => {
+          if (tmpOnly(path) && path.endsWith("text-replay.txt")) {
+            return `${content}\nTAMPERED`;
+          }
+          return undefined;
+        },
+      }),
+    );
+  });
+
+  it("rejects a corrupted ASCII replay artifact", async () => {
+    await assertCorruptionFails(
+      makeFakeFs({
+        transformReadAt: (path, content) => {
+          if (tmpOnly(path) && path.endsWith("ascii-replay.txt")) {
+            return `${content}\nTAMPERED`;
+          }
+          return undefined;
+        },
+      }),
+    );
+  });
+
+  it("rejects a corrupted review prompt artifact", async () => {
+    await assertCorruptionFails(
+      makeFakeFs({
+        transformReadAt: (path, content) => {
+          if (tmpOnly(path) && path.endsWith("review-prompt.txt")) {
+            return `${content}\nTAMPERED`;
+          }
+          return undefined;
+        },
+      }),
+    );
+  });
+
+  it("never writes to normal match or series storage during corruption failures", async () => {
+    const dataDir = join(process.cwd(), "data");
+    const matchesBefore = await readdir(join(dataDir, "matches")).catch(() => []);
+    const seriesBefore = await readdir(join(dataDir, "series")).catch(() => []);
+
+    const fs = makeFakeFs({
+      transformReadAt: (path, content) => {
+        if (tmpOnly(path) && path.endsWith("match.json")) {
+          return `${content}\n`;
+        }
+        return undefined;
+      },
+    });
+    const root = await makeTempRoot();
+    await expect(
+      runGridMatchCanary({ seed: 3, outputRoot: root }, deps(fs)),
+    ).rejects.toThrow(/read-back/);
+
+    expect(await readdir(join(dataDir, "matches")).catch(() => [])).toEqual(
+      matchesBefore,
+    );
+    expect(await readdir(join(dataDir, "series")).catch(() => [])).toEqual(seriesBefore);
   });
 });

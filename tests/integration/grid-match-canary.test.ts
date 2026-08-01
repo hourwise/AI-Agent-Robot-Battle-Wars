@@ -6,7 +6,7 @@ import { runGridMatchCanary } from "../../src/app/grid-match-canary.js";
 import { validateMatchRecord } from "../../src/schemas/match-record.schema.js";
 import { validateFactualMatchReport } from "../../src/schemas/factual-report.schema.js";
 import { validateMatchReview } from "../../src/schemas/review.schema.js";
-import { validateGridMatchCanaryManifest } from "../../src/schemas/grid-match-canary.schema.js";
+import { validateGridMatchCanaryManifestV2 } from "../../src/schemas/grid-match-canary.schema.js";
 
 const tempRoots: string[] = [];
 
@@ -22,7 +22,7 @@ afterEach(async () => {
   }
 });
 
-describe("grid match canary service (Phase 3D2A)", () => {
+describe("grid match canary service (Phase 3D2A.1)", () => {
   it("runs the full pipeline and returns a structured success result", async () => {
     const root = await makeTempRoot();
     const outcome = await runGridMatchCanary({ seed: 11, outputRoot: root });
@@ -42,9 +42,13 @@ describe("grid match canary service (Phase 3D2A)", () => {
     expect(outcome.resultMethod).toBe("judges");
     expect(outcome.evidence.translatedCircleEvents).toBeGreaterThan(0);
     expect(outcome.evidence.cornerZonesVisited).toBeGreaterThan(0);
-    expect(outcome.evidence.rearExposureObserved).toBe(true);
+    expect(outcome.evidence.lateralFlankObserved).toBe(true);
+    expect(outcome.evidence.observedFlankBearings).toContain("right");
+    expect(outcome.evidence.strictRearExposureObserved).toBe(false);
+    expect(outcome.evidence.stationaryFighterCellUnchanged).toBe(true);
     expect(outcome.evidence.combatEvents).toEqual([]);
     expect(outcome.artifacts).toHaveLength(7);
+    expect(outcome.manifest.schemaVersion).toBe("2");
   });
 
   it("produces match-record v3 and factual-report v2 bound to the real match UUID", async () => {
@@ -138,19 +142,37 @@ describe("grid match canary service (Phase 3D2A)", () => {
     }
   });
 
-  it("validates the completed manifest", async () => {
+  it("validates the completed v2 manifest", async () => {
     const root = await makeTempRoot();
     const outcome = await runGridMatchCanary({ seed: 11, outputRoot: root });
 
-    const manifestValidation = validateGridMatchCanaryManifest(outcome.manifest);
+    const manifestValidation = validateGridMatchCanaryManifestV2(outcome.manifest);
     expect(manifestValidation.ok).toBe(true);
     if (manifestValidation.ok) {
+      expect(manifestValidation.manifest.schemaVersion).toBe("2");
       expect(manifestValidation.manifest.status).toBe("passed");
       expect(manifestValidation.manifest.evidence.recordRoundTripPassed).toBe(true);
       expect(manifestValidation.manifest.evidence.reportRoundTripPassed).toBe(true);
       expect(manifestValidation.manifest.evidence.replayFinalStateAgreement).toBe(true);
       expect(manifestValidation.manifest.evidence.fallbackReviewGenerated).toBe(true);
+      expect(manifestValidation.manifest.evidence.allArtifactsReadBack).toBe(true);
+      expect(manifestValidation.manifest.evidence.bundleCrossAgreementPassed).toBe(true);
+      // Every non-manifest artifact has a SHA-256 digest.
+      for (const digest of Object.values(manifestValidation.manifest.digests)) {
+        expect(digest).toMatch(/^[a-f0-9]{64}$/);
+      }
     }
+  });
+
+  it("records truthful flank evidence in the manifest", async () => {
+    const root = await makeTempRoot();
+    const outcome = await runGridMatchCanary({ seed: 11, outputRoot: root });
+
+    expect(outcome.manifest.evidence.observedFlankBearings).toEqual(["right"]);
+    expect(outcome.manifest.evidence.lateralFlankObserved).toBe(true);
+    expect(outcome.manifest.evidence.strictRearExposureObserved).toBe(false);
+    expect(outcome.manifest.evidence.stationaryFighterCellUnchanged).toBe(true);
+    expect(JSON.stringify(outcome.manifest)).not.toContain("rearExposureObserved");
   });
 
   it("keeps the final positioning agreement across record, report and replay", async () => {
@@ -184,6 +206,20 @@ describe("grid match canary service (Phase 3D2A)", () => {
     await expect(runGridMatchCanary({ seed: 1.5, outputRoot: root })).rejects.toThrow(
       /non-negative integer/,
     );
+  });
+
+  it("rejects protected normal-storage output roots before execution or writes", async () => {
+    const matchesRoot = join(process.cwd(), "data", "matches");
+    const seriesRoot = join(process.cwd(), "data", "series");
+    await expect(
+      runGridMatchCanary({ seed: 11, outputRoot: matchesRoot }),
+    ).rejects.toThrow(/match storage/);
+    await expect(
+      runGridMatchCanary({ seed: 11, outputRoot: seriesRoot }),
+    ).rejects.toThrow(/series storage/);
+    await expect(
+      runGridMatchCanary({ seed: 11, outputRoot: join(process.cwd(), "data") }),
+    ).rejects.toThrow(/must be/);
   });
 
   it("never writes to normal match or series storage", async () => {

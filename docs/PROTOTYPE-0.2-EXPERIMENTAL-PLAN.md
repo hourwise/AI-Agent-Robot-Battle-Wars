@@ -75,9 +75,13 @@ factual-summary agreement) is implemented by the
 `agent/0.2c-grid-reporting-hardening` task; Phase 3D2A (isolated deterministic
 grid match canary — a separate, local-only, single-match canary command
 proving the full grid pipeline operationally) is implemented by the
-`agent/0.2c-grid-match-canary` task. The authoritative runtime migration,
-grid adaptive-series execution and live grid match production remain future,
-separately authorised phases.
+`agent/0.2c-grid-match-canary` task; Phase 3D2A.1 (canary evidence and
+artifact verification hardening — canonical flank bearings, truthful strict
+rear reporting, manifest v2 with SHA-256 digests, complete artifact read-back
+and cross-validation, and output-root isolation) is implemented by the
+`agent/0.2c-grid-match-canary-hardening` task. The authoritative runtime
+migration, grid adaptive-series execution and live grid match production remain
+future, separately authorised phases.
 
 **Milestone 0.2C progress (2026-08-01):**
 
@@ -173,6 +177,35 @@ separately authorised phases.
   commands are unchanged and no grid series runner, runtime selector, default
   activation, provider integration, benchmark execution or balance conclusion
   was added. Full suite, typecheck, lint and CRLF formatting pass.
+- Phase 3D2A.1 — canary evidence and artifact verification hardening:
+  **complete**. The Phase 3D2A corner-adjacency proxy (corner + adjacency →
+  rear exposure) was removed; all exposure is now derived only through the
+  canonical `getRelativeBearing` / `getPlanarExposedArmourZones` functions.
+  The frozen scenario's fighter B holds at `north` facing `south`, so fighter
+  A's observed `north_west` position is defender-relative `right` — a canonical
+  lateral flank — and `strictRearExposureObserved` is reported truthfully
+  (`false` for the frozen scenario). The evidence result now uses
+  `lateralFlankObserved` / `observedFlankBearings` /
+  `strictRearExposureObserved` and verifies the frozen-scenario role
+  invariants (fighter A translates, fighter B never changes cell, fighter B
+  faces south, at least one translated circle, no combat events). Manifest v2
+  is the only current passing manifest and contains SHA-256 digests for all six
+  non-manifest artifacts (computed with the Node standard cryptography library,
+  no dependency); manifest-v1 types are retained only for historical inspection
+  and pre-hardening artifacts are superseded. Bundle publication now reads back
+  all seven files, byte-compares every written string, deserializes and
+  validates all four JSON artifacts, requires manifest v2, runs the pure
+  cross-agreement validator `validateGridMatchCanaryBundle` (identity, result,
+  review, text-artifact and digest agreement) and reverifies the complete final
+  bundle after the atomic rename. `assertCanaryOutputRootIsolation` rejects
+  `data/matches`, `data/series` and descendants, the repository `data` root and
+  any non-canary in-repo root (canonical `data/canary/grid-match` only), with
+  path-traversal and case-insensitive Windows handling, before any directory is
+  created or any match is executed. Corruption of any artifact (including
+  schema-valid corruption) fails publication with full cleanup and never writes
+  to normal storage. The CLI prints truthful flank fields. No simulator, policy
+  or combat semantics changed; no grid series or default activation occurred;
+  no balance conclusion was made.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

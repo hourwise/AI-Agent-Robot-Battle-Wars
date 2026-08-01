@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runMatch } from "../../src/simulator/simulator.js";
 import { runGridMatch } from "../../src/simulator/grid-runtime.js";
@@ -16,6 +17,7 @@ import {
   buildGridFactualReport,
 } from "../../src/reports/factual-match-report.js";
 import { createGridCanaryScenario } from "../../src/canary/grid-canary-scenario.js";
+import { runGridMatchCanary } from "../../src/app/grid-match-canary.js";
 import {
   DEFAULT_COMPONENT_QUALIFICATION_ID,
   getComponentQualificationConfig,
@@ -132,5 +134,65 @@ describe("grid match canary — legacy and contract regression (Phase 3D2A)", ()
   it("does not activate grid as the default runtime", async () => {
     const indexSource = await readSource("src/index.ts");
     expect(indexSource).not.toContain("runGridMatch");
+  });
+
+  it("keeps the frozen canary simulator event stream unchanged", () => {
+    const scenario = createGridCanaryScenario();
+    const result = runGridMatch({
+      seed: 5,
+      fighterA: scenario.fighterA,
+      fighterB: scenario.fighterB,
+      rulesetVersion: RULESET_VERSION,
+      catalogueVersion: CATALOGUE_V1.version,
+    });
+    const movement = result.events.filter((e) => e.type === "movement_resolved");
+    expect(movement).toHaveLength(20);
+    // Fighter A: translated advance then translated circles; fighter B: none.
+    const actorA = movement.filter((e) => e.actorId === "fighter_a");
+    expect(actorA).toHaveLength(20);
+    expect(movement.some((e) => e.actorId === "fighter_b")).toBe(false);
+    expect(actorA[0]!.data).toMatchObject({
+      from: "south",
+      to: "center",
+      action: "advance",
+    });
+    const circles = actorA.slice(1);
+    for (const event of circles) {
+      expect(["circle_left", "circle_right"]).toContain(event.data.action);
+      expect(event.data.from).not.toBe(event.data.to);
+    }
+    const combatTypes = [
+      "attack_attempted",
+      "attack_missed",
+      "attack_hit",
+      "integrity_damaged",
+      "component_damaged",
+      "component_damage_resisted",
+      "component_disabled",
+      "robot_overturned",
+    ];
+    expect(result.events.filter((e) => combatTypes.includes(e.type))).toEqual([]);
+    expect(result.rounds).toBe(20);
+    expect(result.result.method).toBe("judges");
+  });
+
+  it("emits manifest v2 with truthful flank evidence and no false rear claim", async () => {
+    const root = await mkdtemp(join(tmpdir(), "canary-regression-"));
+    try {
+      const outcome = await runGridMatchCanary({ seed: 5, outputRoot: root });
+      expect(outcome.manifest.schemaVersion).toBe("2");
+      expect(outcome.manifest.evidence.lateralFlankObserved).toBe(true);
+      expect(outcome.manifest.evidence.observedFlankBearings).toEqual(["right"]);
+      expect(outcome.manifest.evidence.strictRearExposureObserved).toBe(false);
+      expect(JSON.stringify(outcome.manifest)).not.toContain("rearExposureObserved");
+      expect(outcome.manifest.evidence.allArtifactsReadBack).toBe(true);
+      expect(outcome.manifest.evidence.bundleCrossAgreementPassed).toBe(true);
+      // All non-manifest artifacts are covered by SHA-256 digests.
+      for (const digest of Object.values(outcome.manifest.digests)) {
+        expect(digest).toMatch(/^[a-f0-9]{64}$/);
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

@@ -10,7 +10,16 @@ import {
   verifyGridCanaryDeterminism,
 } from "../../src/canary/grid-match-canary-evidence.js";
 import { buildGridFactualReport } from "../../src/reports/factual-match-report.js";
-import type { GridMatchResult } from "../../src/simulator/types.js";
+import {
+  getPlanarExposedArmourZones,
+  getRelativeBearing,
+} from "../../src/simulator/arena-grid.js";
+import type {
+  Direction,
+  GridMatchResult,
+  GridZone,
+  SimulationEvent,
+} from "../../src/simulator/types.js";
 
 function runCanaryMatch(seed: number): GridMatchResult {
   const scenario = createGridCanaryScenario();
@@ -29,7 +38,59 @@ function runEvidence(seed: number) {
   return { result, evidence };
 }
 
-describe("grid canary evidence — direct match (Phase 3D2A)", () => {
+function movementEvent(
+  round: number,
+  sequence: number,
+  actorId: string,
+  from: GridZone,
+  to: GridZone,
+  facing: Direction,
+  action: string,
+): SimulationEvent {
+  return {
+    schemaVersion: "1",
+    sequence,
+    round,
+    timestampMs: round * 1000,
+    type: "movement_resolved",
+    actorId,
+    data: { from, to, facing, action },
+  };
+}
+
+function roundEndEvent(
+  round: number,
+  sequence: number,
+  zoneA: GridZone,
+  zoneB: GridZone,
+): SimulationEvent {
+  return {
+    schemaVersion: "1",
+    sequence,
+    round,
+    timestampMs: round * 1000,
+    type: "round_ended",
+    data: {
+      fighterA: { zone: zoneA, integrity: 100, energy: 100, heat: 0, conditions: [] },
+      fighterB: { zone: zoneB, integrity: 100, energy: 100, heat: 0, conditions: [] },
+    },
+  };
+}
+
+/** Synthetic grid result with fighter B held at `center` facing south. */
+function syntheticCenterSouthResult(events: readonly SimulationEvent[]): GridMatchResult {
+  const base = runCanaryMatch(1);
+  return {
+    ...base,
+    initialState: {
+      fighterA: { ...base.initialState.fighterA, zone: "south", facing: "north" },
+      fighterB: { ...base.initialState.fighterB, zone: "center", facing: "south" },
+    },
+    events: [...events],
+  };
+}
+
+describe("grid canary evidence — direct match (Phase 3D2A.1)", () => {
   it("is deterministic for multiple ordinary development seeds", () => {
     for (const seed of [1, 2, 3, 42, 100, 2026]) {
       const first = runCanaryMatch(seed);
@@ -85,10 +146,41 @@ describe("grid canary evidence — direct match (Phase 3D2A)", () => {
     }
   });
 
-  it("observes rear or rear-diagonal exposure relative to the stationary opponent", () => {
+  it("observes a canonical lateral flank for the frozen scenario", () => {
     for (const seed of [1, 2, 3, 42, 100]) {
       const { evidence } = runEvidence(seed);
-      expect(evidence.rearExposureObserved).toBe(true);
+      expect(evidence.lateralFlankObserved).toBe(true);
+      expect(evidence.observedFlankBearings.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("reports the actual canonical flank bearing (right) for the frozen scenario", () => {
+    for (const seed of [1, 2, 3, 42, 100]) {
+      const { evidence } = runEvidence(seed);
+      expect(evidence.observedFlankBearings).toContain("right");
+      expect(
+        evidence.observedFlankBearings.every((b) =>
+          ["left", "right", "rear_left", "rear_right", "rear"].includes(b),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("reports strict rear exposure truthfully (false for the frozen scenario)", () => {
+    for (const seed of [1, 2, 3, 42, 100]) {
+      const { evidence } = runEvidence(seed);
+      expect(evidence.strictRearExposureObserved).toBe(false);
+    }
+  });
+
+  it("verifies the frozen-scenario role invariants", () => {
+    for (const seed of [1, 2, 3, 42, 100]) {
+      const { evidence } = runEvidence(seed);
+      expect(evidence.fighterATranslated).toBe(true);
+      expect(evidence.fighterBStationary).toBe(true);
+      expect(evidence.fighterBFacingSouth).toBe(true);
+      expect(evidence.stationaryFighterCellUnchanged).toBe(true);
+      expect(evidence.allMovementZonesCanonical).toBe(true);
     }
   });
 
@@ -216,10 +308,11 @@ describe("grid canary evidence — fail-closed checks (Phase 3D2A)", () => {
     expect(() => inspectGridCanaryEvidence(tampered)).toThrow(/corner zone/);
   });
 
-  it("fails closed when rear or rear-diagonal exposure is absent", () => {
+  it("fails closed when no canonical flank bearing is observed", () => {
     const result = runCanaryMatch(1);
     // Route the moving fighter entirely into a corner far from the stationary
-    // north fighter (south_west), which exposes no rear and is not adjacent.
+    // north fighter (south_west): the defender-relative bearing is
+    // `front_right` — not a canonical flank bearing.
     const tampered: GridMatchResult = {
       ...result,
       events: result.events.map((event) => {
@@ -241,7 +334,70 @@ describe("grid canary evidence — fail-closed checks (Phase 3D2A)", () => {
         return event;
       }),
     };
-    expect(() => inspectGridCanaryEvidence(tampered)).toThrow(/rear or rear-diagonal/);
+    expect(() => inspectGridCanaryEvidence(tampered)).toThrow(/canonical flank bearing/);
+  });
+
+  it("fails closed when fighter A produces no translated movement", () => {
+    const result = runCanaryMatch(1);
+    // Pin fighter A to its starting cell in both movement and round-end facts.
+    const tampered: GridMatchResult = {
+      ...result,
+      events: result.events.map((event) => {
+        if (event.type === "movement_resolved") {
+          return { ...event, data: { ...event.data, from: "south", to: "south" } };
+        }
+        if (event.type === "round_ended") {
+          return {
+            ...event,
+            data: {
+              ...event.data,
+              fighterA: {
+                ...(event.data as { fighterA: { zone: string } }).fighterA,
+                zone: "south",
+              },
+            },
+          };
+        }
+        return event;
+      }),
+    };
+    expect(() => inspectGridCanaryEvidence(tampered)).toThrow(
+      /fighter A produced no translated movement/,
+    );
+  });
+
+  it("fails closed when fighter B changes cells", () => {
+    const result = runCanaryMatch(1);
+    const tampered: GridMatchResult = {
+      ...result,
+      events: [
+        ...result.events,
+        movementEvent(
+          result.rounds + 1,
+          result.events.length + 1,
+          "fighter_b",
+          "north",
+          "center",
+          "south",
+          "advance",
+        ),
+      ],
+    };
+    expect(() => inspectGridCanaryEvidence(tampered)).toThrow(/fighter B changed cells/);
+  });
+
+  it("fails closed when fighter B facing is not south", () => {
+    const result = runCanaryMatch(1);
+    const tampered: GridMatchResult = {
+      ...result,
+      initialState: {
+        ...result.initialState,
+        fighterB: { ...result.initialState.fighterB, facing: "north" },
+      },
+    };
+    expect(() => inspectGridCanaryEvidence(tampered)).toThrow(
+      /fighter B facing is not south/,
+    );
   });
 
   it("fails closed when a movement zone is not canonical", () => {
@@ -278,5 +434,107 @@ describe("grid canary evidence — fail-closed checks (Phase 3D2A)", () => {
     expect(() => assertGridCanaryFinalAgreement(result, tamperedReport)).toThrow(
       /final-positioning agreement failed/,
     );
+  });
+});
+
+describe("grid canary canonical flank bearings (Phase 3D2A.1)", () => {
+  it("north_west relative to a south-facing fighter at north is right", () => {
+    const bearing = getRelativeBearing("north_west", "north", "south");
+    expect(bearing).toBe("right");
+  });
+
+  it("north_west exposes right, not rear", () => {
+    const exposed = getPlanarExposedArmourZones(
+      getRelativeBearing("north_west", "north", "south"),
+    );
+    expect(exposed).toContain("right");
+    expect(exposed).not.toContain("rear");
+  });
+
+  it("corner adjacency alone cannot satisfy strict rear evidence", () => {
+    // Fighter A visits the corner north_west, which is adjacent to fighter B at
+    // north — but the defender-relative bearing is `right`, so strict rear
+    // exposure must remain false.
+    const { evidence } = runEvidence(1);
+    expect(evidence.cornerZones).toContain("north_west");
+    expect(evidence.lateralFlankObserved).toBe(true);
+    expect(evidence.observedFlankBearings).toContain("right");
+    expect(evidence.strictRearExposureObserved).toBe(false);
+  });
+
+  it("does not accept front-left or front-right as a successful flank", () => {
+    // Fighter B held at center facing south; fighter A translates between the
+    // south corners, whose defender-relative bearings are front_right /
+    // front_left — never a canonical flank bearing.
+    const result = syntheticCenterSouthResult([
+      movementEvent(1, 1, "fighter_a", "south", "south_west", "north", "circle_left"),
+      movementEvent(
+        2,
+        2,
+        "fighter_a",
+        "south_west",
+        "south_east",
+        "north",
+        "circle_right",
+      ),
+      roundEndEvent(2, 3, "south_east", "center"),
+    ]);
+    expect(getRelativeBearing("south_west", "center", "south")).toBe("front_right");
+    expect(getRelativeBearing("south_east", "center", "south")).toBe("front_left");
+    expect(() => inspectGridCanaryEvidence(result)).toThrow(/no canonical flank bearing/);
+  });
+});
+
+describe("grid canary controlled strict-rear evidence (Phase 3D2A.1)", () => {
+  it("sets strict rear evidence true for a genuine rear position", () => {
+    // Fighter B held at center facing south; fighter A translates to north
+    // (defender-relative `rear`).
+    const result = syntheticCenterSouthResult([
+      movementEvent(1, 1, "fighter_a", "south", "north_west", "east", "circle_left"),
+      movementEvent(2, 2, "fighter_a", "north_west", "north", "east", "circle_right"),
+      roundEndEvent(2, 3, "north", "center"),
+    ]);
+    expect(getRelativeBearing("north", "center", "south")).toBe("rear");
+    const evidence = inspectGridCanaryEvidence(result);
+    expect(evidence.strictRearExposureObserved).toBe(true);
+    expect(evidence.observedFlankBearings).toContain("rear");
+  });
+
+  it("sets strict rear evidence true for a rear_left position", () => {
+    const result = syntheticCenterSouthResult([
+      movementEvent(1, 1, "fighter_a", "south", "north_east", "west", "circle_right"),
+      roundEndEvent(1, 2, "north_east", "center"),
+    ]);
+    expect(getRelativeBearing("north_east", "center", "south")).toBe("rear_left");
+    const evidence = inspectGridCanaryEvidence(result);
+    expect(evidence.strictRearExposureObserved).toBe(true);
+    expect(evidence.observedFlankBearings).toContain("rear_left");
+  });
+
+  it("sets strict rear evidence true for a rear_right position", () => {
+    const result = syntheticCenterSouthResult([
+      movementEvent(1, 1, "fighter_a", "south", "north_west", "east", "circle_left"),
+      roundEndEvent(1, 2, "north_west", "center"),
+    ]);
+    expect(getRelativeBearing("north_west", "center", "south")).toBe("rear_right");
+    const evidence = inspectGridCanaryEvidence(result);
+    expect(evidence.strictRearExposureObserved).toBe(true);
+    expect(evidence.observedFlankBearings).toContain("rear_right");
+  });
+
+  it("keeps strict rear evidence false when only a side flank is exposed", () => {
+    // Fighter B held at center facing south; fighter A visits the south_west
+    // corner (front_right — not a flank) then settles at west (defender-
+    // relative `right` — a canonical side flank but not rear).
+    const result = syntheticCenterSouthResult([
+      movementEvent(1, 1, "fighter_a", "south", "south_west", "north", "circle_left"),
+      movementEvent(2, 2, "fighter_a", "south_west", "west", "north", "circle_right"),
+      roundEndEvent(2, 3, "west", "center"),
+    ]);
+    expect(getRelativeBearing("west", "center", "south")).toBe("right");
+    const evidence = inspectGridCanaryEvidence(result);
+    expect(evidence.lateralFlankObserved).toBe(true);
+    expect(evidence.observedFlankBearings).toContain("right");
+    expect(evidence.strictRearExposureObserved).toBe(false);
   });
 });

@@ -52,7 +52,13 @@ async function main(): Promise<void> {
       `Corner zones visited: ${outcome.evidence.cornerZonesVisited} (${outcome.evidence.cornerZones.join(", ")})`,
     );
     console.log(
-      `Rear exposure observed: ${outcome.evidence.rearExposureObserved ? "yes" : "no"}`,
+      `Lateral flank observed: ${outcome.evidence.lateralFlankObserved ? "yes" : "no"}`,
+    );
+    console.log(
+      `Observed flank bearings: ${outcome.evidence.observedFlankBearings.join(", ")}`,
+    );
+    console.log(
+      `Strict rear exposure observed: ${outcome.evidence.strictRearExposureObserved ? "yes" : "no"}`,
     );
     console.log(
       `All movement zones canonical: ${outcome.evidence.allMovementZonesCanonical ? "yes" : "no"}`,
