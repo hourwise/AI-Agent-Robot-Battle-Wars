@@ -68,6 +68,15 @@ function adaptMatchResult(result: AnyMatchResult): AsciiReplayInput {
   };
 }
 
+/**
+ * Shared result → replay-input adapter (Milestone 0.2C Phase 3D2A). Exported
+ * so the grid canary and other consumers can reconstruct final state through
+ * the canonical replay reconstruction without duplicating the adapter.
+ */
+export function toAsciiReplayInput(result: AnyMatchResult): AsciiReplayInput {
+  return adaptMatchResult(result);
+}
+
 function renderFighterCards(state: CompetitionState): string {
   const lines: string[] = [];
 

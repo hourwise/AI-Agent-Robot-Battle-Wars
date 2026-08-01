@@ -832,6 +832,147 @@ implemented**; default grid activation **not performed**; Milestone 0.2C
 **not complete** pending a separately authorised activation-readiness
 decision.
 
+### 9.9 Phase 3D2A — isolated deterministic grid match canary (2026-08-01)
+
+Phase 3D2A introduces the first executable application-level grid path: a
+deliberately isolated, deterministic, local-only **single-match canary**. It
+proves the complete grid pipeline works operationally without changing either
+existing default application command:
+
+```
+built-in scenario
+→ runGridMatch
+→ match-record v3
+→ factual-report v2
+→ replay
+→ deterministic fallback review
+→ validated atomic artifact bundle
+```
+
+**Frozen built-in scenario `grid-canary-flank-v1`.** `src/canary/
+grid-canary-scenario.ts` freezes Fighter A (`opening: flank`,
+`primaryTarget: rear`, `secondaryTarget: rear`, `preferredRange: medium`,
+`aggression: 0`, `retreatThreshold: 0`, `heatThreshold: 100`,
+`fallback: defend`) and Fighter B (`opening: hold`, `front/front`,
+`aggression: 0`, thresholds `0/100`, `fallback: defend`), both using the
+Bulwark build, with a pure `createGridCanaryScenario()` factory returning
+fresh build and policy values per call and a stable scenario-version
+constant. Fighter A advances then translatedly circles; Fighter B holds.
+Both always defend, so no attack, damage or component event occurs and the
+match reaches the frozen round cap, resolving by judges as a draw. The
+flanking path produces observable grid-only positioning evidence — translated
+`circle_left`/`circle_right` events, a canonical corner visit (`north_west`),
+and a rear-adjacent flanking position relative to the stationary fighter —
+without depending on a lucky random combat result.
+
+**Report-to-record binding.** A factual-report builder initially returns
+`matchId: "pending"`; the persisted match record owns the real UUID. The pure
+helper `bindGridFactualReportToMatchRecord` (`src/reports/
+grid-factual-report-binding.ts`) requires authoritative factual-report v2 and
+match-record v3, requires the exact grid identity (`0.3.0 / grid-3x3-v1 /
+ruleset 0.2.0 / catalogue 1`) on both, requires seed, rounds, winner and
+result-method agreement, requires the report `matchId` to be `"pending"` or
+already the record UUID, replaces `"pending"` with the real UUID, re-validates
+the completed report and never mutates its inputs. It is designed for later
+reuse by a grid-series canary.
+
+**Canary manifest contract.** `src/schemas/grid-match-canary.schema.ts`
+defines `GridMatchCanaryManifestV1`: frozen identity (`schemaVersion "1"`,
+`canaryKind "grid-match"`, `scenarioVersion "grid-canary-flank-v1"`,
+`status "passed"`), `canaryId`/`createdAt`/`seed`, runtime identity
+(`0.3.0 / grid-3x3-v1 / 0.2.0 / 1`), `matchId`, record/report schema versions
+(`3`/`2`), `rounds`/`winner`/`resultMethod`/`eventCount`, a required evidence
+block (`translatedCircleEvents`, `cornerZonesVisited`, `rearExposureObserved`,
+`allMovementZonesCanonical`, `recordRoundTripPassed`, `reportRoundTripPassed`,
+`replayFinalStateAgreement`, `fallbackReviewGenerated`) and the fixed
+artifact-name block. It contains no win rates, comparative performance,
+balance metrics or benchmark terminology, and never claims the grid runtime is
+accepted or promoted.
+
+**Pure evidence inspection.** `src/canary/grid-match-canary-evidence.ts`
+inspects the direct `GridMatchResult` and fails closed when any required
+evidence is absent: exact grid runtime identity (`0.3.0 / grid-3x3-v1`),
+config ruleset `0.2.0` / catalogue `1`, every initial/movement/round-end zone
+canonical, at least one translated circle, at least one canonical corner
+visited, rear or rear-diagonal exposure relative to the stationary opponent,
+and no combat events in the no-combat scenario. It reuses the canonical
+movement-event subject helper and the existing geometry/bearing helpers only
+— it never re-implements movement subjects, zone membership or exposure — and
+never mutates the result or events. `assertGridCanaryFinalAgreement` verifies
+the final `round_ended` event, the factual-report final states and the replay
+reconstruction agree (zone; facing and integrity for report vs replay), and
+`verifyGridCanaryDeterminism` re-executes the same seed and scenario and
+fails if the event stream differs.
+
+**Application service and CLI.** `runGridMatchCanary(request, dependencies)`
+(`src/app/grid-match-canary.ts`) validates the seed, creates the frozen
+scenario, executes `runGridMatch` directly, inspects the evidence, converts to
+record v3, builds and binds factual-report v2, validates both, renders text
+and 3×3 ASCII replay, formats the review prompt, produces the deterministic
+fallback review (existing `buildFallbackReview` shape, no provider), round-trips
+record/report serialization, checks replay/report/record agreement, builds the
+manifest only after all checks pass, atomically publishes the bundle and
+returns a structured result. Injectable dependencies cover UUID creation,
+current time and the filesystem bundle writer; an alternate simulator
+implementation is never permitted. The service never calls `runMatch`,
+`runSeries`, an `ArenaAgent`, a provider or benchmark code, and never accepts
+imported records or user-supplied event streams. `src/app/run-grid-canary-match.ts`
+adds the explicit `match:grid:canary` script requiring `--seed
+<non-negative integer>` and rejecting missing/negative/non-integer/duplicate
+seeds, unknown arguments, `--ai`, `--review`, runtime-selection flags and
+provider arguments; its banner is `FORGE ARENA — GRID MATCH CANARY /
+NON-DEFAULT / NON-BENCHMARK / LOCAL-ONLY`.
+
+**Atomic and isolated artifact bundles.** Each run is published under
+`data/canary/grid-match/<canaryId>/` with the fixed artifact names
+(`match.json`, `factual-report.json`, `text-replay.txt`, `ascii-replay.txt`,
+`review-prompt.txt`, `fallback-review.json`, `manifest.json`). The complete
+bundle is constructed in a sibling `.tmp-<canaryId>` directory,
+`manifest.json` is written last, every artifact is read back and the
+machine-readable artifacts are revalidated, and only then is the completed
+temporary directory atomically renamed to `<canaryId>`. Existing canary
+directories are never overwritten; on any failure no final canary directory
+exists, the temporary directory is removed recursively and the original error
+is preserved. The canary never writes to `data/matches` or normal series
+storage and `data/canary/` is excluded from tracked source artifacts.
+
+### 9.10 Phase 3D2A status
+
+- Frozen built-in no-combat flank scenario with fresh per-call values:
+  complete.
+- Report-to-record binding (pure, idempotent, rejects all mismatches):
+  complete.
+- Canary manifest contract with validate/serialize/deserialize: complete.
+- Pure evidence inspection with fail-closed checks; no mutation; no
+  re-implemented movement/zone/exposure logic: complete.
+- Replay/report/record final-position agreement: complete.
+- Determinism re-execution proof: complete.
+- Application service with injectable uuid/time/filesystem; no alternate
+  simulator; no provider/series/benchmark calls: complete.
+- Atomic isolated bundle publication with read-back validation and cleanup:
+  complete.
+- Explicit `match:grid:canary` command with the strict `--seed` contract and
+  unmistakable banner: complete.
+- Correctness, filesystem/failure and legacy/contract regression tests:
+  complete; full suite, typecheck, lint and CRLF formatting pass.
+- No grid adaptive-series runner, no runtime selector, no default activation,
+  no provider integration, no combat/policy/prompt changes: confirmed.
+- No benchmark partition ran; seeds, fixtures, C1/C2/AB2 checksums and
+  qualification constants unchanged; C2 remains the default; held-out and
+  `all` partitions remain sealed: confirmed.
+- Normal match and series commands remain legacy; match persistence v2,
+  factual reports v1, series v1; grid match v3, grid factual reports v2; no
+  series-v2 application record: confirmed.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; Phase 3C lateral/flank integration complete;
+Phase 3D1 reporting/series compatibility foundation complete; Phase 3D1.1
+reporting hardening complete; Phase 3D2A isolated grid match canary
+**complete**; grid canary series **not implemented**; default grid activation
+**not performed**; Milestone 0.2C **not complete** pending a separately
+authorised activation-readiness decision.
+
 ## 10. Still out of scope
 
 - **Authoritative migration**: the live simulator remains `0.2.0` legacy;
@@ -844,9 +985,15 @@ decision.
 - **Grid reporting/series are grid-opt-in only**: factual-report v2 and series
   v2 are never produced by `runMatch`, `runSeries` or any normal application
   command; `runSeries` remains v1-only.
+- **Grid canary is a single-match local check only**: `match:grid:canary`
+  consumes only a direct `runGridMatch` result, requires an explicit seed,
+  never accepts imported records or user-supplied event streams, and is not a
+  benchmark; it produces no win rates, comparative performance or balance
+  conclusions. A grid adaptive-series runner is still not implemented and
+  produces no series-v2 record from any application path.
 - **Live activation** of grid match production in the application/CLI/series.
 - **Balance conclusions**: no grid-vs-legacy balance claims are made from
-  Phase 3A through Phase 3D1.1.
+  Phase 3A through Phase 3D2A.
 - Opponent suite and adaptation evaluation (0.2D/0.2E).
 
 ### 6.5 State reconstruction

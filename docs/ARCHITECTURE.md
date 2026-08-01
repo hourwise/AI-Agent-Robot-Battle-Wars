@@ -293,6 +293,78 @@ path produces them, and the default application path, schema v2 persistence,
 and the frozen constants (`SIMULATOR_VERSION`/`RULESET_VERSION` `0.2.0`,
 catalogue `1`) are unchanged.
 
+### Isolated deterministic grid match canary (Milestone 0.2C Phase 3D2A)
+
+The first executable application-level grid path: a separate, local-only,
+deterministic single-match canary that proves the complete grid pipeline
+operationally without changing either existing default application command.
+
+- `src/canary/grid-canary-scenario.ts` — the frozen built-in no-combat flank
+  scenario `grid-canary-flank-v1` (Fighter A `opening: flank`, rear targets,
+  `aggression: 0`; Fighter B `opening: hold`, front targets, `aggression: 0`;
+  both Bulwark builds, both always defend). `createGridCanaryScenario()`
+  returns fresh build and policy values per call; the stable
+  `GRID_CANARY_SCENARIO_VERSION` constant is shared by the manifest schema.
+- `src/reports/grid-factual-report-binding.ts` — `bindGridFactualReportToMatchRecord`
+  is the pure report-to-record binding helper: it requires authoritative
+  factual-report v2 and match-record v3 with identical grid identity, seed,
+  rounds, winner and result-method agreement, requires the report `matchId` to
+  be `"pending"` or already the record UUID, replaces `"pending"` with the
+  real persisted match UUID, re-validates the completed report and never
+  mutates its inputs. Designed for later reuse by a grid-series canary.
+- `src/schemas/grid-match-canary.schema.ts` — `GridMatchCanaryManifestV1`
+  freezes the canary identity, runtime identity, record/report schema
+  versions, the observed evidence block and the fixed artifact-name block,
+  with validate/serialize/deserialize functions. No win rates, comparative
+  performance, balance metrics or benchmark terminology.
+- `src/canary/grid-match-canary-evidence.ts` — pure evidence inspection of the
+  direct `GridMatchResult`, failing closed on missing evidence (grid identity,
+  config contract, canonical zones, translated circles, corner visit, rear or
+  rear-diagonal flanking position relative to the stationary fighter, no
+  combat events). Reuses the canonical movement-event subject helper and the
+  existing geometry/bearing helpers; never re-implements movement subjects,
+  zone membership or exposure and never mutates inputs.
+  `assertGridCanaryFinalAgreement` checks the final `round_ended` event,
+  factual-report final states and replay reconstruction agreement;
+  `verifyGridCanaryDeterminism` re-executes the same seed and scenario.
+- `src/app/grid-match-canary.ts` — `runGridMatchCanary(request, dependencies)`
+  is the application service: validate seed → create scenario → direct
+  `runGridMatch` → evidence inspection → `matchResultToRecord` (v3) →
+  `buildGridFactualReport` (v2) → bind to the persisted UUID → validate record
+  and report → render text/3×3 ASCII replay → review prompt → deterministic
+  fallback review → serialization round trips → replay/report/record agreement
+  → manifest → atomic bundle publication → read-back validation → structured
+  result. Injectable dependencies: UUID creation, current time, filesystem
+  bundle writer (no alternate simulator). Never calls `runMatch`, `runSeries`,
+  an `ArenaAgent`, a provider or benchmark code, and never accepts imported
+  records or user-supplied event streams.
+- `src/app/grid-canary-cli-args.ts` — pure, side-effect-free argument parser
+  requiring `--seed <non-negative integer>` and rejecting missing, negative,
+  non-integer or duplicate seeds, unknown arguments, `--ai`, `--review`,
+  runtime-selection flags and provider arguments.
+- `src/app/run-grid-canary-match.ts` — the explicit `match:grid:canary`
+  command with the unmistakable banner `FORGE ARENA — GRID MATCH CANARY /
+NON-DEFAULT / NON-BENCHMARK / LOCAL-ONLY`, printing the canary ID, scenario,
+  seed, runtime identity, match ID, rounds/result, evidence counts, artifact
+  directory and the statement that normal match and series commands remain
+  legacy; nonzero exit on every failure.
+- `src/replay/ascii/ascii-replay-renderer.ts` — additionally exports
+  `toAsciiReplayInput` so the canary reconstructs final state through the
+  canonical replay reconstruction without duplicating the adapter.
+- **Atomic bundle publication** (`data/canary/grid-match/<canaryId>/`):
+  `manifest.json`, `match.json`, `factual-report.json`, `text-replay.txt`,
+  `ascii-replay.txt`, `review-prompt.txt`, `fallback-review.json`. Built in a
+  sibling `.tmp-<canaryId>` directory, `manifest.json` written last, every
+  artifact read back and revalidated, then atomically renamed. Existing canary
+  directories are never overwritten; on failure no final directory exists and
+  the temporary directory is removed recursively with the original error
+  preserved. Never writes to `data/matches` or normal series storage;
+  `data/canary/` is git-ignored.
+
+The canary is not a benchmark and produces no balance conclusion; it is a
+correctness and operational pipeline check. No grid adaptive-series runner,
+runtime selector, default activation or provider integration was added.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

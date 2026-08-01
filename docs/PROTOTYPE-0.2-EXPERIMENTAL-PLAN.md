@@ -72,9 +72,12 @@ and series traceability hardening — explicit movement-event actions,
 no-fallthrough movement subjects, projection isolation, facing/condition
 validation, report-builder boundary validation and series-v2 match-ID and
 factual-summary agreement) is implemented by the
-`agent/0.2c-grid-reporting-hardening` task. The authoritative runtime
-migration and live grid match production remain future, separately authorised
-phases.
+`agent/0.2c-grid-reporting-hardening` task; Phase 3D2A (isolated deterministic
+grid match canary — a separate, local-only, single-match canary command
+proving the full grid pipeline operationally) is implemented by the
+`agent/0.2c-grid-match-canary` task. The authoritative runtime migration,
+grid adaptive-series execution and live grid match production remain future,
+separately authorised phases.
 
 **Milestone 0.2C progress (2026-08-01):**
 
@@ -150,6 +153,26 @@ phases.
   Current match and series application paths remain legacy; no grid canary or
   default activation occurred; no benchmark partition ran; seeds and fixtures
   are unchanged; no balance conclusion or tuning occurred.
+- Phase 3D2A — isolated deterministic grid match canary: **complete**. A
+  separate, local-only, deterministic single-match canary proves the complete
+  grid pipeline operationally — built-in no-combat flank scenario
+  (`grid-canary-flank-v1`: Fighter A flank/rear, Fighter B hold/front, both
+  Bulwark builds and always defend) → direct `runGridMatch` → match-record v3
+  → factual-report v2 bound to the persisted match UUID →
+  `bindGridFactualReportToMatchRecord` → text and 3×3 ASCII replay →
+  deterministic fallback review → validated atomic artifact bundle under
+  `data/canary/grid-match/<canaryId>/`. A pure evidence inspector fails closed
+  on missing evidence (identity, canonical zones, translated circles, corner
+  visit, rear/rear-diagonal flanking position, no combat events) using the
+  canonical movement-subject and geometry/bearing helpers, verifies
+  replay/report/record agreement and re-execution determinism, and never
+  mutates inputs. The manifest (`GridMatchCanaryManifestV1`) carries the
+  frozen identity, evidence and artifact-name block. The explicit
+  `match:grid:canary` command requires `--seed <non-negative integer>` and
+  rejects every unsupported argument; the existing `match` and `series`
+  commands are unchanged and no grid series runner, runtime selector, default
+  activation, provider integration, benchmark execution or balance conclusion
+  was added. Full suite, typecheck, lint and CRLF formatting pass.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not
@@ -157,6 +180,9 @@ phases.
 - Default grid activation: **not performed**. Milestone 0.2C remains
   **not complete**, pending a separately authorised activation-readiness
   decision.
+- Grid adaptive-series execution: **not implemented**. No grid series runner
+  exists and no application path produces a series-v2 record; the grid canary
+  is single-match and local-only.
 - Balance evaluation of the grid runtime: **not performed**; no grid-vs-legacy
   balance conclusions are made.
 - Milestone 0.2C is **not complete**.

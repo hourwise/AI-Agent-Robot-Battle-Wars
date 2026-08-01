@@ -18,6 +18,9 @@ dist/
 data/matches/
 data/series/
 
+# Grid canary bundles
+data/canary/
+
 # OS files
 Thumbs.db
 Desktop.ini

@@ -20,7 +20,7 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
 - Provider-neutral agent interface
 - Usage and cost tracking
 - Atomic JSON persistence for matches and series
-- 3×3 arena foundation (Milestone 0.2C Phases 1–3D1.1) — pure
+- 3×3 arena foundation (Milestone 0.2C Phases 1–3D2A) — pure
   `src/simulator/arena-grid.ts` geometry, grid match schema v3, version-aware
   replay dispatch, a 3×3 ASCII renderer, and an **opt-in** deterministic grid
   combat runtime (`runGridMatch`, identity `0.3.0` / `grid-3x3-v1`, persists
@@ -45,8 +45,16 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
   enumerated and unknown/malformed movement moves nothing, final-state
   projection retains no event-owned references and validates facing and
   conditions, both report builders validate against their schemas before
-  returning, and series-v2 entries require one shared persisted match UUID
-  with agreement on rounds, winner and method. The live
+  and series-v2 entries require one shared persisted match UUID with agreement
+  on rounds, winner and method. Phase 3D2A added an isolated deterministic
+  grid match canary: a separate, local-only, single-match command
+  (`match:grid:canary`) that proves the full grid pipeline operationally
+  (built-in no-combat flank scenario → direct `runGridMatch` → match-record v3
+  → factual-report v2 bound to the persisted match UUID → replay →
+  deterministic fallback review → validated atomic artifact bundle under
+  `data/canary/grid-match/`). It requires an explicit seed, consumes only a
+  direct `runGridMatch` result, is not a benchmark and changes no default
+  command. The live
   five-zone simulator is unchanged: the normal application still uses
   `runMatch` (legacy `0.2.0`) and emits schema v2, and `runGridMatch` is not
   wired into CLI, series or application commands.
@@ -110,6 +118,20 @@ npm run series                              # AI best-of-five series (requires A
 npm run series -- --target-wins 3           # First to 3 wins
 npm run series -- --maximum-matches 5       # Cap at 5 matches
 ```
+
+### Grid match canary
+
+```bash
+npm run match:grid:canary -- --seed 12345   # Isolated deterministic grid canary
+```
+
+The grid match canary is a separate, local-only, deterministic single-match
+check. It requires `--seed <non-negative integer>` (no random default), runs
+only the built-in no-combat flank scenario through `runGridMatch`, and
+publishes a validated atomic artifact bundle under `data/canary/grid-match/`.
+It consumes only a direct `runGridMatch` result, never accepts imported
+records, is not a benchmark, uses no AI provider and never modifies the normal
+`match` or `series` commands or their storage.
 
 ### Replay
 
