@@ -67,7 +67,12 @@ movement momentum correction — charge momentum granted only to translated
 lateral circling and `opening: "flank"` integration) is implemented by the
 `agent/0.2c-grid-lateral-flank` task; Phase 3D1 (version-aware factual
 reporting and series compatibility foundation) is implemented by the
-`agent/0.2c-grid-reporting-foundation` task. The authoritative runtime
+`agent/0.2c-grid-reporting-foundation` task; Phase 3D1.1 (reporting boundary
+and series traceability hardening — explicit movement-event actions,
+no-fallthrough movement subjects, projection isolation, facing/condition
+validation, report-builder boundary validation and series-v2 match-ID and
+factual-summary agreement) is implemented by the
+`agent/0.2c-grid-reporting-hardening` task. The authoritative runtime
 migration and live grid match production remain future, separately authorised
 phases.
 
@@ -125,6 +130,26 @@ phases.
   matchId / runtime / uniqueness / score validation) handled by the repository
   and report renderer. No policy schema, seeds, fixtures or benchmark
   partitions changed.
+- Phase 3D1.1 — reporting boundary and series traceability hardening:
+  **complete**. Movement-event actions are explicitly enumerated
+  (`MovementEventAction` = the five normal actions + `knockback` + `grapple`
+  with `isMovementEventAction`); `getMovementEventSubjectId` is an explicit
+  exhaustive switch with no catch-all, so unknown, missing, non-string or
+  malformed actions have no subject and reporting and replay both ignore
+  malformed movement rather than moving the actor. `projectFinalFighterState`
+  retains no event-owned mutable references (build, comps, armour, component
+  flags and conditions all cloned/copied; round-end conditions validated and
+  copied). A present but invalid movement facing is rejected and
+  `round_ended.conditions` must be a canonical array. Both report builders
+  validate against their authoritative schemas before returning, throwing a
+  clear construction-boundary error on malformed reconstructed zones, facing,
+  conditions, component/lifecycle facts or fixed grid identity fields. Series
+  v2 now requires the entry, match summary and factual report to share one
+  persisted match UUID and to agree on rounds, winner and method; the
+  standalone builders may still use `matchId: "pending"` before persistence.
+  Current match and series application paths remain legacy; no grid canary or
+  default activation occurred; no benchmark partition ran; seeds and fixtures
+  are unchanged; no balance conclusion or tuning occurred.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

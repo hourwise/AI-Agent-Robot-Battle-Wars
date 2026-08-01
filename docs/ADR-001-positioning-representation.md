@@ -733,6 +733,105 @@ application canary **not implemented**; default grid activation **not
 performed**; Milestone 0.2C **not complete** pending a separately authorised
 activation-readiness decision.
 
+### 9.7 Phase 3D1.1 — reporting boundary and series traceability hardening (2026-08-01)
+
+Phase 3D1.1 closes three narrow contract gaps identified in the Phase 3D1
+review, before any grid CLI or adaptive-series canary could be introduced. It
+hardens the factual-report construction boundary and series-v2 traceability.
+No grid canary or default activation was introduced.
+
+**Explicit movement-event actions.** `src/events/battle-event.ts` defines the
+canonical runtime movement-event action type `MovementEventAction =
+MovementAction | "knockback" | "grapple"` (exactly `advance`, `retreat`,
+`circle_left`, `circle_right`, `hold`, `knockback`, `grapple`) plus the runtime
+guard `isMovementEventAction`. `MovementResolvedData.action` is typed as the
+canonical action set. Arbitrary strings are never treated as movement actions.
+
+**Explicit exhaustive subject resolution.** `getMovementEventSubjectId` is now
+an explicit exhaustive switch with no catch-all "everything else is actor
+movement" branch:
+
+```
+knockback, grapple                    → targetId
+advance, retreat, circle_left,
+circle_right, hold                    → actorId
+unknown, missing, non-string action   → null
+non-movement event                    → null
+```
+
+An unknown action with a valid `actorId` or `targetId` still returns `null`;
+a known normal action without `actorId`, or knockback/grapple without
+`targetId`, returns `null`; source events are never mutated. Both reporting
+and replay use this shared helper, so malformed movement events can never move
+either fighter and are never silently reinterpreted as `hold`.
+
+**Final-state projection isolation.** `projectFinalFighterState` returns a
+state that shares no mutable nested state with the initial fighter state, any
+event data object, any `round_ended` fighter object or any event-owned
+conditions array. Build, component state, armour, binary component flags and
+conditions are all cloned/copied; round-end conditions are validated and
+copied (`[...conditions]`), never referenced. Isolation tests prove mutation
+of either side cannot leak across.
+
+**Facing and condition validation.** A present but invalid movement `facing`
+is rejected (only `north`/`east`/`south`/`west`); the current facing is
+preserved only when the facing field is genuinely absent. Authoritative
+`round_ended.conditions` must be an array of canonical conditions
+(`overturned`, `immobilised`, `overheated`, `stunned`); unknown or malformed
+values are rejected, ordering is preserved, and no condition is inferred or
+added beyond authoritative events and component rules. Old valid legacy
+reports remain readable; this hardening applies to event-to-report projection.
+
+**Report-construction boundary validation.** Both builders validate the
+constructed report against its authoritative schema before returning and
+return the parsed valid report: `buildFactualReport` against
+`FactualMatchReportV1Schema`, `buildGridFactualReport` against
+`FactualMatchReportV2Schema`. A clear boundary error identifies the report
+version, the schema failure and the construction boundary. This catches
+malformed reconstructed zones, facing, conditions, component/lifecycle facts
+and fixed grid identity fields before review formatting, fallback review,
+series construction or persistence can consume the report. Valid legacy v1
+output and prompt snapshots are preserved byte-for-byte.
+
+**Series-v2 match identity and factual-summary agreement.** For every
+series-v2 entry, the entry `matchId`, the match-summary `matchId` and the
+factual-report `matchId` must all be the same persisted match UUID:
+`entry.matchId = entry.match.matchId = entry.factualReport.matchId`. The
+standalone factual-report builders may continue to produce `matchId: "pending"`
+during pre-persistence construction (the v2 report schema still permits it);
+a persisted grid-series entry must carry the real UUID everywhere, so
+`"pending"`, empty or malformed report IDs are rejected. The match summary and
+factual report must also agree on `rounds`, `winner` and `resultMethod`. These
+stricter cross-field rules apply to series v2 only — series v1 is untouched.
+
+### 9.8 Phase 3D1.1 status
+
+- Movement-event actions explicitly enumerated: complete.
+- Unknown/malformed movement actions have no subject; reporting and replay
+  both ignore malformed movement rather than moving the actor: complete.
+- Final-state projection retains no event-owned mutable references: complete.
+- Facing and round-end conditions validated, copied, never invented: complete.
+- Both report builders validate against their schemas before returning:
+  complete.
+- Series-v2 entry, match summary and factual report share one match UUID:
+  complete.
+- Series-v2 match summaries agree with factual reports on rounds, winner and
+  method: complete.
+- Standalone builders may use `"pending"` before persistence; persisted
+  grid-series entries require the real UUID: documented and enforced.
+- Current match and series application paths remain legacy: confirmed.
+- No grid canary, no default activation, no balance conclusion or tuning:
+  confirmed.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; Phase 3C lateral/flank integration complete;
+Phase 3D1 reporting/series compatibility foundation complete; Phase 3D1.1
+reporting hardening complete; explicit grid application canary **not
+implemented**; default grid activation **not performed**; Milestone 0.2C
+**not complete** pending a separately authorised activation-readiness
+decision.
+
 ## 10. Still out of scope
 
 - **Authoritative migration**: the live simulator remains `0.2.0` legacy;
@@ -747,7 +846,7 @@ activation-readiness decision.
   command; `runSeries` remains v1-only.
 - **Live activation** of grid match production in the application/CLI/series.
 - **Balance conclusions**: no grid-vs-legacy balance claims are made from
-  Phase 3A through Phase 3D1.
+  Phase 3A through Phase 3D1.1.
 - Opponent suite and adaptation evaluation (0.2D/0.2E).
 
 ### 6.5 State reconstruction

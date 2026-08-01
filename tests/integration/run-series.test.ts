@@ -8,6 +8,7 @@ import { JsonMatchRepository } from "../../src/persistence/json-match-repository
 import { DeterministicSeedSource } from "../../src/seed-source.js";
 import { renderTextReplay } from "../../src/replay/text-replay-renderer.js";
 import { renderAsciiReplay } from "../../src/replay/ascii/ascii-replay-renderer.js";
+import { buildReviewUserPrompt } from "../../src/prompts/review-prompt.v1.js";
 import type {
   ArenaAgent,
   AgentResult,
@@ -605,6 +606,41 @@ describe("runSeries integration", () => {
       } else {
         expect(entry.review.schemaVersion).toBe("1");
       }
+    }
+  });
+
+  it("keeps production serialized forms and review prompts legacy (Phase 3D1.1)", async () => {
+    const agent = createTrackingAgent();
+    const record = await runSeries(
+      {
+        competitor: { id: "ai", displayName: "Mock AI", provider: "mock" },
+        targetWins: 1,
+        maximumMatches: 2,
+      },
+      deps(agent),
+    );
+
+    // Series record remains v1 with unchanged identity-free shape.
+    expect(record.schemaVersion).toBe("1");
+    expect("simulatorVersion" in record).toBe(false);
+
+    for (const entry of record.entries) {
+      // runSeries still creates match-record v2 via legacy runMatch.
+      const saved = await matchRepo.getMatch(entry.matchId!);
+      expect(saved).not.toBeNull();
+      expect(saved!.schemaVersion).toBe("2");
+      expect(saved!.simulatorVersion).toBe("0.2.0");
+      expect(saved!.initialState.fighterA.zone).toBe("south_edge");
+
+      // runSeries still creates factual-report v1 with the pending placeholder
+      // (the pre-persistence construction contract; series v2 alone requires
+      // the real persisted UUID).
+      expect(entry.factualReport.schemaVersion).toBe("1");
+      expect(entry.factualReport.matchId).toBe("pending");
+
+      // Normal review prompts remain v1: no simulator/runtime identity line.
+      const prompt = buildReviewUserPrompt(entry.factualReport);
+      expect(prompt).not.toContain("Simulator:");
     }
   });
 });

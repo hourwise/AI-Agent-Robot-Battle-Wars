@@ -15,7 +15,40 @@ import type {
   FighterStateSummaryV2,
   MatchMoment,
 } from "../schemas/factual-report.schema.js";
+import {
+  FactualMatchReportV1Schema,
+  FactualMatchReportV2Schema,
+} from "../schemas/factual-report.schema.js";
 import { projectFinalFighterState } from "./final-state-projection.js";
+
+/**
+ * Report-construction boundary validation (Milestone 0.2C Phase 3D1.1).
+ * Neither report builder may return a typed report that fails its
+ * authoritative schema. A clear boundary error identifies the report version,
+ * the schema failure and the construction boundary. This catches malformed
+ * reconstructed zones, facing, conditions, component facts and fixed grid
+ * identity fields before review formatting, fallback review, series
+ * construction or persistence can consume the report.
+ */
+function validateV1Boundary(report: FactualMatchReportV1): FactualMatchReportV1 {
+  const parsed = FactualMatchReportV1Schema.safeParse(report);
+  if (!parsed.success) {
+    throw new Error(
+      `Factual-report v1 construction boundary: generated report failed its authoritative schema: ${parsed.error.message}`,
+    );
+  }
+  return parsed.data;
+}
+
+function validateV2Boundary(report: FactualMatchReportV2): FactualMatchReportV2 {
+  const parsed = FactualMatchReportV2Schema.safeParse(report);
+  if (!parsed.success) {
+    throw new Error(
+      `Factual-report v2 construction boundary: generated report failed its authoritative schema: ${parsed.error.message}`,
+    );
+  }
+  return parsed.data;
+}
 
 function buildFighterMatchSummary(
   fighterId: string,
@@ -227,7 +260,7 @@ function finalStateV2(result: GridMatchResult, fighterId: string): GridFighterSt
 export function buildFactualReport(result: MatchResult): FactualMatchReportV1 {
   const { config, events, result: competitionResult, rounds, initialState } = result;
 
-  return {
+  return validateV1Boundary({
     schemaVersion: "1",
     matchId: "pending",
     componentQualification: config.componentQualification,
@@ -245,7 +278,7 @@ export function buildFactualReport(result: MatchResult): FactualMatchReportV1 {
       fighterA: buildFighterStateSummaryV1(finalStateV1(result, "fighter_a")),
       fighterB: buildFighterStateSummaryV1(finalStateV1(result, "fighter_b")),
     },
-  };
+  });
 }
 
 /**
@@ -256,7 +289,7 @@ export function buildFactualReport(result: MatchResult): FactualMatchReportV1 {
 export function buildGridFactualReport(result: GridMatchResult): FactualMatchReportV2 {
   const { config, events, result: competitionResult, rounds, initialState } = result;
 
-  return {
+  return validateV2Boundary({
     schemaVersion: "2",
     simulatorVersion: "0.3.0",
     positioningModel: "grid-3x3-v1",
@@ -278,7 +311,7 @@ export function buildGridFactualReport(result: GridMatchResult): FactualMatchRep
       fighterA: buildFighterStateSummaryV2(finalStateV2(result, "fighter_a")),
       fighterB: buildFighterStateSummaryV2(finalStateV2(result, "fighter_b")),
     },
-  };
+  });
 }
 
 /**

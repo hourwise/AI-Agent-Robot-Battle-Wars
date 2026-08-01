@@ -389,6 +389,85 @@ application canary **not implemented**; default grid activation **not
 performed**; Milestone 0.2C **not complete** pending a separately authorised
 activation-readiness decision.
 
+## D40: Reporting boundary and series traceability hardening (2026-08-01)
+
+Milestone 0.2C Phase 3D1.1 closes three narrow contract gaps identified in the
+Phase 3D1 review — unknown/malformed movement actions falling through to
+`actorId`, projected final conditions retaining an event-owned array, and
+series v2 not verifying that its factual report belongs to the same match as
+the entry and match summary. No grid canary or default activation was
+introduced.
+
+- **Movement-event actions are explicitly enumerated**: `MovementEventAction`
+  is exactly `advance`, `retreat`, `circle_left`, `circle_right`, `hold`,
+  `knockback`, `grapple` with the runtime guard `isMovementEventAction`;
+  `MovementResolvedData.action` uses the canonical type. Arbitrary strings are
+  never treated as movement actions.
+- **Unknown or malformed movement actions have no subject**: the canonical
+  `getMovementEventSubjectId` is an explicit exhaustive switch (knockback and
+  grapple → `targetId`; the five normal actions → `actorId`; unknown, missing,
+  non-string or malformed action, or a non-movement event → `null`). There is
+  no "everything else is actor movement" branch; an unknown action with a
+  valid `actorId` or `targetId` still returns `null`, and a known normal
+  action without `actorId`, or knockback/grapple without `targetId`, also
+  returns `null`.
+- **Reporting and replay both ignore malformed movement**: both use the shared
+  helper, so malformed movement events cannot move either fighter and are
+  never silently reinterpreted as `hold`; the input event remains unchanged.
+- **Final-state projection retains no event-owned mutable references**:
+  `projectFinalFighterState` clones/copies build, component state, armour,
+  binary component flags and conditions; round-end conditions are validated
+  and copied, never referenced. Isolation tests prove mutation of either side
+  cannot leak across.
+- **Movement facing is validated**: a present but invalid facing is rejected
+  (only `north`/`east`/`south`/`west`); the current facing is preserved only
+  when the facing field is genuinely absent.
+- **Round-end conditions are validated and copied**: an array of canonical
+  conditions (`overturned`, `immobilised`, `overheated`, `stunned`) is
+  required; unknown condition strings are rejected; deterministic ordering is
+  preserved; no condition is inferred or added beyond authoritative events and
+  component rules. This hardening applies to event-to-report projection; old
+  valid legacy reports remain readable.
+- **Both report builders validate against their schemas before returning**:
+  `buildFactualReport` validates with `FactualMatchReportV1Schema` and
+  `buildGridFactualReport` with `FactualMatchReportV2Schema`, returning the
+  parsed valid report. A clear boundary error identifies the report version,
+  the schema failure and the construction boundary, catching malformed
+  reconstructed zones, facing, conditions, component/lifecycle facts and fixed
+  grid identity fields before review formatting, fallback review, series
+  construction or persistence. Valid legacy v1 output and prompt snapshots are
+  preserved.
+- **Series-v2 entry, match summary and factual report share one match UUID**:
+  `entry.matchId = entry.match.matchId = entry.factualReport.matchId`. The
+  standalone factual-report builders may initially produce `matchId: "pending"`
+  during pre-persistence construction (the v2 report schema still permits it);
+  a persisted grid-series entry must reference its real persisted match UUID,
+  so `"pending"`, empty or malformed report IDs are rejected.
+- **Series-v2 match summaries agree with factual reports**: `rounds`, `winner`
+  and `resultMethod` must match between the match summary and the factual
+  report; the established seed, runtime and positioning agreements remain
+  required. These stricter cross-field rules are series-v2-only; series v1 is
+  untouched.
+- **Current match and series application paths remain legacy**: `runMatch`
+  still produces legacy results, `runSeries` still calls legacy `runMatch` and
+  creates match-record v2, factual-report v1 and series-record v1; normal
+  review prompts remain v1; grid match records remain v3 and grid factual
+  reports remain v2; no grid series is produced by an application path.
+- **No grid canary or default activation occurred**: no grid CLI command,
+  runtime-selection flag, grid adaptive-series runner or default activation was
+  added; no combat, movement, damage, exposure or victory behaviour changed;
+  no policy schema or prompt changed; no benchmark partition ran; seeds and
+  fixtures are unchanged; no external API calls were made; no balance
+  conclusion or tuning was performed.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; Phase 3C lateral/flank integration complete;
+Phase 3D1 reporting/series compatibility foundation **complete**; Phase 3D1.1
+reporting hardening **complete**; explicit grid application canary **not
+implemented**; default grid activation **not performed**; Milestone 0.2C **not
+complete** pending a separately authorised activation-readiness decision.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

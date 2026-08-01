@@ -9,8 +9,22 @@
  * knockback/grapple reposition the target while advance/retreat/circle/hold
  * reposition the actor. Latest authoritative `round_ended` facts override
  * integrity, energy, heat, zone and conditions; component states and guard
- * state follow the authoritative component events. No input state or event is
- * mutated and no fact absent from the event stream is invented.
+ * state follow the authoritative component events.
+ *
+ * Hardened (Milestone 0.2C Phase 3D1.1):
+ *
+ * - unknown, missing, non-string or malformed movement actions have no subject
+ *   and therefore never move either fighter;
+ * - a present but invalid movement `facing` is rejected; the current facing is
+ *   preserved only when the facing field is genuinely absent;
+ * - `round_ended.conditions` must be an array of canonical conditions and is
+ *   copied, never referenced, preserving deterministic ordering;
+ * - the returned state shares no mutable nested state with the initial state,
+ *   any event data object, any `round_ended` fighter object or any event-owned
+ *   conditions array (build, comps, armour, components and conditions are all
+ *   cloned/copied);
+ * - no input state or event is mutated and no fact absent from the event
+ *   stream is invented.
  */
 import type {
   ArenaZone,
@@ -28,6 +42,24 @@ import { getMovementEventSubjectId } from "../events/battle-event.js";
 export type ReportPositioningModel = "legacy-five-zone-v1" | "grid-3x3-v1";
 
 const LEGACY_ZONE_SET = new Set<string>(LEGACY_ARENA_ZONES);
+
+const CARDINAL_DIRECTIONS: ReadonlySet<string> = new Set<string>([
+  "north",
+  "east",
+  "south",
+  "west",
+]);
+
+const CANONICAL_CONDITIONS: ReadonlySet<string> = new Set<string>([
+  "overturned",
+  "immobilised",
+  "overheated",
+  "stunned",
+]);
+
+function isCardinalDirection(value: unknown): value is Direction {
+  return typeof value === "string" && CARDINAL_DIRECTIONS.has(value);
+}
 
 function assertZoneForModel(
   zone: unknown,
@@ -50,11 +82,11 @@ function assertZoneForModel(
 }
 
 interface RoundEndFighterFacts {
-  integrity?: number;
-  energy?: number;
-  heat?: number;
+  integrity?: unknown;
+  energy?: unknown;
+  heat?: unknown;
   zone?: unknown;
-  conditions?: readonly string[];
+  conditions?: unknown;
 }
 
 function applyComponentTransition(
@@ -79,6 +111,30 @@ function applyComponentTransition(
 }
 
 /**
+ * Validate and copy an authoritative `round_ended.conditions` value. Requires
+ * an array whose every value is a canonical condition; unknown or malformed
+ * conditions are rejected (never silently reinterpreted, inferred or added).
+ * Deterministic array ordering is preserved.
+ */
+function parseRoundEndConditions(value: unknown, fighterId: string): Condition[] {
+  if (!Array.isArray(value)) {
+    throw new Error(
+      `Final-state projection rejects non-array round_ended conditions for ${fighterId}`,
+    );
+  }
+  const conditions: Condition[] = [];
+  for (const item of value) {
+    if (typeof item !== "string" || !CANONICAL_CONDITIONS.has(item)) {
+      throw new Error(
+        `Final-state projection rejects non-canonical round_ended condition for ${fighterId}: ${String(item)}`,
+      );
+    }
+    conditions.push(item as Condition);
+  }
+  return conditions;
+}
+
+/**
  * Project the final state of one fighter from its initial state and the full
  * event stream, for the given explicit positioning model.
  */
@@ -88,10 +144,15 @@ export function projectFinalFighterState<Z extends ArenaZone | GridZone>(
   fighterId: string,
   positioningModel: ReportPositioningModel,
 ): ZoneFighterState<Z> {
+  // Full isolation: the returned state shares no mutable nested state with the
+  // initial state. Build, comps, armour, components and conditions are all
+  // cloned/copied so later mutation of either side cannot leak across.
   const state: ZoneFighterState<Z> = {
     ...initialState,
+    build: structuredClone(initialState.build),
     comps: structuredClone(initialState.comps),
     components: { ...initialState.components },
+    armour: { ...initialState.armour },
     conditions: [...initialState.conditions],
   };
 
@@ -118,7 +179,16 @@ export function projectFinalFighterState<Z extends ArenaZone | GridZone>(
       assertZoneForModel(to, positioningModel, "movement_resolved.to");
       state.zone = to as Z;
       const facing = event.data?.facing;
-      if (typeof facing === "string") state.facing = facing as Direction;
+      if (facing !== undefined) {
+        // A present but invalid facing is rejected; the current facing is
+        // preserved only when the facing field is genuinely absent.
+        if (!isCardinalDirection(facing)) {
+          throw new Error(
+            `Final-state projection rejects invalid movement facing for ${fighterId}: ${String(facing)}`,
+          );
+        }
+        state.facing = facing;
+      }
       continue;
     }
 
@@ -182,8 +252,10 @@ export function projectFinalFighterState<Z extends ArenaZone | GridZone>(
       if (Number.isFinite(facts.energy)) state.energy = facts.energy as number;
       if (Number.isFinite(facts.heat)) state.heat = facts.heat as number;
       if (facts.zone !== undefined) state.zone = facts.zone as Z;
-      if (Array.isArray(facts.conditions)) {
-        state.conditions = facts.conditions as Condition[];
+      if (facts.conditions !== undefined) {
+        // Copy, never reference: the returned state must not share the
+        // event-owned conditions array. Unknown conditions are rejected.
+        state.conditions = parseRoundEndConditions(facts.conditions, fighterId);
       }
     }
   }

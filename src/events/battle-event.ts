@@ -1,4 +1,28 @@
-import type { SimulationEvent } from "../simulator/types.js";
+import type { MovementAction, SimulationEvent } from "../simulator/types.js";
+
+/**
+ * Canonical runtime movement-event action set (Milestone 0.2C Phase 3D1.1).
+ * Exactly the five normal movement actions plus the two target-repositioning
+ * actions. Unknown, missing, non-string or malformed actions are NOT movement
+ * actions: reporting and replay must never treat an arbitrary string as a
+ * movement action, so a malformed persisted event moves nothing.
+ */
+export type MovementEventAction = MovementAction | "knockback" | "grapple";
+
+const MOVEMENT_EVENT_ACTIONS: ReadonlySet<string> = new Set<string>([
+  "advance",
+  "retreat",
+  "circle_left",
+  "circle_right",
+  "hold",
+  "knockback",
+  "grapple",
+]);
+
+/** Runtime guard: is `value` one of the canonical movement-event actions? */
+export function isMovementEventAction(value: unknown): value is MovementEventAction {
+  return typeof value === "string" && MOVEMENT_EVENT_ACTIONS.has(value);
+}
 
 export type CompetitionStartedData = {
   seed: number;
@@ -21,7 +45,7 @@ export type MovementResolvedData = {
   from: string;
   to: string;
   facing: string;
-  action: string;
+  action: MovementEventAction;
 };
 
 export type AttackAttemptedData = {
@@ -150,20 +174,34 @@ export function isMovementResolved(
  *
  *   action = knockback → targetId
  *   action = grapple  → targetId
- *   all normal movement actions → actorId
+ *   advance, retreat, circle_left, circle_right, hold → actorId
  *
- * Normal movement includes `advance`, `retreat`, `circle_left`, `circle_right`,
- * and `hold` (where an event exists because facing changed). Returns `null`
- * when the required subject id is absent so a malformed or unknown movement
- * event can never silently move the wrong fighter.
+ * Hardened (Milestone 0.2C Phase 3D1.1): this is an explicit exhaustive switch
+ * over the canonical `MovementEventAction` set. There is no catch-all "any
+ * other action is actor movement" branch — an unknown, missing, non-string or
+ * malformed action returns `null`, even when a valid `actorId` or `targetId`
+ * is present, so a malformed persisted event can never silently move the wrong
+ * fighter. A known normal action without `actorId`, or knockback/grapple
+ * without `targetId`, also returns `null`. Non-movement events return `null`.
+ * Source events are never mutated.
  */
 export function getMovementEventSubjectId(event: SimulationEvent): string | null {
   if (event.type !== "movement_resolved") return null;
   const action = event.data?.action;
-  if (action === "knockback" || action === "grapple") {
-    return event.targetId ?? null;
+  switch (action) {
+    case "knockback":
+    case "grapple":
+      return event.targetId ?? null;
+    case "advance":
+    case "retreat":
+    case "circle_left":
+    case "circle_right":
+    case "hold":
+      return event.actorId ?? null;
+    default:
+      // Unknown, missing or non-string action: no subject. Never a catch-all.
+      return null;
   }
-  return event.actorId ?? null;
 }
 
 export function isAttackAttempted(

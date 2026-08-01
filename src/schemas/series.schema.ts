@@ -173,6 +173,48 @@ function validateSeriesV2Contract(
         message: `series v2 entry ${entry.matchNumber} matchId ${entry.matchId} disagrees with match summary ${entry.match.matchId}`,
       });
     }
+    // Phase 3D1.1: the entry, match summary AND factual report must reference
+    // the same persisted match UUID. A standalone factual-report builder may
+    // initially produce `matchId: "pending"`, but a persisted grid-series
+    // entry must carry the real persisted match UUID everywhere.
+    if (entry.factualReport.matchId === "pending") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `series v2 entry ${entry.matchNumber} factual report still uses matchId "pending"; a persisted grid-series entry must reference its real persisted match UUID`,
+      });
+    }
+    if (z.string().uuid().safeParse(entry.factualReport.matchId).success === false) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `series v2 entry ${entry.matchNumber} factual-report matchId ${JSON.stringify(entry.factualReport.matchId)} is not a valid persisted match UUID`,
+      });
+    }
+    if (entry.factualReport.matchId !== entry.matchId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `series v2 entry ${entry.matchNumber} factual-report matchId ${entry.factualReport.matchId} disagrees with entry/match-summary matchId ${entry.matchId}`,
+      });
+    }
+    // Phase 3D1.1: the match summary and the factual report describe the same
+    // persisted match, so rounds, winner and method must agree.
+    if (entry.match.rounds !== entry.factualReport.rounds) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `series v2 entry ${entry.matchNumber} match summary rounds ${entry.match.rounds} disagrees with factual report rounds ${entry.factualReport.rounds}`,
+      });
+    }
+    if (entry.match.winner !== entry.factualReport.winner) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `series v2 entry ${entry.matchNumber} match summary winner ${String(entry.match.winner)} disagrees with factual report winner ${String(entry.factualReport.winner)}`,
+      });
+    }
+    if (entry.match.resultMethod !== entry.factualReport.resultMethod) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `series v2 entry ${entry.matchNumber} match summary resultMethod ${entry.match.resultMethod} disagrees with factual report resultMethod ${entry.factualReport.resultMethod}`,
+      });
+    }
     if (seenMatchIds.has(entry.matchId)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

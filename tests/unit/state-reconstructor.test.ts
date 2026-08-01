@@ -433,3 +433,118 @@ describe("cumulative state reconstruction (both fighters to center)", () => {
     expect(state!.fighterB.zone).not.toBe("north_edge");
   });
 });
+
+describe("malformed movement never moves either fighter in replay (Phase 3D1.1)", () => {
+  const malformedActions: unknown[] = ["teleport", "", null, 42, {}, []];
+
+  for (const action of malformedActions) {
+    it(`ignores malformed action ${JSON.stringify(action)} even with actor and target`, () => {
+      const input = makeInput();
+      input.events = [
+        makeEvent({
+          type: "movement_resolved",
+          round: 1,
+          sequence: 0,
+          actorId: "fighter_a",
+          targetId: "fighter_b",
+          data: { from: "south_edge", to: "center", facing: "east", action },
+        }),
+      ];
+      const state = getStateAfterEvents(input, input.events);
+      expect(state.fighterA.zone).toBe("south_edge");
+      expect(state.fighterA.facing).toBe("north");
+      expect(state.fighterB.zone).toBe("north_edge");
+      expect(state.fighterB.facing).toBe("south");
+    });
+  }
+
+  it("ignores a missing action", () => {
+    const input = makeInput();
+    input.events = [
+      makeEvent({
+        type: "movement_resolved",
+        round: 1,
+        sequence: 0,
+        actorId: "fighter_a",
+        targetId: "fighter_b",
+        data: { from: "south_edge", to: "center", facing: "east" },
+      }),
+    ];
+    const state = getStateAfterEvents(input, input.events);
+    expect(state.fighterA.zone).toBe("south_edge");
+    expect(state.fighterA.facing).toBe("north");
+  });
+
+  it("ignores a known normal action without an actor", () => {
+    const input = makeInput();
+    input.events = [
+      makeEvent({
+        type: "movement_resolved",
+        round: 1,
+        sequence: 0,
+        actorId: undefined,
+        targetId: "fighter_b",
+        data: { from: "south_edge", to: "center", facing: "east", action: "advance" },
+      }),
+    ];
+    const state = getStateAfterEvents(input, input.events);
+    expect(state.fighterA.zone).toBe("south_edge");
+    expect(state.fighterB.zone).toBe("north_edge");
+  });
+
+  it("ignores knockback without a target", () => {
+    const input = makeInput();
+    input.events = [
+      makeEvent({
+        type: "movement_resolved",
+        round: 1,
+        sequence: 0,
+        actorId: "fighter_a",
+        targetId: undefined,
+        data: { from: "north_edge", to: "center", facing: "south", action: "knockback" },
+      }),
+    ];
+    const state = getStateAfterEvents(input, input.events);
+    expect(state.fighterB.zone).toBe("north_edge");
+    expect(state.fighterB.facing).toBe("south");
+  });
+
+  it("ignores a non-movement event carrying movement-like data", () => {
+    const input = makeInput();
+    input.events = [
+      makeEvent({
+        type: "attack_attempted",
+        round: 1,
+        sequence: 0,
+        actorId: "fighter_a",
+        targetId: "fighter_b",
+        data: { from: "south_edge", to: "center", facing: "east", action: "advance" },
+      }),
+    ];
+    const state = getStateAfterEvents(input, input.events);
+    expect(state.fighterA.zone).toBe("south_edge");
+    expect(state.fighterA.facing).toBe("north");
+  });
+
+  it("never silently reinterprets an unknown action as hold", () => {
+    const input = makeInput();
+    input.events = [
+      makeEvent({
+        type: "movement_resolved",
+        round: 1,
+        sequence: 0,
+        actorId: "fighter_a",
+        targetId: "fighter_b",
+        data: {
+          from: "south_edge",
+          to: "south_edge",
+          facing: "west",
+          action: "teleport",
+        },
+      }),
+    ];
+    const state = getStateAfterEvents(input, input.events);
+    expect(state.fighterA.zone).toBe("south_edge");
+    expect(state.fighterA.facing).toBe("north");
+  });
+});

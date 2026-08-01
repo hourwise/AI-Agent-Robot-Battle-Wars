@@ -251,6 +251,48 @@ path produces them, and the default application path, schema v2 persistence,
 and the frozen constants (`SIMULATOR_VERSION`/`RULESET_VERSION` `0.2.0`,
 catalogue `1`) are unchanged.
 
+### Reporting boundary and series traceability hardening (Milestone 0.2C Phase 3D1.1)
+
+- `src/events/battle-event.ts` — the canonical `MovementEventAction` type
+  (exactly `advance`, `retreat`, `circle_left`, `circle_right`, `hold`,
+  `knockback`, `grapple`) with the runtime guard `isMovementEventAction`;
+  `MovementResolvedData.action` is typed as that canonical set.
+  `getMovementEventSubjectId` is an explicit exhaustive switch with no
+  catch-all: knockback/grapple → `targetId`; the five normal actions →
+  `actorId`; unknown, missing, non-string or malformed action, and any
+  non-movement event → `null`. Reporting and replay share it, so malformed
+  movement events never move either fighter and are never reinterpreted as
+  `hold`.
+- `src/reports/final-state-projection.ts` — `projectFinalFighterState` returns
+  a state sharing no mutable nested state with the initial state or any event
+  (build, comps, armour, component flags and conditions all cloned/copied;
+  round-end conditions validated and copied, never referenced). A present but
+  invalid movement facing is rejected; the current facing is preserved only
+  when facing is genuinely absent. `round_ended.conditions` must be an array
+  of canonical conditions; unknown values are rejected, ordering preserved,
+  and no condition is inferred or added.
+- `src/reports/factual-match-report.ts` — both builders validate the
+  constructed report against its authoritative schema before returning and
+  return the parsed valid report (`buildFactualReport` → `FactualMatchReportV1Schema`;
+  `buildGridFactualReport` → `FactualMatchReportV2Schema`). A clear
+  construction-boundary error identifies the report version, the schema
+  failure and the boundary, catching malformed reconstructed zones, facing,
+  conditions, component/lifecycle facts and fixed grid identity fields before
+  review formatting, fallback review, series construction or persistence.
+- `src/schemas/series.schema.ts` — the series-v2 contract now requires
+  `entry.matchId = entry.match.matchId = entry.factualReport.matchId` (the
+  same persisted match UUID; `"pending"`, empty or malformed report IDs are
+  rejected — the standalone builders may still use `"pending"` before
+  persistence) and agreement between the match summary and factual report on
+  `rounds`, `winner` and `resultMethod`, alongside the existing seed, runtime
+  and positioning agreements. These stricter cross-field rules are series-v2
+  only; series v1 is untouched.
+
+Grid reporting and grid series remain opt-in: no normal `runMatch`/`runSeries`
+path produces them, and the default application path, schema v2 persistence,
+and the frozen constants (`SIMULATOR_VERSION`/`RULESET_VERSION` `0.2.0`,
+catalogue `1`) are unchanged.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.
