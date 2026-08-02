@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1",
+  "registryId": "grid-readiness-development-v1",
+  "purpose": "development-only-activation-readiness",
+  "partition": "development-only",
+  "seedDomain": "reserved-grid-readiness-1703000000-1703099999",
+  "generatorVersion": "explicit-list-v1",
+  "simulatorVersion": "0.3.0",
+  "positioningModel": "grid-3x3-v1",
+  "rulesetVersion": "0.2.0",
+  "catalogueVersion": "1",
+  "seeds": [
+    1703000011, 1703000037, 1703000073, 1703000109, 1703000151, 1703000193, 1703000241,
+    1703000299, 1703000361, 1703000427, 1703000499, 1703000573, 1703000651, 1703000737,
+    1703000821, 1703000911, 1703001009, 1703001111, 1703001217, 1703001329, 1703001447,
+    1703001571, 1703001699, 1703001833
+  ]
+}

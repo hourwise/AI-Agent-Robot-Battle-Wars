@@ -620,6 +620,133 @@ with C2 default; constants remain `0.2.0 / 0.2.0` and catalogue `1`; normal
 activation-readiness evaluation was performed; no default activation occurred;
 Milestone 0.2C remains incomplete.
 
+### Bounded development-only grid activation-readiness evaluation (Milestone 0.2C Phase 3E1)
+
+One bounded, deterministic, development-only evaluation answers whether the
+grid runtime is technically suitable for a separately authorised opt-in beta
+decision. It never activates grid, never alters defaults, never tunes combat or
+policies and never claims production readiness. It classifies the current
+implementation as exactly one of `ready_for_opt_in_beta_review`,
+`inconclusive` or `not_ready`; even `ready_for_opt_in_beta_review` is not
+permission to activate grid.
+
+- `config/readiness/grid-readiness-development-v1.json` —
+  `src/readiness/seed-registry.ts` — the source-controlled development-only
+  seed registry (`grid-readiness-development-v1`): exactly 24 frozen seeds in
+  the reserved range `1703000000–1703099999`, runtime-frozen
+  (`Object.isFrozen` registry and seed tuple), safe-integer enforced,
+  distinct after the simulator's signed 32-bit seed conversion, with a
+  deterministic canonical checksum. Separate loads return separate frozen
+  values. The numeric range is reserved for grid-readiness development and
+  must not be used by future benchmark or held-out registries; the registry
+  is never read through a benchmark seed bank and the readiness command never
+  opens any existing benchmark seed file.
+- `src/readiness/scenario-registry.ts` — the frozen scenario registry
+  (`grid-readiness-scenarios-v1`): seven families and thirteen assignments
+  (one Bulwark-mirror assignment plus six role-swapped pairs — Flanker,
+  Spinner, Grappler, Flipper, Runner, Sentinel versus the canonical Bulwark).
+  Every build validates against catalogue v1 before evaluation;
+  `createGridReadinessFighterConfig` returns fresh deep-cloned builds and
+  policies; the registry is runtime-frozen with a deterministic canonical
+  checksum.
+- `src/readiness/run-plan.ts` — the exact run-plan builder: 312 primary runs
+  (24 seeds × 13 assignments) ordered scenario → assignment → seed with a
+  unique `(scenarioId, assignmentId, seed)` tuple, no shuffling, frozen plan
+  and entries, and a deterministic suite checksum that includes the registry
+  IDs, registry checksums, runtime identity and ordered runs.
+- `src/readiness/execution-core.ts` — the pure execution core. Calls
+  `runGridMatch` directly; requires the exact grid runtime identity
+  `0.3.0 / grid-3x3-v1 / 0.2.0 / 1` and `1 ≤ rounds ≤ MAX_ROUNDS`; validates
+  every initial/event zone, movement action, movement subject, facing and
+  round-end condition; converts to match-record v3 with injected identities;
+  builds and binds factual-report v2; validates every record/report; verifies
+  replay/report/final-round agreement; renders text/ASCII replays and the
+  grid-aware review prompt; produces canonical per-run evidence (action,
+  translated-action, zone-visit, bearing/exposure and event-type counts,
+  maximum consecutive no-progress rounds, artifact checksums); and fails
+  closed on input mutation. It is pure (no files, UUIDs, clock, provider,
+  benchmark or legacy runtime). `verifyGridActivationReadinessDeterminism`
+  requires byte-identical re-execution.
+- `src/readiness/envelopes.schema.ts` — run-index v1 (312 ordered run
+  entries), match-records v1 (312 match-record v3 values) and
+  factual-reports v1 (312 factual-report v2 values), each carrying the
+  evaluation UUID with order/uniqueness/identity contracts.
+- `src/readiness/metrics.ts` — the pure metrics reducer: execution,
+  movement (canonical and translated actions, stationary holds, nine zone
+  visits, relative bearings, exposed planar armour zones), combat (attempts,
+  hits, misses, integrity damage, criticals, knockback, grapple reposition,
+  overturns, component transitions), results (judges/destruction/
+  immobilisation/draws, round statistics, maximum no-progress streak),
+  slot-order diagnostics (first-slot advantage, Bulwark-mirror slot
+  imbalance, paired role-swap sensitivity) and timing percentiles.
+  Slot-order diagnostics detect gross slot-order pathology only; timing is
+  informational and never affects the decision.
+- `src/readiness/gates.ts` — the frozen gates: H01–H10 hard pass/fail,
+  C01–C06 coverage pass/inconclusive, S01–S03 and P01–P02 gross-pathology
+  pass/inconclusive/fail with frozen thresholds.
+- `src/readiness/decision.ts` — `GridActivationReadinessDecisionV1` derives
+  the classification (any hard/slot/progress failure → `not_ready`; else any
+  inconclusive gate → `inconclusive`; else `ready_for_opt_in_beta_review`),
+  carries every gate with its frozen threshold, observed value, evidence and
+  blocking reason, and the mandatory non-activation disclaimer. No tuning
+  recommendation is ever included.
+- `src/readiness/report.ts` — the deterministic human-readable development
+  report (IDs, runtime identity, registry checksums, counts, determinism,
+  contract/coverage/slot/progress/timing diagnostics, every gate, the final
+  classification, blockers and the non-activation disclaimer). It never
+  calls the suite a benchmark, never calls a result a balance pass, never
+  claims production readiness and never states that grid is now default.
+- `src/readiness/readiness-bundle.ts` — the immutable evaluation bundle:
+  nine fixed regular files (`manifest.json`, `seed-registry.json`,
+  `scenario-registry.json`, `run-index.json`, `match-records.json`,
+  `factual-reports.json`, `metrics.json`, `decision.json`, `report.txt`) under
+  `data/readiness/grid/<evaluationId>/`. Manifest v1 carries the evaluation
+  UUID, creation time, suite/runtime identity, exact counts (24/7/13/312),
+  registry/suite/outcome/report checksums, the decision, fixed artifact names
+  and SHA-256 digests with read-back/cross-agreement evidence.
+  `validateGridActivationReadinessCoreArtifacts` and
+  `validateGridActivationReadinessBundle` cross-validate the persisted
+  records/reports/run-index against the registries (including scenario
+  assignment build/policy binding). Individual replay text is never included.
+- `src/canary/canary-output-root.ts` — the kind-aware root guard now includes
+  `grid-readiness → data/readiness/grid`; the readiness service rejects normal
+  match/series storage, both canary roots, every other in-repository data
+  root, canonical-root descendants, symlink/junction ancestry and external
+  symlink roots.
+- `src/app/grid-activation-readiness.ts` — `runGridActivationReadiness`
+  orchestrates the lexical/physical root guards, fixed registries, 312-run
+  plan, injected evaluation/match UUIDs and timestamp, publication preflight,
+  primary and repeat execution with determinism comparison, records/reports/
+  run-index/metrics construction, round trips, in-memory and read-back
+  cross-agreement, gates, decision, report, digests, manifest, shared
+  immutable publish and structured result.
+- `src/app/run-grid-activation-readiness.ts` — the `readiness:grid` command.
+  Accepts no arguments (seed/scenario/partition/output/threshold/`--force`/
+  runtime/provider/API-key arguments are all rejected) under the
+  `FORGE ARENA — GRID ACTIVATION-READINESS EVALUATION /
+DEVELOPMENT-ONLY / NON-BENCHMARK / NON-ACTIVATING` banner. A completed
+  evaluation exits zero regardless of its decision; it exits nonzero only for
+  an operational failure that prevents producing a validated decision bundle.
+
+The readiness evaluation imports no benchmark module, reads no benchmark seed
+file, uses no `--partition held-out`/`--partition all`, never calls
+`runBenchmark`, either benchmark CLI, `runMatch`, legacy `runSeries`, a
+provider or `ArenaAgent`, and never writes to `data/matches`, `data/series`,
+either canary root or any other in-repository data root. No tuning follows the
+official result; no opt-in activation decision is performed; no default
+activation occurs; Milestone 0.2C remains incomplete.
+
+The exactly-one official development run (`evaluationId
+864991f7-d060-4669-beec-11e0d42b7e68`, bundle under
+`data/readiness/grid/864991f7-d060-4669-beec-11e0d42b7e68/`) classified the
+implementation as **`inconclusive`**: determinism passed, all hard gates
+(H01–H10), all slot-order gates (S01–S03) and both progress gates (P01–P02)
+passed, coverage gates C01/C03/C05/C06 passed, and coverage gates **C02**
+(the canonical `hold` movement action was not observed) and **C04** (no
+grapple reposition was observed) were inconclusive. Nothing was tuned after
+the result; no opt-in activation decision and no default activation was
+performed.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

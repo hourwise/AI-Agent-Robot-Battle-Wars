@@ -20,7 +20,7 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
 - Provider-neutral agent interface
 - Usage and cost tracking
 - Atomic JSON persistence for matches and series
-- 3×3 arena foundation (Milestone 0.2C Phases 1–3D2A.2) — pure
+- 3×3 arena foundation (Milestone 0.2C Phases 1–3E1) — pure
   `src/simulator/arena-grid.ts` geometry, grid match schema v3, version-aware
   replay dispatch, a 3×3 ASCII renderer, and an **opt-in** deterministic grid
   combat runtime (`runGridMatch`, identity `0.3.0` / `grid-3x3-v1`, persists
@@ -74,7 +74,19 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
   validated atomic artifact bundle under `data/canary/grid-series/`. It
   shares the extracted immutable publication and physical-root guards with
   the match canary, requires an explicit base seed, uses no AI provider, is
-  not a benchmark and changes no default command. The live
+  not a benchmark and changes no default command. Phase 3D2B.1 hardened the
+  series canary's provenance and immutability (runtime-frozen seed plan,
+  safe-integer seed contracts, complete report/review agreement before
+  adaptation, full entry-to-record/envelope binding, recomputed manifest
+  evidence and rendered-score validation). Phase 3E1 added a bounded
+  development-only **grid activation-readiness evaluation** (`readiness:grid`):
+  exactly 312 deterministic grid matches (24 development-only seeds × 13
+  scenario role assignments) run twice under fixed identities, frozen
+  hard/coverage/slot-order/progress gates are evaluated, and an immutable
+  nine-file bundle is published under `data/readiness/grid/`. It is
+  non-benchmark, non-holding-out and non-activating, and classifies the
+  implementation as `ready_for_opt_in_beta_review`, `inconclusive` or
+  `not_ready` without authorising any activation. The live
   five-zone simulator is unchanged: the normal application still uses
   `runMatch` (legacy `0.2.0`) and emits schema v2, and `runGridMatch` is not
   wired into CLI, series or application commands.
@@ -187,6 +199,35 @@ builds and policies, manifest evidence is recomputed from persisted artifacts,
 rendered per-match results and the raw series score are cross-validated, and
 the shared publisher validates its declaration before writing anything —
 keeping the published bundles byte-identical.
+
+### Grid activation-readiness evaluation
+
+```bash
+npm run readiness:grid   # Bounded development-only activation-readiness evaluation (no arguments)
+```
+
+The grid activation-readiness evaluation is a bounded, deterministic,
+development-only check that asks whether the grid runtime is technically
+suitable for a separately authorised opt-in beta decision. It executes exactly
+312 grid matches (24 development-only seeds × 13 scenario role assignments:
+one Bulwark mirror plus six role-swapped pairs against the canonical Bulwark),
+re-executes them deterministically under fixed identities, evaluates frozen
+hard/coverage/slot-order/progress gates and publishes an immutable nine-file
+artifact bundle under `data/readiness/grid/<evaluationId>/` (`manifest.json`,
+`seed-registry.json`, `scenario-registry.json`, `run-index.json`,
+`match-records.json`, `factual-reports.json`, `metrics.json`, `decision.json`,
+`report.txt`). The `readiness:grid` command accepts **no arguments** and exits
+zero for any completed evaluation; it exits nonzero only on an operational
+failure that prevents producing a validated decision bundle.
+
+This evaluation is **development-only and non-activating**: it does not
+activate the grid runtime, does not qualify combat balance and does not
+authorise default migration. It is not a benchmark, uses no AI provider, never
+opens any existing benchmark seed file, never touches held-out or `all`
+partitions, and never writes to `data/matches`, `data/series` or either canary
+root. Even a `ready_for_opt_in_beta_review` classification is not permission to
+activate grid; an opt-in beta decision and any default activation remain later,
+separately authorised decisions.
 
 ### Replay
 

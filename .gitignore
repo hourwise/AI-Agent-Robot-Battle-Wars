@@ -21,6 +21,9 @@ data/series/
 # Grid canary bundles
 data/canary/
 
+# Grid activation-readiness evaluation bundles
+data/readiness/
+
 # OS files
 Thumbs.db
 Desktop.ini

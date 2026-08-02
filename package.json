@@ -20,6 +20,7 @@
     "series": "tsx src/app/run-series.ts",
     "match:grid:canary": "tsx src/app/run-grid-canary-match.ts",
     "series:grid:canary": "tsx src/app/run-grid-series-canary.ts",
+    "readiness:grid": "tsx src/app/run-grid-activation-readiness.ts",
     "replay": "tsx src/app/replay-match.ts",
     "smoke:design": "tsx src/app/smoke-design.ts",
     "benchmark": "tsx src/app/run-benchmark.ts",

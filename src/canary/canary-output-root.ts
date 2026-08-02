@@ -4,14 +4,20 @@ import { fsEntryKind } from "./immutable-canary-bundle.js";
 
 /**
  * Kind-aware output-root isolation and physical-root guard for the grid
- * canaries (Milestone 0.2C Phase 3D2A.1 / 3D2A.2 / 3D2B).
+ * canaries and the grid activation-readiness evaluation (Milestone 0.2C Phase
+ * 3D2A.1 / 3D2A.2 / 3D2B / 3E1).
  *
  * Lexical isolation:
  *
  *   - within the repository `data` tree, the service-level output root must
  *     resolve to exactly the selected canonical root
- *     (`data/canary/grid-match` or `data/canary/grid-series`);
+ *     (`data/canary/grid-match`, `data/canary/grid-series` or
+ *     `data/readiness/grid`);
  *   - a grid-match service may not use the grid-series root, and vice versa;
+ *   - the grid-readiness service must reject normal match/series storage,
+ *     both canary roots, and every other in-repository data root, and
+ *     descendants of the canonical readiness root are never valid service
+ *     roots;
  *   - `data/matches`, `data/series` and every descendant, the `data` root and
  *     every other in-repository data path are rejected;
  *   - external temporary roots outside the repository remain allowed.
@@ -34,11 +40,12 @@ import { fsEntryKind } from "./immutable-canary-bundle.js";
  * Both guards run before combat or series execution; the physical re-inspection
  * also runs after the output root is created and before any artifact write.
  */
-export type CanaryRootKind = "grid-match" | "grid-series";
+export type CanaryRootKind = "grid-match" | "grid-series" | "grid-readiness";
 
-const CANONICAL_DIR_NAME: Record<CanaryRootKind, string> = {
-  "grid-match": "grid-match",
-  "grid-series": "grid-series",
+const CANONICAL_ROOT_SEGMENTS: Record<CanaryRootKind, readonly string[]> = {
+  "grid-match": ["canary", "grid-match"],
+  "grid-series": ["canary", "grid-series"],
+  "grid-readiness": ["readiness", "grid"],
 };
 
 export class GridCanaryOutputRootError extends Error {
@@ -48,9 +55,9 @@ export class GridCanaryOutputRootError extends Error {
   }
 }
 
-/** The canonical repository grid-match canary root. */
+/** The canonical repository output root for a selected kind. */
 export function getCanaryCanonicalOutputRoot(kind: CanaryRootKind): string {
-  return resolve(process.cwd(), "data", "canary", CANONICAL_DIR_NAME[kind]);
+  return resolve(process.cwd(), "data", ...CANONICAL_ROOT_SEGMENTS[kind]);
 }
 
 /** The protected normal-storage roots the canaries must never write to. */
@@ -60,6 +67,20 @@ export function getCanaryProtectedOutputRoots(): { matches: string; series: stri
     matches: resolve(cwd, "data", "matches"),
     series: resolve(cwd, "data", "series"),
   };
+}
+
+/**
+ * The protected roots for a selected kind. The grid-readiness kind must also
+ * reject both existing canary roots.
+ */
+function getKindProtectedRoots(kind: CanaryRootKind): string[] {
+  const protectedRoots = getCanaryProtectedOutputRoots();
+  const roots = [protectedRoots.matches, protectedRoots.series];
+  if (kind === "grid-readiness") {
+    roots.push(getCanaryCanonicalOutputRoot("grid-match"));
+    roots.push(getCanaryCanonicalOutputRoot("grid-series"));
+  }
+  return roots;
 }
 
 function comparable(path: string): string {
@@ -89,28 +110,35 @@ export function assertCanaryOutputRootIsolation(
 ): void {
   const cwd = resolve(process.cwd());
   const dataDir = resolve(cwd, "data");
-  const protectedRoots = getCanaryProtectedOutputRoots();
+  const protectedRoots = getKindProtectedRoots(kind);
   const canonicalRoot = getCanaryCanonicalOutputRoot(kind);
 
-  if (isInsideOrEqual(outputRoot, protectedRoots.matches)) {
+  for (const protectedRoot of protectedRoots) {
+    if (!isInsideOrEqual(outputRoot, protectedRoot)) continue;
+    const protectedBase = getCanaryProtectedOutputRoots();
+    if (protectedRoot === protectedBase.matches) {
+      throw new GridCanaryOutputRootError(
+        `Grid canary output root must not be inside protected match storage: ${resolve(outputRoot)}`,
+      );
+    }
+    if (protectedRoot === protectedBase.series) {
+      throw new GridCanaryOutputRootError(
+        `Grid canary output root must not be inside protected series storage: ${resolve(outputRoot)}`,
+      );
+    }
     throw new GridCanaryOutputRootError(
-      `Grid canary output root must not be inside protected match storage: ${resolve(outputRoot)}`,
-    );
-  }
-  if (isInsideOrEqual(outputRoot, protectedRoots.series)) {
-    throw new GridCanaryOutputRootError(
-      `Grid canary output root must not be inside protected series storage: ${resolve(outputRoot)}`,
+      `Grid output root must not be inside protected storage (${protectedRoot}): ${resolve(outputRoot)}`,
     );
   }
 
   // Within the repository data tree the service-level output root is accepted
   // only when it resolves to exactly the selected canonical root. Descendants
   // (publication destinations and internal temporary locations) are never
-  // valid service roots, and the other canary kind's root is not valid here.
+  // valid service roots, and the other kinds' roots are not valid here.
   if (isInsideOrEqual(outputRoot, dataDir)) {
     if (!isEqualNormalized(outputRoot, canonicalRoot)) {
       throw new GridCanaryOutputRootError(
-        `Grid canary output root inside the repository data tree must be exactly ${canonicalRoot}; received ${resolve(outputRoot)}`,
+        `Grid output root inside the repository data tree must be exactly ${canonicalRoot}; received ${resolve(outputRoot)}`,
       );
     }
   }

@@ -1496,6 +1496,209 @@ immutability hardening **complete**; activation-readiness **not performed**;
 default grid activation **not performed**; Milestone 0.2C **not complete**
 pending a separately authorised activation-readiness decision.
 
+### 9.19 Phase 3E1 — bounded development-only grid activation-readiness evaluation (2026-08-02)
+
+Milestone 0.2C Phase 3E1 introduces one bounded, deterministic,
+development-only **activation-readiness evaluation** that answers whether the
+grid runtime is technically suitable for a separately authorised opt-in beta
+decision. It does not activate grid, does not alter defaults, does not tune
+combat or policies and does not claim production readiness. The evaluation
+classifies the current implementation as exactly one of
+`ready_for_opt_in_beta_review`, `inconclusive` or `not_ready`; even
+`ready_for_opt_in_beta_review` is not permission to activate grid.
+
+- **Development-only seed registry.** `config/readiness/grid-readiness-development-v1.json`
+  registers exactly 24 frozen seeds in the reserved range
+  `1703000000–1703099999` (identity `grid-readiness-development-v1`,
+  `development-only` partition, explicit-list generator). The registry is
+  runtime-frozen, safe-integer enforced, distinct after the simulator's signed
+  32-bit seed conversion, and carries a deterministic canonical checksum. The
+  numeric range is reserved for grid-readiness development and must not be
+  used by future benchmark or held-out registries. The registry is logically
+  independent from all existing benchmark partitions and is never read through
+  a benchmark seed bank; the readiness command never opens any existing
+  benchmark seed file.
+- **Frozen scenario registry.** `grid-readiness-scenarios-v1` contains seven
+  scenario families and thirteen concrete role assignments: one Bulwark-mirror
+  assignment and six role-swapped pairs (Flanker, Spinner, Grappler, Flipper,
+  Runner, Sentinel versus the canonical Bulwark). Every build is validated
+  against catalogue v1 before any evaluation begins; every factory returns
+  fresh deep-cloned builds and policies; the registry is runtime-frozen with a
+  deterministic canonical checksum.
+- **Exact run plan.** The suite is `24 seeds × 13 assignments = 312` primary
+  matches, ordered scenario registry → assignment order within scenario → seed
+  registry order, with a unique `(scenarioId, assignmentId, seed)` tuple, no
+  random shuffling, frozen plan and entries, and a deterministic suite checksum
+  that includes the registry IDs, registry checksums, runtime identity and the
+  ordered runs.
+- **Pure execution core.** `executeGridActivationReadinessSuite` calls
+  `runGridMatch` directly, requires the exact grid runtime identity
+  `0.3.0 / grid-3x3-v1 / 0.2.0 / 1` and `1 ≤ rounds ≤ MAX_ROUNDS`, validates
+  every initial and event zone, movement action, movement subject, facing and
+  round-end condition, converts to match-record v3 with injected UUIDs and
+  timestamps, builds and binds factual-report v2, validates every record and
+  report, verifies replay/report/final-round agreement, renders text and ASCII
+  replays and the grid-aware review prompt, and produces a canonical per-run
+  result (action, translated-action, zone-visit, bearing/exposure and
+  event-type counts, maximum consecutive no-progress rounds, and record /
+  report / text-replay / ascii-replay / review-prompt checksums). The core is
+  pure: no file reads/writes, no UUIDs, no clock, no provider, no benchmark,
+  no legacy runtime code, and it fails closed on any input mutation. Replay
+  and prompt text are never persisted in the readiness bundle.
+- **Deterministic re-execution.** The full 312-match suite executes a second
+  time with the same run plan, the same injected match IDs and the same
+  timestamps; byte-identical serialized v3 records, v2 reports, per-run
+  evidence, replay/ASCII/prompt checksums and ordered aggregate inputs are
+  required. A mismatch is a hard readiness failure. No duplicate second-run
+  records are published.
+- **Authoritative artifact envelopes.** `run-index.json` (312 ordered run
+  entries), `match-records.json` (312 match-record v3 values) and
+  `factual-reports.json` (312 factual-report v2 values), each v1 with the
+  evaluation UUID, with cross-envelope agreement on index, match ID, seed,
+  runtime, scenario/assignment identity, result, rounds and record/report
+  binding.
+- **Pure metrics reducer.** Aggregates execution (planned/completed/
+  deterministic/schema-valid/replay-agreeing/invalid-event/mutation counts),
+  movement (canonical and translated actions, stationary holds, nine zone
+  visits, relative bearings, exposed planar armour zones), combat (attempts,
+  hits, misses, integrity damage, criticals, knockback, grapple reposition,
+  overturns, damaged/disabled/resisted transitions), results (judges,
+  destruction, immobilisation, draws, round-cap, round statistics, maximum
+  no-progress streak), slot-order diagnostics (fighter-A/B wins, first-slot
+  advantage, Bulwark-mirror decisive count and slot imbalance, paired
+  role-swap stable/sensitive comparisons and sensitivity ratio) and timing
+  percentiles. Slot-order diagnostics detect gross slot-order pathology only;
+  timing is informational and never affects the decision.
+- **Frozen gates.** Hard correctness gates H01–H10 (complete execution,
+  determinism, runtime identity, persistence and reporting, replay agreement,
+  event validity, input immutability, progress deadlock with a 10-round
+  no-progress limit, artifact integrity, legacy isolation) are pass/fail.
+  Coverage gates C01–C06 (grid-space, movement, core combat, reposition
+  feature, component lifecycle, result-method coverage) are pass/inconclusive;
+  missing coverage is `inconclusive`, never a simulator failure, and nothing
+  is tuned to make an item appear. Slot-order stability gates S01–S03 and
+  progress gates P01–P02 use frozen gross-pathology thresholds (S01 ≤ 0.25
+  pass / > 0.50 fail with ≥ 8 decisive mirror matches; S02 and S03 analogous;
+  P01 attackless ≤ 0.10 pass / > 0.25 fail; P02 round-cap ≤ 0.75 pass /
+  > 0.95 fail). Any hard, slot-stability or progress failure produces
+  > `not_ready`; otherwise any inconclusive gate produces `inconclusive`;
+  > otherwise `ready_for_opt_in_beta_review`.
+- **Decision v1.** `GridActivationReadinessDecisionV1` (`grid-activation-readiness`
+  evaluation kind, `grid-activation-readiness-v1` suite, `completed` status)
+  carries every gate with category, outcome, frozen threshold, observed value,
+  concise evidence and blocking reason, the derived classification and the
+  mandatory disclaimer: "This development-only evaluation does not activate
+  the grid runtime, does not qualify combat balance and does not authorise
+  default migration." No tuning recommendation is ever included.
+- **Human-readable report.** A deterministic development-only report includes
+  the evaluation and suite IDs, runtime identity, registry IDs and checksums,
+  scenario/assignment/seed counts, total simulations, determinism, contract,
+  movement/combat coverage, result-method counts, slot-order and progress
+  diagnostics, timing, every gate result, the final classification, blockers/
+  missing evidence and the mandatory non-activation disclaimer. It never
+  recommends threshold/build/policy changes, never calls the suite a
+  benchmark, never calls a result a balance pass, never claims production
+  readiness and never states that grid is now default.
+- **Immutable evaluation bundle.** The kind-aware root guard now includes
+  `grid-readiness → data/readiness/grid`; the readiness service rejects normal
+  match/series storage, both canary roots, every other in-repository data
+  root, descendants of the canonical readiness root as service roots, symlink
+  or junction ancestry and external symlink roots. Each official evaluation
+  writes exactly nine regular files under `data/readiness/grid/<evaluationId>/`
+  (`manifest.json`, `seed-registry.json`, `scenario-registry.json`,
+  `run-index.json`, `match-records.json`, `factual-reports.json`,
+  `metrics.json`, `decision.json`, `report.txt`) through the shared immutable
+  publisher. The manifest v1 carries the evaluation UUID, creation time, suite
+  and runtime identity, exact counts (24/7/13/312), registry/suite/outcome/
+  report checksums, the readiness decision, fixed artifact names, the SHA-256
+  digest of every non-manifest artifact and read-back/cross-agreement
+  evidence. The complete bundle is cross-validated from the persisted records
+  and reports; individual replay text is never included.
+- **Service and CLI.** `runGridActivationReadiness(request, dependencies)`
+  orchestrates the root guard, fixed registries, run plan, injected identities,
+  primary and repeat execution, determinism comparison, artifact/envelope
+  construction, metrics, gates, decision, report, round trips, digests,
+  manifest, shared publish, explicit read-back and cross-validation. The
+  `readiness:grid` command accepts no arguments (seed/scenario/partition/
+  output/threshold/`--force`/runtime/provider/API-key arguments are all
+  rejected) under the `FORGE ARENA — GRID ACTIVATION-READINESS EVALUATION /
+DEVELOPMENT-ONLY / NON-BENCHMARK / NON-ACTIVATING` banner. A successfully
+  completed evaluation exits zero regardless of its decision; it exits nonzero
+  only for an operational failure that prevents producing a validated decision
+  bundle.
+- **No benchmark, held-out, provider, tuning or activation change.** No
+  benchmark partition runs, no existing benchmark seed file is opened,
+  held-out and `all` remain sealed, C1/C2/AB2 checksums and qualification
+  constants remain frozen with C2 default, simulator/ruleset constants remain
+  `0.2.0 / 0.2.0`, catalogue `1`, normal `match`/`series` remain legacy, both
+  canaries remain isolated and unchanged, no provider or external API call
+  occurs, no tuning follows the official result, no opt-in activation decision
+  is performed and no default activation occurs.
+
+**Official development-only run (2026-08-02):** exactly one official run of
+`npm run readiness:grid` executed (`evaluationId
+864991f7-d060-4669-beec-11e0d42b7e68`), publishing the immutable nine-file
+bundle under `data/readiness/grid/864991f7-d060-4669-beec-11e0d42b7e68/`.
+Determinism passed; all ten hard correctness gates (H01–H10), all three
+slot-order gates (S01–S03) and both progress gates (P01–P02) passed; coverage
+gates C01, C03, C05 and C06 passed; coverage gates **C02** (movement coverage —
+the canonical `hold` movement action was not observed) and **C04**
+(reposition feature coverage — no grapple reposition was observed) were
+**inconclusive**. Per the frozen decision derivation, the final readiness
+classification is **`inconclusive`**. No code, scenario, policy, seed,
+threshold or gate was altered after seeing the result; no tuning occurred; no
+opt-in activation decision and no default activation was performed.
+
+### 9.20 Phase 3E1 status
+
+- Development-only seed registry (`grid-readiness-development-v1`, 24 seeds,
+  reserved range, canonical checksum): complete.
+- Scenario registry (`grid-readiness-scenarios-v1`, 7 families, 13
+  assignments, catalogue-valid builds, fresh clones, canonical checksum):
+  complete.
+- Exact 312-run plan with frozen ordering, uniqueness and suite checksum:
+  complete.
+- Pure execution core (direct `runGridMatch`, records v3 / reports v2, replay
+  agreement, event validity, immutability, canonical per-run evidence):
+  complete.
+- Deterministic re-execution under fixed identities: complete.
+- Envelope schemas (run index / match records / factual reports, exactly 312
+  ordered items): complete.
+- Metrics reducer (execution, movement, combat, results, slot-order, timing):
+  complete.
+- Frozen gates (H01–H10, C01–C06, S01–S03, P01–P02) and decision derivation:
+  complete.
+- Decision v1 and human-readable report: complete.
+- Kind-aware root guard extended with `grid-readiness → data/readiness/grid`
+  and readiness storage rejection: complete.
+- Immutable nine-file evaluation bundle with manifest v1, digests and
+  cross-agreement validation: complete.
+- `runGridActivationReadiness` service and `readiness:grid` CLI (no
+  arguments): complete.
+- Full suite, typecheck, lint and CRLF formatting pass; no benchmark partition
+  ran; no existing benchmark seed file opened; held-out and `all` remain
+  sealed; seeds and fixtures unchanged; C1/C2/AB2 and qualification checksums
+  unchanged with C2 default; simulator/ruleset constants `0.2.0 / 0.2.0`;
+  catalogue `1`; normal match and series commands remain legacy; both canaries
+  remain unchanged; no provider or external API call; no normal or canary
+  storage modified; no tuning after results; no opt-in activation decision; no
+  default activation: confirmed.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; Phase 3C lateral/flank integration complete;
+Phase 3D1 reporting/series compatibility foundation complete; Phase 3D1.1
+reporting hardening complete; Phase 3D2A isolated grid match canary
+**implemented**; Phase 3D2A.1 evidence and artifact verification **complete**;
+Phase 3D2A.2 immutable publication hardening **complete**; Phase 3D2B isolated
+grid adaptive-series canary **implemented**; Phase 3D2B.1 provenance and
+immutability hardening **complete**; Phase 3E1 evaluation tooling **complete**;
+Phase 3E1 official development run **complete**; readiness classification
+**inconclusive** (coverage gates C02 and C04 inconclusive; all hard,
+slot-order and progress gates passed); opt-in beta decision **not performed**;
+default grid activation **not performed**; Milestone 0.2C **not complete**
+pending a separately authorised activation-readiness decision.
+
 ## 10. Still out of scope
 
 - **Authoritative migration**: the live simulator remains `0.2.0` legacy;
@@ -1527,6 +1730,14 @@ pending a separately authorised activation-readiness decision.
 - **Live activation** of grid match production in the application/CLI/series.
 - **Balance conclusions**: no grid-vs-legacy balance claims are made from
   Phase 3A through Phase 3D2A.2.
+- **Grid activation-readiness is a development-only evaluation, not a
+  decision**: the Phase 3E1 evaluation classifies the implementation as
+  `ready_for_opt_in_beta_review`, `inconclusive` or `not_ready`; it does not
+  activate grid, does not change defaults, does not qualify combat balance,
+  does not authorise default migration and does not tune combat, builds,
+  policies, seeds, thresholds or gates in response to its result. An opt-in
+  beta decision and any default activation remain later, separately authorised
+  decisions.
 - Opponent suite and adaptation evaluation (0.2D/0.2E).
 
 ### 6.5 State reconstruction
