@@ -83,9 +83,14 @@ and cross-validation, and output-root isolation) is implemented by the
 exclusive canary publication — exact canonical root enforcement, `lstat`-based
 collision detection, exclusive temporary-directory creation, invocation-owned
 cleanup, and exact seven-file temporary/final inventories) is implemented by
-the `agent/0.2c-grid-canary-publication-hardening` task. The authoritative
-runtime migration, grid adaptive-series execution and live grid match
-production remain future, separately authorised phases.
+the `agent/0.2c-grid-canary-publication-hardening` task; Phase 3D2B (isolated
+deterministic grid adaptive-series canary — a separate, local-only,
+three-match canary with two deterministic policy adaptations, series-record
+v2, JSON envelopes, an adaptation trace, a series report and a validated
+atomic artifact bundle, sharing the extracted immutable publication and
+physical-root guards) is implemented by the `agent/0.2c-grid-series-canary`
+task. The authoritative runtime migration and live grid match production
+remain future, separately authorised phases.
 
 **Milestone 0.2C progress (2026-08-01):**
 
@@ -231,6 +236,35 @@ production remain future, separately authorised phases.
   `false`), the six SHA-256 digests, all-seven-file read-back, byte/schema/
   cross-agreement validation and final revalidation are unchanged. No grid
   series or default activation occurred; no balance conclusion was made.
+- Phase 3D2B — isolated deterministic grid adaptive-series canary:
+  **complete**. A separate, local-only, deterministic three-match adaptive
+  series proves the complete grid series pipeline operationally — frozen
+  combat-observable scenario `grid-series-canary-adaptive-v1` (deterministic
+  local competitor `flank`/`medium`/aggression `100`/`rear`/`rear`/`20`/`80`/
+  `defend` against the canonical `BULWARK_POLICY`, both fresh deep-cloned
+  Bulwark builds every match, `maximumMatches 3`, `targetWins 3`, no
+  `nextDesign`) → direct `runGridMatch` × 3 → match-record v3 × 3 →
+  factual-report v2 × 3 bound to the injected match UUIDs → text and 3×3
+  ASCII replay × 3 → deterministic fallback review × 3 → two frozen
+  `grid-canary-policy-adaptation-v1` adaptations → series-record v2 → four
+  JSON envelopes + adaptation trace + series report → validated atomic
+  eight-file artifact bundle under `data/canary/grid-series/<canaryId>/`.
+  The shared immutable publication infrastructure and the kind-aware
+  output-root/physical-root guards were extracted to `src/canary/` and used
+  by both canaries; the single-match canary was refactored byte-compatibly.
+  The pure core never generates UUIDs, reads the clock, touches the
+  filesystem or calls a provider/`runSeries`/benchmark; identities are
+  injected and the service re-executes the core to prove determinism. The
+  manifest v1 freezes sixteen evidence flags and seven SHA-256 digests with
+  no win rates, percentages, promotion, balance or benchmark terminology,
+  and the pure bundle validator cross-checks identity/ordering, runtime,
+  result, adaptation, series, text-artifact and digest agreement. The
+  explicit `series:grid:canary` command requires `--seed <base>` and rejects
+  every unsupported argument (including target-wins/maximum-matches
+  overrides, runtime selectors, `--ai`, `--review`, provider and API-key
+  arguments); the existing `match` and `series` commands are unchanged and
+  no runtime selector, provider integration, default activation, benchmark
+  execution or balance conclusion was added.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not
@@ -238,9 +272,12 @@ production remain future, separately authorised phases.
 - Default grid activation: **not performed**. Milestone 0.2C remains
   **not complete**, pending a separately authorised activation-readiness
   decision.
-- Grid adaptive-series execution: **not implemented**. No grid series runner
-  exists and no application path produces a series-v2 record; the grid canary
-  is single-match and local-only.
+- Grid adaptive-series execution: **not implemented** for live play. The grid
+  adaptive-series **canary** (Phase 3D2B) is complete and produces a
+  series-v2 record locally under `data/canary/grid-series/`, but no normal
+  application command or runner produces a series-v2 record and no
+  adaptive-series execution is wired into the application; the canaries are
+  separate and local-only.
 - Balance evaluation of the grid runtime: **not performed**; no grid-vs-legacy
   balance conclusions are made.
 - Milestone 0.2C is **not complete**.

@@ -64,7 +64,17 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
   temporary collisions (including empty directories and symlinks) are detected
   via `lstat`, temporary directories are created exclusively, cleanup applies
   only to invocation-owned paths, and bundles must contain exactly seven
-  regular files. The live
+  regular files. Phase 3D2B added an isolated deterministic grid
+  **adaptive-series** canary: a separate, local-only, three-match command
+  (`series:grid:canary`) that proves the complete grid series pipeline
+  operationally — frozen combat-observable scenario → direct `runGridMatch`
+  × 3 → match-record v3 × 3 → factual-report v2 × 3 → replay × 3 →
+  deterministic fallback review × 3 → two frozen policy adaptations →
+  series-record v2 → JSON envelopes + adaptation trace + series report →
+  validated atomic artifact bundle under `data/canary/grid-series/`. It
+  shares the extracted immutable publication and physical-root guards with
+  the match canary, requires an explicit base seed, uses no AI provider, is
+  not a benchmark and changes no default command. The live
   five-zone simulator is unchanged: the normal application still uses
   `runMatch` (legacy `0.2.0`) and emits schema v2, and `runGridMatch` is not
   wired into CLI, series or application commands.
@@ -147,6 +157,26 @@ rear exposure observed: no`), rejects output roots that resolve inside
 `data/matches` or `data/series`, requires the in-repo output root to be exactly
 `data/canary/grid-match`, and never reuses or cleans a pre-existing final or
 temporary path.
+
+### Grid adaptive-series canary
+
+```bash
+npm run series:grid:canary -- --seed 12345   # Isolated deterministic grid series canary
+```
+
+The grid adaptive-series canary is a separate, local-only, deterministic
+three-match check. It requires `--seed <non-negative safe base>` (no random
+default), runs the frozen combat-observable scenario through direct
+`runGridMatch` three times with the sequential seeds `[base, base+1, base+2]`,
+applies two frozen deterministic policy adaptations, and publishes a validated
+atomic eight-file artifact bundle under `data/canary/grid-series/` (series
+record, match/report/review/artifact envelopes, adaptation trace, series
+report and manifest). It uses no AI provider, is not a benchmark, and never
+modifies the normal `match` or `series` commands or their storage. It rejects
+unsafe or overflowing seeds, target-wins/maximum-matches overrides, runtime
+selectors and provider/API-key arguments, requires the in-repo output root to
+be exactly `data/canary/grid-series`, and never reuses or cleans a pre-existing
+final or temporary path.
 
 ### Replay
 

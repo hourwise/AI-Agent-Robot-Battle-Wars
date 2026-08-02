@@ -1201,6 +1201,174 @@ Phase 3D2A.2 immutable publication hardening **complete**; grid canary series
 **not complete** pending a separately authorised activation-readiness
 decision.
 
+### 9.15 Phase 3D2B — isolated deterministic grid adaptive-series canary (2026-08-02)
+
+Milestone 0.2C Phase 3D2B adds the second isolated application-level grid
+path: a deterministic, local-only **three-match adaptive-series canary** that
+proves the complete grid series pipeline operationally — three grid matches,
+match-record v3 × 3, factual-report v2 × 3, replay × 3, deterministic fallback
+reviews, two frozen policy adaptations, series-record v2, four JSON envelopes,
+an adaptation trace, a series report and a validated atomic artifact bundle.
+It is a separate explicit command (`npm run series:grid:canary -- --seed
+<base>`); no default command, runtime selector, provider integration or
+activation was added.
+
+- **Shared immutable publication infrastructure.** `src/canary/immutable-
+canary-bundle.ts` now owns the injectable `CanaryFileSystem`, `fsEntryKind`,
+  exact-declared inventory checks and `publishImmutableBundle` (lstat
+  collision preflight, exclusive temporary `mkdir`, manifest-last writing,
+  full read-back, byte comparison, caller `verify` hook, atomic rename,
+  invocation-owned cleanup). The single-match canary was refactored onto it
+  with byte-compatible behaviour (same CLI, manifest v2, artifact names,
+  bytes, digests, evidence, output root, success output and failure
+  semantics), and `CanaryFileSystem`/`CanaryFsEntry`/`buildDeterministicFallbackReview`
+  remain re-exported from `src/app/grid-match-canary.ts` for test and caller
+  compatibility. All pre-existing single-match canary tests pass unchanged.
+- **Kind-aware output-root guard and physical-root guard.** The neutral
+  `src/canary/canary-output-root.ts` freezes `grid-match` →
+  `data/canary/grid-match` and `grid-series` → `data/canary/grid-series`,
+  rejects cross-kind roots and protected normal storage for both kinds, and
+  adds `assertCanaryPhysicalRoot` (async): every existing component of the
+  root ancestry is inspected with `lstat` and must be a real directory (symbolic
+  links, junctions, regular files and other entry types are rejected), missing
+  components are created normally, the complete ancestry is re-inspected after
+  recursive root creation and again before any artifact write, and external
+  roots must be existing real directories (a symlink supplied as the service
+  root is never followed). The guard runs before combat/series execution and
+  is shared by both canaries.
+- **Frozen combat-observable series scenario.** `grid-series-canary-adaptive-v1`
+  freezes the deterministic local competitor (`grid-canary-competitor` /
+  `deterministic-local`, initial policy `flank`/`medium`/aggression `100`/
+  `rear`/`rear`/thresholds `20`/`80`/`defend`) against the canonical
+  `BULWARK_POLICY` opponent; both fighters use fresh deep-cloned Bulwark builds
+  every match; `maximumMatches 3`, `targetWins 3`, no `nextDesign`, no
+  provider. The series requires at least one translated grid movement and at
+  least one `attack_attempted` event across the three matches and terminates
+  every match within the frozen round cap.
+- **Frozen seed plan and deterministic adaptation.** The seed plan is
+  `[baseSeed, baseSeed + 1, baseSeed + 2]` with safe-integer bounds (base ≤
+  `Number.MAX_SAFE_INTEGER - 2`). `adaptGridCanaryPolicy` applies the frozen
+  `grid-canary-policy-adaptation-v1` rule after matches 1 and 2 only, requiring
+  the authoritative factual-report v2 and the deterministic fallback review to
+  agree first: aggression `80`/`70` (match 1) and `60`/`90` (match 2) by
+  integrity comparison; opening `hold` when mobility-disabled or
+  immobilised/overturned, `cautious` when behind, otherwise `flank`; untouched
+  policy fields preserved; output validated against `actionPolicySchema`. The
+  adaptation-trace v1 schema re-derives every decision; no RNG, provider,
+  clock or filesystem is used and the adaptation is never described as
+  intelligent or AI-generated.
+- **Pure deterministic core with injected identity.** `executeGridSeriesCanary`
+  never generates UUIDs, never reads the clock, never touches the filesystem
+  and never calls a provider, `runSeries` or benchmark code. Match UUIDs, the
+  series UUID and timestamps are injected through service dependencies; the
+  match converter gained an optional identity parameter (matchId/createdAt)
+  without weakening normal conversion. Each match is converted to match-record
+  v3 with the injected identity, bound to its factual-report v2, rendered to
+  text/ASCII replay, and checked for determinism (re-execution), canonical
+  zones, round-cap termination and replay/report/final-round agreement. The
+  service re-executes the core with identical identities and requires identical
+  series, matches, reports and trace.
+- **Series-record v2 and envelopes.** `buildGridSeriesCanarySeriesRecord`
+  produces the authoritative series v2 (grid runtime identity, status
+  `completed`, target/max 3, three entries each with the bound report, the
+  fallback review and an explicit intentional-local-fallback review-failure
+  marker, the build proposal used, the policy used, the next policy for
+  matches 1–2 and none for 3, no next design, empty usage; all-zero
+  totalUsage; score and winner derived from actual outcomes). The four JSON
+  envelopes (`matches.json`, `factual-reports.json`, `fallback-reviews.json`,
+  `match-artifacts.json`) enforce order (index = match number), uniqueness and
+  series identity, non-empty/no-NUL text artifacts, and never-`pending` report
+  IDs.
+- **Manifest v1 and pure bundle validator.** The series canary manifest v1
+  freezes the canary/series identities, three sequential seeds, grid runtime
+  identity, sixteen evidence flags (all matches terminated, all records v3, all
+  reports v2, all bound, all fallback reviews valid, all replay final states
+  agree, all zones canonical, translated movement, combat attempt, policy
+  adaptation count 2, adaptation facts agree, series and trace round trips,
+  deterministic re-execution, full read-back, bundle cross-agreement) and seven
+  SHA-256 digests, with no win rates, percentages, promotion, balance or
+  benchmark terminology. `validateGridSeriesCanaryBundle` cross-checks
+  identity/ordering (one series UUID, sequential seeds, three ordered matches,
+  unique match IDs, number/ID/seed alignment), runtime/schema identity, result
+  facts, adaptation facts (two transitions sourcing matches 1–2, entry
+  nextPolicy == trace policyAfter, next-entry policyBefore == prior nextPolicy,
+  decisions recalculated, no build change), series facts (score == outcomes,
+  winner rule, zero usage, completed, target/max 3), text-artifact markers
+  (text replay completion, ASCII grid labels, grid review prompt, and a series
+  report that identifies `0.3.0`/`grid-3x3-v1`, states canary/non-benchmark,
+  and gives the raw three-match score with no win rate) and every digest,
+  never mutating inputs.
+- **Isolated immutable publication.** Each run writes exactly eight regular
+  files under `data/canary/grid-series/<canaryId>/`; the shared publisher
+  enforces the exact inventory, manifest-last order, full read-back,
+  byte-for-byte comparison, JSON revalidation and the pure bundle validator at
+  both the temporary and final paths, with atomic rename and invocation-owned
+  cleanup. Pre-existing final or temporary paths are rejected and preserved.
+  The service never writes to `data/matches` or normal series storage.
+- **CLI is separate, explicit and truthful.** `series:grid:canary` prints the
+  canary ID, scenario, series ID, seed plan, runtime identity, per-match IDs
+  and results, the final raw score, both adaptation summaries and the artifact
+  directory under the `NON-DEFAULT / NON-BENCHMARK / LOCAL-ONLY` banner. The
+  parser rejects missing, negative, unsafe or overflowing seeds, duplicates,
+  unknown arguments, target-wins/maximum-matches overrides, runtime selectors,
+  `--ai`, `--review`, provider and API-key arguments.
+- **No balance, benchmark, provider or activation change.** No benchmark
+  partition ran, seeds and fixtures are unchanged, held-out and `all` remain
+  sealed, no provider or external API call occurred, and no balance
+  conclusion, tuning or default grid activation was performed.
+  `SIMULATOR_VERSION`/`RULESET_VERSION` remain `0.2.0`, catalogue `1`, and
+  C1/C2/AB2 checksums and qualification constants remain frozen with C2 the
+  default. Activation-readiness was not performed and Milestone 0.2C remains
+  incomplete.
+
+### 9.16 Phase 3D2B status
+
+- Shared immutable publication infrastructure extracted and used by both
+  canaries; single-match canary refactored byte-compatibly: complete.
+- Kind-aware output-root guard (cross-kind rejection) and async physical-root
+  guard (lstat ancestry, symlink/junction rejection, re-inspection before
+  artifact write): complete.
+- Frozen combat-observable series scenario with fresh per-match values:
+  complete.
+- Frozen seed plan with safe-integer bounds: complete.
+- Deterministic policy adaptation (`grid-canary-policy-adaptation-v1`) with
+  report/review agreement and structured decisions: complete.
+- Adaptation-trace v1 schema with cross-field contract: complete.
+- Pure three-match core with injected identity, determinism, evidence and no
+  provider/fs/clock/RNG: complete.
+- Series-record v2 construction (completed, zero usage, no next design, bound
+  reports and reviews, derived score/winner): complete.
+- Four envelope schemas with order/uniqueness/series-identity and text
+  contracts: complete.
+- Series canary manifest v1 (16 evidence flags, 7 digests, no win rates):
+  complete.
+- Pure series bundle validator (identity/ordering, runtime, result,
+  adaptation, series, text, digests): complete.
+- `runGridSeriesCanary` service (root/physical guards, five distinct UUIDs,
+  preflight, core, series, report, envelopes, round trips, deterministic
+  re-execution, digests, manifest, shared publish, read-back, structured
+  result): complete.
+- Storage layout `data/canary/grid-series/<canaryId>/` with exactly eight
+  regular files; never writes normal storage: complete.
+- CLI parser and `series:grid:canary` command with truthful output: complete.
+- Full suite, typecheck, lint and CRLF formatting pass; no benchmark partition
+  ran; seeds and fixtures unchanged; held-out and `all` remain sealed;
+  C1/C2/AB2 checksums and qualification constants unchanged with C2 default;
+  simulator/ruleset constants `0.2.0 / 0.2.0`; catalogue `1`; normal match and
+  series commands remain legacy; no provider or external API call; no default
+  activation: confirmed.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; Phase 3C lateral/flank integration complete;
+Phase 3D1 reporting/series compatibility foundation complete; Phase 3D1.1
+reporting hardening complete; Phase 3D2A isolated grid match canary
+**implemented**; Phase 3D2A.1 evidence and artifact verification **complete**;
+Phase 3D2A.2 immutable publication hardening **complete**; Phase 3D2B isolated
+grid adaptive-series canary **complete**; activation-readiness **not
+performed**; default grid activation **not performed**; Milestone 0.2C **not
+complete** pending a separately authorised activation-readiness decision.
+
 ## 10. Still out of scope
 
 - **Authoritative migration**: the live simulator remains `0.2.0` legacy;

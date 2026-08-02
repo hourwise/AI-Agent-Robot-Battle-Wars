@@ -18,6 +18,19 @@ import type { AgentUsageRecord } from "../types/agent-usage.js";
 import { isGridZone } from "../simulator/arena-grid.js";
 
 /**
+ * Optional explicit identity for persistence (Milestone 0.2C Phase 3D2B).
+ *
+ * The grid adaptive-series canary must control the match UUIDs and timestamps
+ * it persists so its artifact bundle is fully deterministic under injected
+ * dependencies. Normal conversion callers omit these options and keep the
+ * historical `randomUUID()` / `new Date()` behaviour unchanged.
+ */
+export interface MatchRecordIdentityOptions {
+  matchId?: string;
+  createdAt?: string;
+}
+
+/**
  * Persist records according to the explicit immutable result identity, never
  * from global version heuristics or zone-string guessing.
  *
@@ -30,12 +43,13 @@ import { isGridZone } from "../simulator/arena-grid.js";
 export function matchResultToRecord(
   result: AnyMatchResult,
   agentUsage: readonly AgentUsageRecord[] = [],
+  identity: MatchRecordIdentityOptions = {},
 ): MatchRecord {
   assertPersistableIdentity(result);
   if (result.runtime.positioningModel === "grid-3x3-v1") {
-    return matchResultToRecordV3(result as GridMatchResult, agentUsage);
+    return matchResultToRecordV3(result as GridMatchResult, agentUsage, identity);
   }
-  return matchResultToRecordV2(result as MatchResult, agentUsage);
+  return matchResultToRecordV2(result as MatchResult, agentUsage, identity);
 }
 
 function assertPersistableIdentity(result: AnyMatchResult): void {
@@ -118,11 +132,12 @@ function parseOrThrow<T>(schema: z.ZodType<T>, record: unknown, label: string): 
 function matchResultToRecordV2(
   result: MatchResult,
   agentUsage: readonly AgentUsageRecord[],
+  identity: MatchRecordIdentityOptions = {},
 ): MatchRecordV2 {
   const record: MatchRecordV2 = {
     schemaVersion: "2",
-    matchId: randomUUID(),
-    createdAt: new Date().toISOString(),
+    matchId: identity.matchId ?? randomUUID(),
+    createdAt: identity.createdAt ?? new Date().toISOString(),
     rulesetVersion: result.config.rulesetVersion,
     catalogueVersion: result.config.catalogueVersion,
     simulatorVersion: result.runtime.simulatorVersion,
@@ -151,12 +166,13 @@ function matchResultToRecordV2(
 function matchResultToRecordV3(
   result: GridMatchResult,
   agentUsage: readonly AgentUsageRecord[],
+  identity: MatchRecordIdentityOptions = {},
 ): MatchRecordV3 {
   const record: MatchRecordV3 = {
     schemaVersion: "3",
     positioningModel: "grid-3x3-v1",
-    matchId: randomUUID(),
-    createdAt: new Date().toISOString(),
+    matchId: identity.matchId ?? randomUUID(),
+    createdAt: identity.createdAt ?? new Date().toISOString(),
     rulesetVersion: result.config.rulesetVersion,
     catalogueVersion: result.config.catalogueVersion,
     simulatorVersion: result.runtime.simulatorVersion,

@@ -31,16 +31,21 @@ async function readSource(relative: string): Promise<string> {
 }
 
 describe("grid match canary — legacy and contract regression (Phase 3D2A)", () => {
-  it("keeps the match and series package scripts unchanged and adds only the canary script", async () => {
+  it("keeps the match and series package scripts unchanged and adds only the canary scripts", async () => {
     const pkg = JSON.parse(await readSource("package.json"));
     expect(pkg.scripts.match).toBe("tsx src/app/run-match.ts");
     expect(pkg.scripts.series).toBe("tsx src/app/run-series.ts");
     expect(pkg.scripts["match:grid:canary"]).toBe("tsx src/app/run-grid-canary-match.ts");
-    // The only new executable script is match:grid:canary.
+    expect(pkg.scripts["series:grid:canary"]).toBe(
+      "tsx src/app/run-grid-series-canary.ts",
+    );
+    // The only new executable scripts are the two canary scripts.
     const scriptNames = Object.keys(pkg.scripts);
     for (const name of scriptNames) {
       if (name.startsWith("match") || name.startsWith("series")) {
-        expect(["match", "series", "match:grid:canary"]).toContain(name);
+        expect(["match", "series", "match:grid:canary", "series:grid:canary"]).toContain(
+          name,
+        );
       }
     }
   });

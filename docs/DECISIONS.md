@@ -778,6 +778,119 @@ Phase 3D2A.2 immutable publication hardening **complete**; grid canary series
 **not complete** pending a separately authorised activation-readiness
 decision.
 
+## D44: Isolated deterministic grid adaptive-series canary (2026-08-02)
+
+Milestone 0.2C Phase 3D2B introduces the second executable application-level
+grid path: a deliberately isolated, deterministic, local-only **three-match
+adaptive-series canary** proving the complete grid series pipeline works
+operationally, including two deterministic policy adaptations, series-record
+v2 construction and a validated atomic artifact bundle. Like the match canary,
+it is a separate explicit command; it changes no default application command
+and adds no runtime selector, provider integration or default activation.
+
+- **Shared immutable publication infrastructure was extracted**: the atomic,
+  exclusive, immutable bundle publisher (`src/canary/immutable-canary-bundle.ts`)
+  now provides the injectable `CanaryFileSystem`, `fsEntryKind`, exact-declared
+  inventory checks and `publishImmutableBundle` used by both canaries. The
+  single-match canary was refactored onto it with byte-compatible behaviour:
+  the same CLI, manifest v2, artifact names, bytes, digests, evidence, output
+  root, success output and failure semantics, and every existing single-match
+  canary test still passes. The deterministic fallback review was also extracted
+  to `src/canary/grid-canary-fallback-review.ts` and is shared by both canaries.
+- **A kind-aware output-root guard now covers both canaries**: the neutral
+  `src/canary/canary-output-root.ts` freezes the canonical roots
+  (`grid-match` → `data/canary/grid-match`, `grid-series` →
+  `data/canary/grid-series`), rejects cross-kind roots and protected normal
+  storage for both kinds, and adds an async **physical-root guard**
+  (`assertCanaryPhysicalRoot`) that inspects every existing component of the
+  root ancestry with `lstat` (rejecting symbolic links and junctions, regular
+  files and other entry types), creates missing components normally, and
+  re-inspects the complete ancestry after recursive root creation and again
+  before any artifact write. External test roots must be existing real
+  directories; a symbolic link supplied as the service root is never followed.
+  The guard runs before combat/series execution and is shared by both canaries.
+- **The series scenario is frozen and combat-observable**:
+  `grid-series-canary-adaptive-v1` freezes the deterministic local competitor
+  (`grid-canary-competitor` / `deterministic-local`, initial policy
+  `flank`/`medium`/aggression `100`/`rear`/`rear`/thresholds `20`/`80`/
+  `defend`) against the canonical `BULWARK_POLICY` opponent, both using fresh
+  deep-cloned Bulwark builds every match, with `maximumMatches 3`,
+  `targetWins 3`, no `nextDesign` and no provider. Unlike the no-combat match
+  canary, the series canary deliberately exercises combat: it requires at
+  least one translated grid movement and at least one `attack_attempted` event
+  across the three matches, and every match terminates within the frozen round
+  cap.
+- **Seeds, adaptation and trace are deterministic and auditable**: the frozen
+  seed plan is `[baseSeed, baseSeed + 1, baseSeed + 2]` with safe-integer
+  bounds. `adaptGridCanaryPolicy` applies the frozen
+  `grid-canary-policy-adaptation-v1` rule after matches 1 and 2 (aggression
+  `80/70` after match 1 and `60/90` after match 2 by integrity comparison;
+  opening `hold` when mobility-disabled or immobilised/overturned, `cautious`
+  when behind, otherwise `flank`; untouched fields preserved), requiring the
+  authoritative factual-report v2 and the deterministic fallback review to
+  agree first. The adaptation-trace v1 schema and the series-record v2
+  cross-field contract re-derive every decision, and no RNG, provider, clock
+  or filesystem is used.
+- **The pure core is fully deterministic with injected identity**: the core
+  (`executeGridSeriesCanary`) never generates UUIDs, never reads the clock,
+  never touches the filesystem and never calls a provider, `runSeries` or
+  benchmark code; match UUIDs, the series UUID and timestamps are injected
+  through service dependencies. Each match is converted to match-record v3
+  with the injected identity (the converter gained an optional identity
+  parameter without weakening normal conversion), bound to its factual-report
+  v2, rendered to text/ASCII replay, and validated for determinism, canonical
+  zones, round-cap termination and replay/report/final-round agreement. The
+  service re-executes the core with the same identities and requires identical
+  series, matches, reports and trace.
+- **The published bundle is a validated atomic eight-file artifact set**: each
+  run writes only under `data/canary/grid-series/<canaryId>/` with exactly
+  eight regular files — `manifest.json`, `series.json`, `matches.json`,
+  `factual-reports.json`, `fallback-reviews.json`, `match-artifacts.json`,
+  `adaptation-trace.json` and `series-report.txt`. The series canary manifest
+  v1 freezes the canary/series identities, the three sequential seeds, the grid
+  runtime identity, sixteen evidence flags (including both adaptations, the
+  series and trace round trips, deterministic re-execution, full read-back and
+  bundle cross-agreement) and seven SHA-256 digests, and contains no win rates,
+  percentages, promotion, balance or benchmark terminology. The pure bundle
+  validator cross-checks identity/ordering, runtime/schema identity, result
+  facts, adaptation facts, series facts, text-artifact markers (text replay
+  completion, ASCII grid labels, grid review prompt, and a series report that
+  states canary/non-benchmark with the raw three-match score and no win rate)
+  and every digest.
+- **The CLI is separate, explicit and truthful**: `npm run series:grid:canary
+-- --seed <base>` runs `src/app/run-grid-series-canary.ts` and prints the
+  canary ID, scenario, series ID, seed plan, runtime identity, per-match IDs and
+  results, the final raw score, both adaptation summaries and the artifact
+  directory, with the banner `NON-DEFAULT / NON-BENCHMARK / LOCAL-ONLY`. The
+  parser rejects missing, negative, unsafe or overflowing seeds, duplicates,
+  unknown arguments, target-wins/maximum-matches overrides, runtime selectors,
+  `--ai`, `--review`, provider and API-key arguments.
+- **No normal data directory or command is modified**: the series canary never
+  writes to `data/matches` or normal series storage and never reuses a UUID;
+  the normal `match` and `series` commands remain legacy (match v2, report v1,
+  series v1). Corruption of any published artifact fails publication with full
+  cleanup of invocation-owned paths and no final bundle. Pre-existing final or
+  temporary paths are rejected and preserved.
+- **No benchmark, balance or activation occurred**: no benchmark partition
+  ran, no benchmark seed or fixture changed, held-out and `all` partitions
+  remain sealed, no provider or external API call occurred, and no balance
+  conclusion, tuning or default grid activation was performed.
+  `SIMULATOR_VERSION`/`RULESET_VERSION` remain `0.2.0`, catalogue `1`, and
+  C1/C2/AB2 checksums and qualification constants remain frozen with C2 the
+  default. Activation-readiness was not performed and Milestone 0.2C remains
+  incomplete.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; Phase 3C lateral/flank integration complete;
+Phase 3D1 reporting/series compatibility foundation complete; Phase 3D1.1
+reporting hardening complete; Phase 3D2A isolated grid match canary
+**implemented**; Phase 3D2A.1 evidence and artifact verification **complete**;
+Phase 3D2A.2 immutable publication hardening **complete**; Phase 3D2B isolated
+grid adaptive-series canary **complete**; activation-readiness **not
+performed**; default grid activation **not performed**; Milestone 0.2C **not
+complete** pending a separately authorised activation-readiness decision.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

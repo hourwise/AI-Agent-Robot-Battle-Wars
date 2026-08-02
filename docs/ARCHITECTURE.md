@@ -412,6 +412,154 @@ The canary is not a benchmark and produces no balance conclusion; it is a
 correctness and operational pipeline check. No grid adaptive-series runner,
 runtime selector, default activation or provider integration was added.
 
+### Shared canary infrastructure (Milestone 0.2C Phase 3D2B)
+
+- `src/canary/immutable-canary-bundle.ts` — the shared atomic, exclusive and
+  immutable bundle publisher: `CanaryFileSystem`, `CanaryFsEntry`,
+  `defaultCanaryFs`, `isFsCode`, `fsEntryKind` (lstat-based entry
+  classification), `assertExactBundleInventory` (declared regular-file
+  inventory, no symlinks) and `publishImmutableBundle` (lstat collision
+  preflight, exclusive temporary `mkdir`, manifest-last writing, full read-back
+  with byte comparison, caller `verify` hook, atomic rename, invocation-owned
+  cleanup, `afterRootCreated` hook). Used by both the grid match canary
+  (byte-compatibly refactored) and the grid series canary.
+- `src/canary/grid-canary-fallback-review.ts` — the shared deterministic
+  fallback review (`buildDeterministicFallbackReview`), re-exported from
+  `src/app/grid-match-canary.ts` for compatibility.
+- `src/canary/canary-output-root.ts` — the kind-aware output-root guard:
+  `CanaryRootKind` (`"grid-match"` / `"grid-series"`), canonical roots
+  `data/canary/grid-match` / `data/canary/grid-series`,
+  `assertCanaryOutputRootIsolation(outputRoot, kind)` (exact canonical per
+  kind, cross-kind rejection, protected storage rejection) and the async
+  `assertCanaryPhysicalRoot(outputRoot, kind, fs)` physical-root guard (lstat
+  every existing ancestry component — real directories only, symbolic links,
+  junctions, files and other entries rejected — create missing components
+  normally, re-inspect the complete ancestry after recursive creation and
+  again before any artifact write; external roots must be existing real
+  directories and a symlink service root is never followed).
+  `src/app/grid-canary-output-root.ts` is a compatibility re-export defaulting
+  to the `grid-match` kind.
+
+### Isolated deterministic grid adaptive-series canary (Milestone 0.2C Phase 3D2B)
+
+The second executable application-level grid path: a separate, local-only,
+deterministic **three-match adaptive-series canary** proving the complete grid
+series pipeline operationally, including two deterministic policy adaptations,
+series-record v2 construction, four JSON envelopes, an adaptation trace, a
+series report and a validated atomic artifact bundle. Like the match canary, it
+is a separate explicit command; no default command, runtime selector, provider
+integration or activation was added.
+
+- `src/canary/grid-series-canary-scenario.ts` — the frozen combat-observable
+  scenario `grid-series-canary-adaptive-v1`: the deterministic local
+  competitor (`grid-canary-competitor` / `deterministic-local`, initial policy
+  `flank`/`medium`/aggression `100`/`rear`/`rear`/thresholds `20`/`80`/
+  `defend`) against the canonical `BULWARK_POLICY`; both fighters use fresh
+  deep-cloned Bulwark builds every match; `maximumMatches 3`, `targetWins 3`,
+  no `nextDesign`. `createGridSeriesCanaryScenario()` returns fresh values per
+  call.
+- `src/canary/grid-series-canary-seed-plan.ts` — the frozen seed plan
+  `[baseSeed, baseSeed + 1, baseSeed + 2]` with safe-integer bounds
+  (`GRID_SERIES_CANARY_MAX_BASE_SEED = Number.MAX_SAFE_INTEGER - 2`).
+- `src/canary/grid-series-canary-adaptation.ts` — the frozen
+  `grid-canary-policy-adaptation-v1` rule (`adaptGridCanaryPolicy`): after
+  matches 1 and 2 only, the authoritative factual-report v2 and the
+  deterministic fallback review must agree first; aggression `80`/`70` (match
+  1. and `60`/`90` (match 2) by integrity comparison; opening `hold` when
+     mobility-disabled or immobilised/overturned, `cautious` when behind,
+     otherwise `flank`; untouched policy fields preserved; output validated
+     against `actionPolicySchema`. No RNG, provider, clock or filesystem; never
+     described as intelligent or AI-generated.
+- `src/schemas/grid-series-canary-adaptation-trace.schema.ts` — the
+  adaptation-trace v1 schema (`GridSeriesCanaryAdaptationTraceV1`): scenario
+  and rule versions, series UUID, base seed and exactly two transitions with
+  policies, authoritative facts and decisions; the super-refine re-derives
+  every decision (source matches 1 and 2, real policy change, frozen
+  aggression/opening rules, preserved untouched fields, decision/policy
+  agreement).
+- `src/canary/grid-series-canary-core.ts` — the pure three-match execution
+  core (`executeGridSeriesCanary`): sequential seeds, fresh scenario values,
+  injected match/series identities (never generated, never from the clock),
+  direct `runGridMatch`, determinism re-execution, canonical-zone/round-cap/
+  combat/translation evidence, match-record v3 with injected identity,
+  bound factual-report v2, replay/report/final agreement, text/ASCII replay,
+  review prompt, deterministic fallback review, two adaptations, evidence and
+  the adaptation trace. No filesystem, provider, `runSeries` or benchmark.
+- `src/canary/grid-series-canary-series.ts` — `buildGridSeriesCanarySeriesRecord`
+  constructs the authoritative series-record v2 (grid runtime identity, status
+  `completed`, target/max 3, three entries each with the bound report, the
+  fallback review and the explicit intentional-local-fallback
+  `reviewFailure` marker, the build proposal used, the policy used, the next
+  policy for matches 1–2 and none for 3, no `nextDesign`, empty usage;
+  all-zero `totalUsage`; score and winner derived from actual outcomes),
+  validated against the series v2 cross-field contract.
+- `src/canary/grid-series-canary-report.ts` — the deterministic series report
+  (`buildGridSeriesCanaryReport`) stating canary/non-benchmark, identifying
+  `simulator 0.3.0 (grid-3x3-v1)`, listing performance and policy adaptations,
+  and reporting the raw three-match score with no win rates or percentages.
+- `src/schemas/grid-series-canary-envelopes.schema.ts` — the four JSON
+  envelope schemas (`matches.json`, `factual-reports.json`,
+  `fallback-reviews.json`, `match-artifacts.json`) plus the frozen file-name
+  constants; order (index = match number), uniqueness and series identity are
+  enforced, report IDs are never `"pending"`, and text artifacts must be
+  non-empty and NUL-free.
+- `src/schemas/grid-series-canary-manifest.schema.ts` — the series canary
+  manifest v1 (`GridSeriesCanaryManifestV1`): canary/series identities, three
+  sequential seeds, grid runtime identity, sixteen evidence flags (including
+  policy adaptation count 2, series and trace round trips, deterministic
+  re-execution, full read-back and bundle cross-agreement) and seven SHA-256
+  digests, with no win rates, percentages, promotion, balance or benchmark
+  terminology.
+- `src/canary/grid-series-canary-bundle.ts` — the pure series bundle
+  cross-agreement validator `validateGridSeriesCanaryBundle`: identity and
+  ordering (one series UUID across every artifact, sequential seeds, three
+  ordered matches, unique match IDs, match number/ID/seed alignment),
+  runtime/schema identity (series v2, records v3, reports v2, runtime
+  agreement), result facts (rounds/winner/method/final integrity/disabled
+  lists across record/report/entry/review), adaptation facts (two transitions
+  sourcing matches 1–2, entry `nextPolicy` == trace `policyAfter`,
+  next-entry `policyBeforeMatch` == prior `nextPolicy`, decisions recalculated,
+  no build change), series facts (score == outcomes, winner rule, zero usage,
+  completed, target/max 3), text-artifact markers and every digest. Never
+  mutates inputs.
+- `src/app/grid-series-canary.ts` — `runGridSeriesCanary(request,
+dependencies)` is the application service: output-root guard (grid-series
+  kind) → seed plan → physical-root guard → five distinct UUIDs (canary,
+  series, three matches) → publication-path preflight → pure core with injected
+  identities → series-record v2 → series report → four envelopes → exact
+  serialization → series/trace/envelope round trips → deterministic
+  re-execution comparison → seven digests → manifest v1 → shared atomic
+  eight-file bundle publication with full read-back and bundle validation →
+  structured result. Injectable dependencies: UUID creation, current time,
+  filesystem bundle writer. Never calls the legacy `runSeries`/`runMatch`,
+  repositories, an `ArenaAgent`, a provider or benchmark code.
+- `src/app/grid-series-canary-cli-args.ts` — pure, side-effect-free argument
+  parser requiring `--seed <non-negative safe base>` and rejecting missing,
+  negative, non-integer, unsafe or overflowing seeds, duplicates, unknown
+  arguments, target-wins/maximum-matches overrides, runtime selectors,
+  `--ai`, `--review`, provider and API-key arguments.
+- `src/app/run-grid-series-canary.ts` — the explicit `series:grid:canary`
+  command with the banner `FORGE ARENA — GRID ADAPTIVE-SERIES CANARY /
+NON-DEFAULT / NON-BENCHMARK / LOCAL-ONLY`, printing the canary ID, scenario,
+  series ID, seed plan, runtime identity, per-match IDs and results, the final
+  raw score, both adaptation summaries, the artifact directory and the
+  statement that normal match and series commands remain legacy; nonzero exit
+  on every failure.
+- **Atomic, exclusive and immutable series bundle publication**
+  (`data/canary/grid-series/<canaryId>/`): `manifest.json`, `series.json`,
+  `matches.json`, `factual-reports.json`, `fallback-reviews.json`,
+  `match-artifacts.json`, `adaptation-trace.json`, `series-report.txt` —
+  exactly eight regular files via the shared publisher with the same lstat
+  collision preflight, exclusive temporary creation, manifest-last order, full
+  read-back, byte comparison, JSON revalidation, pure bundle validation and
+  invocation-owned cleanup guarantees. Never writes to `data/matches` or
+  normal series storage; `data/canary/` is git-ignored.
+
+The series canary is not a benchmark and produces no balance conclusion; it is
+a correctness and operational pipeline check. No default activation, runtime
+selector or provider integration was added; activation-readiness was not
+performed and Milestone 0.2C is not complete.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.
