@@ -11,6 +11,7 @@ import {
   buildGridActivationReadinessRunPlan,
   gridActivationReadinessSuiteChecksum,
   GRID_ACTIVATION_READINESS_SUITE_ID,
+  GRID_READINESS_ACTION_EVIDENCE_MODEL,
 } from "../../src/readiness/run-plan.js";
 import {
   executeGridActivationReadinessSuite,
@@ -20,12 +21,13 @@ import {
 import { serializeGridActivationReadinessEnvelope } from "../../src/readiness/envelopes.schema.js";
 import {
   computeGridActivationReadinessMetrics,
+  wrapGridActivationReadinessMetricsV2,
   type GridActivationReadinessMetrics,
 } from "../../src/readiness/metrics.js";
 import { evaluateGridActivationReadinessGates } from "../../src/readiness/gates.js";
 import {
   buildGridActivationReadinessDecision,
-  type GridActivationReadinessDecisionV1,
+  type GridActivationReadinessDecisionV2,
 } from "../../src/readiness/decision.js";
 import { buildGridActivationReadinessReport } from "../../src/readiness/report.js";
 import {
@@ -42,7 +44,7 @@ import {
   GRID_READINESS_METRICS_ARTIFACT,
   GRID_READINESS_DECISION_ARTIFACT,
   GRID_READINESS_REPORT_ARTIFACT,
-  type GridActivationReadinessManifestV1,
+  type GridActivationReadinessManifestV2,
 } from "../../src/readiness/readiness-bundle.js";
 import { sha256Hex } from "../../src/canary/grid-canary-digest.js";
 
@@ -103,6 +105,8 @@ export function toReadinessTestRunIndexEntry(run: GridActivationReadinessRunResu
     rounds: run.rounds,
     eventCount: run.eventCount,
     actionCounts: run.evidence.actionCounts,
+    selectedMovementActionCounts: run.evidence.selectedMovementActionCounts,
+    selectedCombatActionCounts: run.evidence.selectedCombatActionCounts,
     translatedActionCounts: run.evidence.translatedActionCounts,
     zoneVisits: run.evidence.zoneVisits,
     bearingCounts: run.evidence.bearingCounts,
@@ -121,8 +125,8 @@ export interface ReadinessTestBundle {
   contents: Record<string, string>;
   outcome: GridActivationReadinessSuiteOutcome;
   metrics: GridActivationReadinessMetrics;
-  decision: GridActivationReadinessDecisionV1;
-  manifest: GridActivationReadinessManifestV1;
+  decision: GridActivationReadinessDecisionV2;
+  manifest: GridActivationReadinessManifestV2;
   seedRegistry: ReturnType<typeof readinessTestSeedRegistry>;
   scenarioRegistry: ReturnType<typeof readinessTestScenarioRegistry>;
   runPlan: ReturnType<typeof readinessTestRunPlan>;
@@ -150,14 +154,23 @@ export function buildReadinessTestBundle(): ReadinessTestBundle {
     items: outcome.results.map((r) => r.report),
   };
   const runIndexEnvelope = {
-    schemaVersion: "1",
+    schemaVersion: "2" as const,
     suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
     evaluationId: READINESS_TEST_EVALUATION_ID,
     items: outcome.results.map(toReadinessTestRunIndexEntry),
   };
 
   const metrics = computeGridActivationReadinessMetrics({
-    outcome,
+    runs: outcome.results.map((run) => ({
+      resultMethod: run.resultMethod,
+      rounds: run.rounds,
+      winner: run.winner,
+      scenarioId: run.scenarioId,
+      seed: run.seed,
+      fighterACompetitor: run.fighterACompetitor,
+      roleSwapped: run.roleSwapped,
+      evidence: run.evidence,
+    })),
     execution: {
       deterministicMatches: 312,
       invalidEventCount: 0,
@@ -168,7 +181,10 @@ export function buildReadinessTestBundle(): ReadinessTestBundle {
 
   const gates = evaluateGridActivationReadinessGates({
     metrics,
-    outcome,
+    results: outcome.results.map((run) => ({
+      record: run.record,
+      report: run.report,
+    })),
     inputsUnmodified: true,
     artifactIntegrityVerified: true,
     legacyIsolationVerified: true,
@@ -185,6 +201,7 @@ export function buildReadinessTestBundle(): ReadinessTestBundle {
   const report = buildGridActivationReadinessReport({
     evaluationId: READINESS_TEST_EVALUATION_ID,
     suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
+    actionEvidenceModel: GRID_READINESS_ACTION_EVIDENCE_MODEL,
     createdAt: READINESS_TEST_CREATED_AT,
     seedRegistryId: seedRegistry.registryId,
     seedRegistryChecksum: gridReadinessSeedRegistryChecksum(seedRegistry),
@@ -207,7 +224,9 @@ export function buildReadinessTestBundle(): ReadinessTestBundle {
   const serializedRunIndex = serializeGridActivationReadinessEnvelope(runIndexEnvelope);
   const serializedRecords = serializeGridActivationReadinessEnvelope(recordsEnvelope);
   const serializedReports = serializeGridActivationReadinessEnvelope(reportsEnvelope);
-  const serializedMetrics = serializeGridActivationReadinessEnvelope(metrics);
+  const serializedMetrics = serializeGridActivationReadinessEnvelope(
+    wrapGridActivationReadinessMetricsV2(metrics),
+  );
   const serializedDecision = serializeGridActivationReadinessEnvelope(decision);
   const serializedReport = report;
 

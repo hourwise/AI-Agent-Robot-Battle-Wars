@@ -1,25 +1,45 @@
 import type {
-  GridActivationReadinessSuiteOutcome,
-  GridActivationReadinessRunResult,
-} from "./execution-core.js";
-import type {
   GridZone,
   PlanarArmourZone,
   RelativeBearing,
 } from "../simulator/arena-grid.js";
-import type { MovementAction } from "../simulator/types.js";
-import { GRID_ACTIVATION_READINESS_RUN_COUNT } from "./run-plan.js";
+import type { CombatAction, MovementAction, VictoryMethod } from "../simulator/types.js";
+import { GRID_ACTIVATION_READINESS_RUN_COUNT, GRID_ACTIVATION_READINESS_SUITE_ID } from "./run-plan.js";
+import {
+  inspectGridReadinessRecordEvidence,
+  type GridActivationReadinessRunEvidence,
+} from "./record-evidence.js";
+import type { GridReadinessCompetitor } from "./scenario-registry.js";
+import type {
+  GridActivationReadinessRunIndexEnvelopeV2,
+  GridActivationReadinessMatchRecordsEnvelope,
+  GridActivationReadinessFactualReportsEnvelope,
+} from "./envelopes.schema.js";
 import { z } from "zod";
 
 /**
- * Pure grid activation-readiness metrics reducer (Milestone 0.2C Phase 3E1).
+ * Pure grid activation-readiness metrics reducer (Milestone 0.2C Phase 3E1 /
+ * 3E1.1).
  *
- * Reduces the 312 canonical run results into aggregate execution, movement,
+ * Reduces the 312 canonical run sources into aggregate execution, movement,
  * combat, result, slot-order and timing diagnostics. Slot-order diagnostics
  * detect gross slot-order pathology only; they are not design-balance
  * qualification. Timing is informational only and never affects the readiness
- * decision.
+ * decision. The reducer is source-agnostic: it consumes either live suite
+ * results or persisted run-index entries, so the persisted metrics artifact
+ * can be recomputed exactly from the persisted records and reports.
  */
+export interface GridActivationReadinessMetricRunSource {
+  readonly resultMethod: VictoryMethod;
+  readonly rounds: number;
+  readonly winner: string | null;
+  readonly scenarioId: string;
+  readonly seed: number;
+  readonly fighterACompetitor: GridReadinessCompetitor;
+  readonly roleSwapped: boolean;
+  readonly evidence: GridActivationReadinessRunEvidence;
+}
+
 export interface GridActivationReadinessExecutionMetrics {
   readonly totalPlannedRuns: number;
   readonly totalCompletedRuns: number;
@@ -52,6 +72,8 @@ export interface GridActivationReadinessCombatMetrics {
   readonly componentDamaged: number;
   readonly componentDisabled: number;
   readonly componentDamageResisted: number;
+  /** Selected combat-action counts from `policy_triggered` (v2). */
+  readonly selectedCombatActionCounts: Readonly<Record<string, number>>;
 }
 
 export interface GridActivationReadinessResultMetrics {
@@ -101,7 +123,8 @@ export interface GridActivationReadinessMetrics {
 }
 
 export interface GridActivationReadinessMetricsInput {
-  outcome: GridActivationReadinessSuiteOutcome;
+  /** 312 canonical run sources (live outcome or persisted run index). */
+  runs: readonly GridActivationReadinessMetricRunSource[];
   execution: {
     deterministicMatches: number;
     invalidEventCount: number;
@@ -177,7 +200,7 @@ function percentile(values: readonly number[], p: number): number {
 
 /** Categorical result of competitor X in a run for slot-order pairing. */
 function competitorXCategoricalResult(
-  run: GridActivationReadinessRunResult,
+  run: GridActivationReadinessMetricRunSource,
 ): "win" | "loss" | "draw" {
   if (run.winner === null) return "draw";
   if (run.fighterACompetitor === "x") {
@@ -187,14 +210,14 @@ function competitorXCategoricalResult(
 }
 
 /**
- * Pure metrics reducer. Consumes one validated suite outcome plus execution
- * and timing context and returns aggregate diagnostics.
+ * Pure metrics reducer. Consumes 312 canonical run sources plus execution and
+ * timing context and returns aggregate diagnostics.
  */
 export function computeGridActivationReadinessMetrics(
   input: GridActivationReadinessMetricsInput,
 ): GridActivationReadinessMetrics {
-  const { outcome, execution, timing } = input;
-  const results = outcome.results;
+  const { runs, execution, timing } = input;
+  const results = runs;
 
   const actionCounts = {} as Record<MovementAction, number>;
   const translatedActionCounts = {} as Record<MovementAction, number>;
@@ -202,6 +225,11 @@ export function computeGridActivationReadinessMetrics(
     actionCounts[action] = 0;
     translatedActionCounts[action] = 0;
   }
+  const selectedCombatActionCounts: Record<CombatAction, number> = {
+    attack: 0,
+    defend: 0,
+    idle: 0,
+  };
   const zoneVisits = {} as Record<GridZone, number>;
   for (const zone of GRID_ZONES) zoneVisits[zone] = 0;
   const bearingCounts = {} as Record<RelativeBearing, number>;
@@ -240,6 +268,9 @@ export function computeGridActivationReadinessMetrics(
     for (const action of MOVEMENT_ACTIONS) {
       actionCounts[action] += evidence.actionCounts[action] ?? 0;
       translatedActionCounts[action] += evidence.translatedActionCounts[action] ?? 0;
+    }
+    for (const action of ["attack", "defend", "idle"] as const) {
+      selectedCombatActionCounts[action] += evidence.selectedCombatActionCounts[action] ?? 0;
     }
     stationaryHoldCount += evidence.stationaryHoldCount;
     for (const zone of GRID_ZONES) zoneVisits[zone] += evidence.zoneVisits[zone] ?? 0;
@@ -299,7 +330,7 @@ export function computeGridActivationReadinessMetrics(
   let pairedAsymmetricComparisons = 0;
   let pairedOutcomeStableComparisons = 0;
   let pairedSlotSensitiveComparisons = 0;
-  const byScenarioAndSeed = new Map<string, GridActivationReadinessRunResult[]>();
+  const byScenarioAndSeed = new Map<string, GridActivationReadinessMetricRunSource[]>();
   for (const run of results) {
     if (!PAIRED_SCENARIO_IDS.has(run.scenarioId)) continue;
     const key = `${run.scenarioId}|${run.seed}`;
@@ -356,6 +387,7 @@ export function computeGridActivationReadinessMetrics(
       componentDamaged,
       componentDisabled,
       componentDamageResisted,
+      selectedCombatActionCounts,
     },
     results: {
       judges,
@@ -399,93 +431,244 @@ export function computeGridActivationReadinessMetrics(
   return metrics;
 }
 
+const metricsExecutionSchema = z.object({
+  totalPlannedRuns: z.literal(GRID_ACTIVATION_READINESS_RUN_COUNT),
+  totalCompletedRuns: z.number().int().nonnegative(),
+  deterministicMatches: z.number().int().nonnegative(),
+  schemaValidRecords: z.number().int().nonnegative(),
+  schemaValidReports: z.number().int().nonnegative(),
+  replayAgreeingMatches: z.number().int().nonnegative(),
+  invalidEventCount: z.number().int().nonnegative(),
+  mutationFailures: z.number().int().nonnegative(),
+});
+
+const metricsMovementSchema = z.object({
+  actionCounts: z.record(z.string(), z.number().int().nonnegative()),
+  translatedActionCounts: z.record(z.string(), z.number().int().nonnegative()),
+  stationaryHoldCount: z.number().int().nonnegative(),
+  zoneVisits: z.record(z.string(), z.number().int().nonnegative()),
+  bearingCounts: z.record(z.string(), z.number().int().nonnegative()),
+  exposedPlanarArmourZoneCounts: z.record(z.string(), z.number().int().nonnegative()),
+});
+
+const metricsCombatV2Schema = z.object({
+  attacksAttempted: z.number().int().nonnegative(),
+  hits: z.number().int().nonnegative(),
+  misses: z.number().int().nonnegative(),
+  integrityDamageEvents: z.number().int().nonnegative(),
+  criticalHits: z.number().int().nonnegative(),
+  knockbackEvents: z.number().int().nonnegative(),
+  grappleRepositionEvents: z.number().int().nonnegative(),
+  overturnEvents: z.number().int().nonnegative(),
+  componentDamaged: z.number().int().nonnegative(),
+  componentDisabled: z.number().int().nonnegative(),
+  componentDamageResisted: z.number().int().nonnegative(),
+  selectedCombatActionCounts: z.record(z.string(), z.number().int().nonnegative()),
+});
+
+const metricsCombatV1Schema = z.object({
+  attacksAttempted: z.number().int().nonnegative(),
+  hits: z.number().int().nonnegative(),
+  misses: z.number().int().nonnegative(),
+  integrityDamageEvents: z.number().int().nonnegative(),
+  criticalHits: z.number().int().nonnegative(),
+  knockbackEvents: z.number().int().nonnegative(),
+  grappleRepositionEvents: z.number().int().nonnegative(),
+  overturnEvents: z.number().int().nonnegative(),
+  componentDamaged: z.number().int().nonnegative(),
+  componentDisabled: z.number().int().nonnegative(),
+  componentDamageResisted: z.number().int().nonnegative(),
+});
+
+const metricsResultsSchema = z.object({
+  judges: z.number().int().nonnegative(),
+  destruction: z.number().int().nonnegative(),
+  immobilisation: z.number().int().nonnegative(),
+  draws: z.number().int().nonnegative(),
+  roundCapMatches: z.number().int().nonnegative(),
+  roundsMin: z.number().int().nonnegative(),
+  roundsMax: z.number().int().nonnegative(),
+  roundsMean: z.number().nonnegative(),
+  roundsMedian: z.number().nonnegative(),
+  maximumConsecutiveNoProgressRounds: z.number().int().nonnegative(),
+});
+
+const metricsSlotOrderSchema = z.object({
+  fighterAWins: z.number().int().nonnegative(),
+  fighterBWins: z.number().int().nonnegative(),
+  decisiveMatches: z.number().int().nonnegative(),
+  absoluteFirstSlotAdvantage: z.number().int().nonnegative(),
+  bulwarkMirrorDecisiveCount: z.number().int().nonnegative(),
+  bulwarkMirrorSlotImbalance: z.number().nonnegative(),
+  pairedAsymmetricComparisons: z.number().int().nonnegative(),
+  pairedOutcomeStableComparisons: z.number().int().nonnegative(),
+  pairedSlotSensitiveComparisons: z.number().int().nonnegative(),
+  pairedSlotSensitivityRatio: z.number().nonnegative(),
+});
+
+const metricsTimingSchema = z.object({
+  totalElapsedMs: z.number().nonnegative(),
+  meanMsPerMatch: z.number().nonnegative(),
+  medianMsPerMatch: z.number().nonnegative(),
+  p95MsPerMatch: z.number().nonnegative(),
+});
+
 /**
- * Authoritative metrics-artifact schema. Used to validate `metrics.json` on
- * read-back. Timing is present but informational only.
+ * Authoritative metrics v2 artifact schema. Used to validate `metrics.json`
+ * on read-back and as the input for exact metrics recomputation. Timing is
+ * present but informational only.
  */
-export const gridActivationReadinessMetricsSchema = z
+export const gridActivationReadinessMetricsV2Schema = z
   .object({
-    execution: z.object({
-      totalPlannedRuns: z.literal(GRID_ACTIVATION_READINESS_RUN_COUNT),
-      totalCompletedRuns: z.number().int().nonnegative(),
-      deterministicMatches: z.number().int().nonnegative(),
-      schemaValidRecords: z.number().int().nonnegative(),
-      schemaValidReports: z.number().int().nonnegative(),
-      replayAgreeingMatches: z.number().int().nonnegative(),
-      invalidEventCount: z.number().int().nonnegative(),
-      mutationFailures: z.number().int().nonnegative(),
-    }),
-    movement: z.object({
-      actionCounts: z.record(z.string(), z.number().int().nonnegative()),
-      translatedActionCounts: z.record(z.string(), z.number().int().nonnegative()),
-      stationaryHoldCount: z.number().int().nonnegative(),
-      zoneVisits: z.record(z.string(), z.number().int().nonnegative()),
-      bearingCounts: z.record(z.string(), z.number().int().nonnegative()),
-      exposedPlanarArmourZoneCounts: z.record(z.string(), z.number().int().nonnegative()),
-    }),
-    combat: z.object({
-      attacksAttempted: z.number().int().nonnegative(),
-      hits: z.number().int().nonnegative(),
-      misses: z.number().int().nonnegative(),
-      integrityDamageEvents: z.number().int().nonnegative(),
-      criticalHits: z.number().int().nonnegative(),
-      knockbackEvents: z.number().int().nonnegative(),
-      grappleRepositionEvents: z.number().int().nonnegative(),
-      overturnEvents: z.number().int().nonnegative(),
-      componentDamaged: z.number().int().nonnegative(),
-      componentDisabled: z.number().int().nonnegative(),
-      componentDamageResisted: z.number().int().nonnegative(),
-    }),
-    results: z.object({
-      judges: z.number().int().nonnegative(),
-      destruction: z.number().int().nonnegative(),
-      immobilisation: z.number().int().nonnegative(),
-      draws: z.number().int().nonnegative(),
-      roundCapMatches: z.number().int().nonnegative(),
-      roundsMin: z.number().int().nonnegative(),
-      roundsMax: z.number().int().nonnegative(),
-      roundsMean: z.number().nonnegative(),
-      roundsMedian: z.number().nonnegative(),
-      maximumConsecutiveNoProgressRounds: z.number().int().nonnegative(),
-    }),
-    slotOrder: z.object({
-      fighterAWins: z.number().int().nonnegative(),
-      fighterBWins: z.number().int().nonnegative(),
-      decisiveMatches: z.number().int().nonnegative(),
-      absoluteFirstSlotAdvantage: z.number().int().nonnegative(),
-      bulwarkMirrorDecisiveCount: z.number().int().nonnegative(),
-      bulwarkMirrorSlotImbalance: z.number().nonnegative(),
-      pairedAsymmetricComparisons: z.number().int().nonnegative(),
-      pairedOutcomeStableComparisons: z.number().int().nonnegative(),
-      pairedSlotSensitiveComparisons: z.number().int().nonnegative(),
-      pairedSlotSensitivityRatio: z.number().nonnegative(),
-    }),
-    timing: z.object({
-      totalElapsedMs: z.number().nonnegative(),
-      meanMsPerMatch: z.number().nonnegative(),
-      medianMsPerMatch: z.number().nonnegative(),
-      p95MsPerMatch: z.number().nonnegative(),
-    }),
+    schemaVersion: z.literal("2"),
+    suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID),
+    execution: metricsExecutionSchema,
+    movement: metricsMovementSchema,
+    combat: metricsCombatV2Schema,
+    results: metricsResultsSchema,
+    slotOrder: metricsSlotOrderSchema,
+    timing: metricsTimingSchema,
     attacklessRate: z.number().min(0).max(1),
     roundCapRate: z.number().min(0).max(1),
   })
   .strict();
 
-export type GridActivationReadinessMetricsArtifact = z.infer<
-  typeof gridActivationReadinessMetricsSchema
+export type GridActivationReadinessMetricsV2Artifact = z.infer<
+  typeof gridActivationReadinessMetricsV2Schema
 >;
+
+/**
+ * Historical metrics v1 artifact schema (no suite identity, no selected
+ * combat counts). Retained for historical parsers only; never accepted as
+ * current activation-readiness evidence.
+ */
+export const gridActivationReadinessMetricsV1Schema = z
+  .object({
+    execution: metricsExecutionSchema,
+    movement: metricsMovementSchema,
+    combat: metricsCombatV1Schema,
+    results: metricsResultsSchema,
+    slotOrder: metricsSlotOrderSchema,
+    timing: metricsTimingSchema,
+    attacklessRate: z.number().min(0).max(1),
+    roundCapRate: z.number().min(0).max(1),
+  })
+  .strict();
+
+export type GridActivationReadinessMetricsV1Artifact = z.infer<
+  typeof gridActivationReadinessMetricsV1Schema
+>;
+
+/** Current (v2) metrics artifact type. */
+export type GridActivationReadinessMetricsArtifact = GridActivationReadinessMetricsV2Artifact;
+
+/**
+ * Wraps reduced metrics with the v2 artifact identity (schemaVersion + suiteId)
+ * for the persisted `metrics.json` artifact.
+ */
+export function wrapGridActivationReadinessMetricsV2(
+  metrics: GridActivationReadinessMetrics,
+): GridActivationReadinessMetricsV2Artifact {
+  return {
+    schemaVersion: "2",
+    suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
+    ...metrics,
+  } as GridActivationReadinessMetricsV2Artifact;
+}
+
+/**
+ * Strips the v2 artifact identity wrapper, yielding the plain reduced metrics
+ * shape used by gates and the report renderer.
+ */
+export function stripGridActivationReadinessMetricsV2(
+  artifact: GridActivationReadinessMetricsV2Artifact,
+): GridActivationReadinessMetrics {
+  const { schemaVersion: _schemaVersion, suiteId: _suiteId, ...rest } = artifact;
+  return rest as GridActivationReadinessMetrics;
+}
 
 export function deserializeGridActivationReadinessMetrics(
   json: string,
 ):
-  | { ok: true; metrics: GridActivationReadinessMetricsArtifact }
+  | {
+      ok: true;
+      metrics: GridActivationReadinessMetricsArtifact;
+      schemaVersion: "1" | "2";
+    }
   | { ok: false; errors: string } {
   try {
     const data = JSON.parse(json) as unknown;
-    const result = gridActivationReadinessMetricsSchema.safeParse(data);
-    if (result.success) return { ok: true, metrics: result.data };
-    return { ok: false, errors: result.error.message };
+    const v2 = gridActivationReadinessMetricsV2Schema.safeParse(data);
+    if (v2.success) return { ok: true, metrics: v2.data, schemaVersion: "2" };
+    const v1 = gridActivationReadinessMetricsV1Schema.safeParse(data);
+    if (v1.success) return { ok: true, metrics: v1.data as never, schemaVersion: "1" };
+    return {
+      ok: false,
+      errors: `metrics matched neither v2 (${v2.error.message}) nor v1 (${v1.error.message})`,
+    };
   } catch (e) {
     return { ok: false, errors: e instanceof SyntaxError ? e.message : String(e) };
   }
+}
+
+/**
+ * Recomputes every non-timing metric from the persisted artifacts (Phase 8).
+ * Per-run evidence is derived from the persisted match records through the
+ * shared record-evidence inspector; execution attestation values and timing
+ * are supplied from the persisted metrics artifact. Timing is informational
+ * only and is validated independently.
+ */
+export function recomputeGridActivationReadinessMetricsFromArtifacts(input: {
+  runIndex: GridActivationReadinessRunIndexEnvelopeV2;
+  records: GridActivationReadinessMatchRecordsEnvelope;
+  reports: GridActivationReadinessFactualReportsEnvelope;
+  persistedMetrics: GridActivationReadinessMetricsV2Artifact;
+}): GridActivationReadinessMetrics {
+  const { runIndex, records, reports, persistedMetrics } = input;
+  if (
+    runIndex.items.length !== GRID_ACTIVATION_READINESS_RUN_COUNT ||
+    records.items.length !== GRID_ACTIVATION_READINESS_RUN_COUNT ||
+    reports.items.length !== GRID_ACTIVATION_READINESS_RUN_COUNT
+  ) {
+    throw new Error(
+      "Metrics recomputation requires exactly 312 run-index, record and report items",
+    );
+  }
+  const runs = runIndex.items.map((entry, index) => {
+    const record = records.items[index]!;
+    const report = reports.items[index]!;
+    if (record.matchId !== entry.matchId || report.matchId !== entry.matchId) {
+      throw new Error(
+        `Metrics recomputation: run ${entry.runNumber} record/report matchId does not match the run index`,
+      );
+    }
+    return {
+      resultMethod: entry.resultMethod,
+      rounds: entry.rounds,
+      winner: entry.winner,
+      scenarioId: entry.scenarioId,
+      seed: entry.seed,
+      fighterACompetitor: entry.fighterACompetitor,
+      roleSwapped: entry.roleSwapped,
+      evidence: inspectGridReadinessRecordEvidence(record),
+    };
+  });
+  const computed = computeGridActivationReadinessMetrics({
+    runs,
+    execution: {
+      deterministicMatches: persistedMetrics.execution.deterministicMatches,
+      invalidEventCount: persistedMetrics.execution.invalidEventCount,
+      mutationFailures: persistedMetrics.execution.mutationFailures,
+    },
+    // Per-run timing samples are not persisted; timing aggregates are
+    // supplied from the persisted metrics artifact and passed through.
+    timing: {
+      totalElapsedMs: persistedMetrics.timing.totalElapsedMs,
+      perMatchMs: [],
+    },
+  });
+  return {
+    ...computed,
+    timing: { ...persistedMetrics.timing },
+  };
 }

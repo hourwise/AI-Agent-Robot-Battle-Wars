@@ -11,7 +11,6 @@ import {
 import type { GridActivationReadinessMetrics } from "../../src/readiness/metrics.js";
 import type {
   GridActivationReadinessRunResult,
-  GridActivationReadinessSuiteOutcome,
 } from "../../src/readiness/execution-core.js";
 
 function baseMetrics(): GridActivationReadinessMetrics {
@@ -70,6 +69,7 @@ function baseMetrics(): GridActivationReadinessMetrics {
       attacksAttempted: 10,
       hits: 5,
       misses: 5,
+      selectedCombatActionCounts: { attack: 10, defend: 10, idle: 0 },
       integrityDamageEvents: 5,
       criticalHits: 1,
       knockbackEvents: 1,
@@ -112,19 +112,6 @@ function baseMetrics(): GridActivationReadinessMetrics {
     attacklessRate: 0,
     roundCapRate: 10 / 312,
   };
-}
-
-function makeOutcome(
-  results: GridActivationReadinessRunResult[] = [],
-): GridActivationReadinessSuiteOutcome {
-  return {
-    evaluationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-    createdAt: "2024-06-01T00:00:00.000Z",
-    suiteChecksum: "a".repeat(64),
-    inputsUnmodified: true,
-    matchCount: 312,
-    results,
-  } as GridActivationReadinessSuiteOutcome;
 }
 
 function minimalRun(): GridActivationReadinessRunResult {
@@ -184,7 +171,10 @@ function evaluate(
 ): GridActivationReadinessGateResults {
   return evaluateGridActivationReadinessGates({
     metrics: overrides.metrics ?? baseMetrics(),
-    outcome: makeOutcome(overrides.results ?? []),
+    results: (overrides.results ?? []).map((run) => ({
+      record: run.record,
+      report: run.report,
+    })),
     inputsUnmodified: overrides.inputsUnmodified ?? true,
     artifactIntegrityVerified: overrides.artifactIntegrityVerified ?? true,
     legacyIsolationVerified: overrides.legacyIsolationVerified ?? true,
@@ -363,9 +353,9 @@ describe("grid activation readiness gates (Phase 3E1)", () => {
       anyFail: results.anyFail,
       anyInconclusive: results.anyInconclusive,
     });
-    expect(decision.schemaVersion).toBe("1");
+    expect(decision.schemaVersion).toBe("2");
     expect(decision.evaluationKind).toBe("grid-activation-readiness");
-    expect(decision.suiteId).toBe("grid-activation-readiness-v1");
+    expect(decision.suiteId).toBe("grid-activation-readiness-v2");
     expect(decision.status).toBe("completed");
     expect(decision.decision).toBe("ready_for_opt_in_beta_review");
     expect(decision.gates.length).toBe(21);

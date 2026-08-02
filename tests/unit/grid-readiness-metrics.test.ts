@@ -6,7 +6,6 @@ import {
 import {
   computeMaximumConsecutiveNoProgressRounds,
   type GridActivationReadinessRunResult,
-  type GridActivationReadinessSuiteOutcome,
   type GridActivationReadinessRunEvidence,
 } from "../../src/readiness/execution-core.js";
 import type { SimulationEvent } from "../../src/simulator/types.js";
@@ -14,6 +13,14 @@ import type { SimulationEvent } from "../../src/simulator/types.js";
 function emptyEvidence(): GridActivationReadinessRunEvidence {
   return {
     actionCounts: { advance: 0, retreat: 0, circle_left: 0, circle_right: 0, hold: 0 },
+    selectedMovementActionCounts: {
+      advance: 0,
+      retreat: 0,
+      circle_left: 0,
+      circle_right: 0,
+      hold: 0,
+    },
+    selectedCombatActionCounts: { attack: 0, defend: 0, idle: 0 },
     translatedActionCounts: {
       advance: 0,
       retreat: 0,
@@ -104,25 +111,21 @@ function syntheticRun(
   };
 }
 
-function syntheticOutcome(
-  results: GridActivationReadinessRunResult[],
-): GridActivationReadinessSuiteOutcome {
-  return {
-    evaluationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-    createdAt: "2024-06-01T00:00:00.000Z",
-    suiteChecksum: "a".repeat(64),
-    inputsUnmodified: true,
-    matchCount: 312,
-    results,
-  } as GridActivationReadinessSuiteOutcome;
-}
-
 function compute(
   results: GridActivationReadinessRunResult[],
   perMatchMs: number[] = [],
 ): GridActivationReadinessMetrics {
   return computeGridActivationReadinessMetrics({
-    outcome: syntheticOutcome(results),
+    runs: results.map((run) => ({
+      resultMethod: run.resultMethod,
+      rounds: run.rounds,
+      winner: run.winner,
+      scenarioId: run.scenarioId,
+      seed: run.seed,
+      fighterACompetitor: run.fighterACompetitor,
+      roleSwapped: run.roleSwapped,
+      evidence: run.evidence,
+    })),
     execution: { deterministicMatches: 312, invalidEventCount: 0, mutationFailures: 0 },
     timing: { totalElapsedMs: 1200, perMatchMs },
   });

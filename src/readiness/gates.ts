@@ -1,9 +1,10 @@
 import type { GridActivationReadinessMetrics } from "./metrics.js";
-import type { GridActivationReadinessSuiteOutcome } from "./execution-core.js";
 import { GRID_ACTIVATION_READINESS_RUN_COUNT } from "./run-plan.js";
+import type { MatchRecordV3 } from "../schemas/match-record.schema.js";
+import type { FactualMatchReportV2 } from "../schemas/factual-report.schema.js";
 
 /**
- * Frozen grid activation-readiness gates (Milestone 0.2C Phase 3E1).
+ * Frozen grid activation-readiness gates (Milestone 0.2C Phase 3E1 / 3E1.1).
  *
  * Gate outcomes: `pass`, `fail`, `inconclusive`.
  *
@@ -14,6 +15,12 @@ import { GRID_ACTIVATION_READINESS_RUN_COUNT } from "./run-plan.js";
  *     a coverage item appear.
  *   - Slot-order stability gates S01–S03 and progress gates P01–P02 are gross
  *     pathology gates (pass/inconclusive/fail); a `fail` produces `not_ready`.
+ *
+ * Persisted-record evidence: H01/H03/H04/H05/H06/H08 use the recomputed
+ * metrics and the persisted records/reports. Explicit operational
+ * attestations (manifest v2 evidence): H02 (deterministic re-execution),
+ * H07 (inputs unmodified), H09 (full bundle read-back and artifact
+ * integrity), H10 (legacy-isolation regression).
  *
  * These thresholds are frozen gross-pathology thresholds and must not be
  * adjusted after seeing results.
@@ -39,9 +46,15 @@ export interface GridActivationReadinessGateResults {
   readonly anyInconclusive: boolean;
 }
 
+export interface GridActivationReadinessRecordReportPair {
+  readonly record: MatchRecordV3;
+  readonly report: FactualMatchReportV2;
+}
+
 export interface EvaluateGridActivationReadinessGatesInput {
   metrics: GridActivationReadinessMetrics;
-  outcome: GridActivationReadinessSuiteOutcome;
+  /** 312 record/report pairs (live outcome or persisted envelopes). */
+  results: readonly GridActivationReadinessRecordReportPair[];
   inputsUnmodified: boolean;
   /** H09 input: in-memory schema/checksum/digest/cross-agreement validation. */
   artifactIntegrityVerified: boolean;
@@ -88,7 +101,7 @@ function gate(
 export function evaluateGridActivationReadinessGates(
   input: EvaluateGridActivationReadinessGatesInput,
 ): GridActivationReadinessGateResults {
-  const { metrics, outcome, inputsUnmodified } = input;
+  const { metrics, results, inputsUnmodified } = input;
   const gates: ReadinessGateResult[] = [];
 
   // ── Hard correctness gates (pass/fail) ───────────────────────────────────
@@ -117,22 +130,22 @@ export function evaluateGridActivationReadinessGates(
       h02Determinism ? "pass" : "fail",
       "every repeated run is byte-identical under fixed identities",
       `${metrics.execution.deterministicMatches} deterministic`,
-      "Repeat suite matched the primary suite byte-for-byte",
+      "Repeat suite matched the primary suite byte-for-byte (operational attestation: deterministicReexecutionPassed)",
       h02Determinism ? null : "repeat execution was not byte-identical",
     ),
   );
 
   const identityViolations: string[] = [];
-  for (const run of outcome.results) {
-    const record = run.record;
-    const report = run.report;
+  for (const pair of results) {
+    const record = pair.record;
+    const report = pair.report;
     if (
       record.simulatorVersion !== "0.3.0" ||
       record.positioningModel !== "grid-3x3-v1" ||
       record.rulesetVersion !== "0.2.0" ||
       record.catalogueVersion !== "1"
     ) {
-      identityViolations.push(`run ${run.runNumber} record identity`);
+      identityViolations.push(`record identity`);
     }
     if (
       report.simulatorVersion !== "0.3.0" ||
@@ -140,7 +153,7 @@ export function evaluateGridActivationReadinessGates(
       report.rulesetVersion !== "0.2.0" ||
       report.catalogueVersion !== "1"
     ) {
-      identityViolations.push(`run ${run.runNumber} report identity`);
+      identityViolations.push(`report identity`);
     }
   }
   const h03Identity = identityViolations.length === 0;
@@ -160,10 +173,10 @@ export function evaluateGridActivationReadinessGates(
 
   let bindingViolations = 0;
   let schemaViolations = 0;
-  for (const run of outcome.results) {
-    if (run.record.schemaVersion !== "3") schemaViolations += 1;
-    if (run.report.schemaVersion !== "2") schemaViolations += 1;
-    if (run.record.matchId !== run.report.matchId) bindingViolations += 1;
+  for (const pair of results) {
+    if (pair.record.schemaVersion !== "3") schemaViolations += 1;
+    if (pair.report.schemaVersion !== "2") schemaViolations += 1;
+    if (pair.record.matchId !== pair.report.matchId) bindingViolations += 1;
   }
   const h04Persistence =
     schemaViolations === 0 && bindingViolations === 0 && input.artifactIntegrityVerified;
@@ -348,16 +361,17 @@ export function evaluateGridActivationReadinessGates(
     ),
   );
 
-  const results = metrics.results;
+  const resultMetrics = metrics.results;
   const c06Methods =
-    results.judges > 0 && (results.destruction > 0 || results.immobilisation > 0);
+    resultMetrics.judges > 0 &&
+    (resultMetrics.destruction > 0 || resultMetrics.immobilisation > 0);
   gates.push(
     gate(
       "C06",
       "coverage",
       c06Methods ? "pass" : "inconclusive",
       "judges and at least one of destruction or immobilisation are observed",
-      `judges ${results.judges}, destruction ${results.destruction}, immobilisation ${results.immobilisation}`,
+      `judges ${resultMetrics.judges}, destruction ${resultMetrics.destruction}, immobilisation ${resultMetrics.immobilisation}`,
       "Result-method coverage across the suite",
       c06Methods ? null : "judges or a decisive result method was not observed",
     ),

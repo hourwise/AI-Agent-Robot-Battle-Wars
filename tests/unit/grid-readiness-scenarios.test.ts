@@ -8,6 +8,10 @@ import {
   GridReadinessScenarioRegistryError,
   type GridReadinessScenarioRegistry,
 } from "../../src/readiness/scenario-registry.js";
+import {
+  deserializeGridActivationReadinessScenarioRegistry,
+  serializeGridReadinessScenarioRegistry,
+} from "../../src/readiness/readiness-bundle.js";
 import { validateBuild } from "../../src/validation/build-validator.js";
 import { parseActionPolicy } from "../../src/schemas/policy.schema.js";
 import { CATALOGUE_V1 } from "../../src/catalogue/catalogue.v1.js";
@@ -111,6 +115,105 @@ describe("grid readiness scenario registry (Phase 3E1)", () => {
     expect(Object.isFrozen(registry)).toBe(true);
     expect(Object.isFrozen(registry.scenarios)).toBe(true);
     expect(Object.isFrozen(registry.assignments)).toBe(true);
+  });
+
+  it("deep-freezes every nested fighter definition, build proposal, armour and policy", () => {
+    const registry = buildRegistry();
+    for (const scenario of registry.scenarios) {
+      expect(Object.isFrozen(scenario)).toBe(true);
+      for (const competitor of ["fighterX", "fighterY"] as const) {
+        const definition = scenario[competitor];
+        expect(Object.isFrozen(definition)).toBe(true);
+        expect(Object.isFrozen(definition.buildProposal)).toBe(true);
+        expect(Object.isFrozen(definition.buildProposal.armour)).toBe(true);
+        expect(Object.isFrozen(definition.policy)).toBe(true);
+      }
+    }
+    for (const assignment of registry.assignments) {
+      expect(Object.isFrozen(assignment)).toBe(true);
+    }
+  });
+
+  it("gives every Bulwark definition a distinct identity with equal content (no shared references)", () => {
+    const registry = buildRegistry();
+    const bulwarkValues = registry.scenarios
+      .flatMap((scenario) =>
+        ["fighterX", "fighterY"].map((c) =>
+          scenario[c as "fighterX" | "fighterY"],
+        ),
+      )
+      .filter((d) => d.displayName === "The Bulwark");
+    // The mirror contributes two Bulwarks; every other scenario contributes one.
+    expect(bulwarkValues.length).toBe(8);
+    const seen = new Set<object>();
+    let distinct = 0;
+    for (const definition of bulwarkValues) {
+      if (!seen.has(definition)) {
+        seen.add(definition);
+        distinct += 1;
+      }
+    }
+    // All eight Bulwark definitions are distinct objects.
+    expect(distinct).toBe(8);
+    // But every Bulwark is structurally equal.
+    const content = JSON.stringify(bulwarkValues[0]);
+    for (const definition of bulwarkValues) {
+      expect(JSON.stringify(definition)).toBe(content);
+    }
+  });
+
+  it("keeps the mirror fighter X and Y distinct while equal (no shared references)", () => {
+    const registry = buildRegistry();
+    const mirror = registry.scenarios.find((s) => s.scenarioId === "bulwark-mirror")!;
+    expect(mirror.fighterX).not.toBe(mirror.fighterY);
+    expect(mirror.fighterX.buildProposal).not.toBe(mirror.fighterY.buildProposal);
+    expect(mirror.fighterX.policy).not.toBe(mirror.fighterY.policy);
+    expect(mirror.fighterX).toEqual(mirror.fighterY);
+  });
+
+  it("shares no nested references between any two fighter definitions", () => {
+    const registry = buildRegistry();
+    const definitions = registry.scenarios.flatMap((scenario) => [
+      scenario.fighterX,
+      scenario.fighterY,
+    ]);
+    for (let i = 0; i < definitions.length; i++) {
+      for (let j = i + 1; j < definitions.length; j++) {
+        const a = definitions[i]!;
+        const b = definitions[j]!;
+        expect(a.buildProposal).not.toBe(b.buildProposal);
+        expect(a.buildProposal.armour).not.toBe(b.buildProposal.armour);
+        expect(a.policy).not.toBe(b.policy);
+      }
+    }
+  });
+
+  it("reconstructs the same deep-freeze and no-shared-reference guarantees after serialization", () => {
+    const registry = buildRegistry();
+    const serialized = serializeGridReadinessScenarioRegistry(registry);
+    const parsed = deserializeGridActivationReadinessScenarioRegistry(serialized);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const restored = parsed.registry;
+    expect(gridReadinessScenarioRegistryChecksum(restored)).toBe(
+      gridReadinessScenarioRegistryChecksum(registry),
+    );
+    for (const scenario of restored.scenarios) {
+      expect(Object.isFrozen(scenario)).toBe(true);
+      expect(Object.isFrozen(scenario.fighterX)).toBe(true);
+      expect(Object.isFrozen(scenario.fighterX.buildProposal)).toBe(true);
+      expect(Object.isFrozen(scenario.fighterX.buildProposal.armour)).toBe(true);
+      expect(Object.isFrozen(scenario.fighterX.policy)).toBe(true);
+      expect(Object.isFrozen(scenario.fighterY)).toBe(true);
+    }
+    for (const assignment of restored.assignments) {
+      expect(Object.isFrozen(assignment)).toBe(true);
+    }
+    const mirror = restored.scenarios.find((s) => s.scenarioId === "bulwark-mirror")!;
+    expect(mirror.fighterX).not.toBe(mirror.fighterY);
+    expect(mirror.fighterX).toEqual(mirror.fighterY);
+    expect(mirror.fighterX.buildProposal).not.toBe(mirror.fighterY.buildProposal);
+    expect(mirror.fighterX.policy).not.toBe(mirror.fighterY.policy);
   });
 
   it("uses the exact grid runtime identity", () => {

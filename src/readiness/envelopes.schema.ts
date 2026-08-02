@@ -4,30 +4,39 @@ import { FactualMatchReportV2Schema } from "../schemas/factual-report.schema.js"
 import {
   GRID_ACTIVATION_READINESS_RUN_COUNT,
   GRID_ACTIVATION_READINESS_SUITE_ID,
+  GRID_ACTIVATION_READINESS_SUITE_ID_V1,
 } from "./run-plan.js";
 
 /**
  * Grid activation-readiness artifact envelope schemas (Milestone 0.2C Phase
- * 3E1).
+ * 3E1 / 3E1.1).
  *
  * Three JSON envelopes carry the authoritative evaluation artifacts:
  *
  *   - `run-index.json` — exactly 312 ordered run entries (canonical per-run
- *     evidence, checksums and result facts; no replay or prompt text);
- *   - `match-records.json` — exactly 312 match-record v3 values in run order;
+ *     evidence, checksums and result facts; no replay or prompt text). The
+ *     current v2 contract adds explicit `selectedMovementActionCounts` and
+ *     `selectedCombatActionCounts` derived from `policy_triggered` events;
+ *     `actionCounts` explicitly represents selected movement actions.
+ *   - `match-records.json` — exactly 312 match-record v3 values in run order
+ *     (schema v1; artifact meaning unchanged).
  *   - `factual-reports.json` — exactly 312 factual-report v2 values in run
- *     order.
+ *     order (schema v1; artifact meaning unchanged).
  *
  * Order and uniqueness are part of the contract: index 0 is run 1, index 311
  * is run 312. Cross-envelope agreement (index, match ID, seed, runtime,
  * scenario/assignment identity, result, rounds, record/report binding) is
  * enforced by the bundle validator.
+ *
+ * Historical v1 run-index artifacts remain readable through the version-aware
+ * deserializer, but only v2 is accepted as current activation-readiness
+ * evidence. v1 selected-action semantics are never silently reinterpreted.
  */
 export const GRID_READINESS_RUN_INDEX_FILE = "run-index.json" as const;
 export const GRID_READINESS_MATCH_RECORDS_FILE = "match-records.json" as const;
 export const GRID_READINESS_FACTUAL_REPORTS_FILE = "factual-reports.json" as const;
 
-export const gridActivationReadinessRunIndexEntrySchema = z.object({
+const runIndexCommonEntryFields = {
   runNumber: z.number().int().min(1).max(GRID_ACTIVATION_READINESS_RUN_COUNT),
   scenarioId: z.string().min(1),
   assignmentId: z.string().min(1),
@@ -42,6 +51,7 @@ export const gridActivationReadinessRunIndexEntrySchema = z.object({
   resultMethod: z.enum(["destruction", "immobilisation", "judges", "draw"]),
   rounds: z.number().int().min(1),
   eventCount: z.number().int().nonnegative(),
+  /** v2 contract: selected movement actions from `policy_triggered`. */
   actionCounts: z.record(z.string(), z.number().int().nonnegative()),
   translatedActionCounts: z.record(z.string(), z.number().int().nonnegative()),
   zoneVisits: z.record(z.string(), z.number().int().nonnegative()),
@@ -54,14 +64,39 @@ export const gridActivationReadinessRunIndexEntrySchema = z.object({
   textReplayChecksum: z.string().regex(/^[a-f0-9]{64}$/),
   asciiReplayChecksum: z.string().regex(/^[a-f0-9]{64}$/),
   reviewPromptChecksum: z.string().regex(/^[a-f0-9]{64}$/),
+};
+
+/** Current v2 run-index entry: adds selected action evidence. */
+export const gridActivationReadinessRunIndexEntryV2Schema = z.object({
+  ...runIndexCommonEntryFields,
+  selectedMovementActionCounts: z.record(z.string(), z.number().int().nonnegative()),
+  selectedCombatActionCounts: z.record(z.string(), z.number().int().nonnegative()),
 });
 
-export type GridActivationReadinessRunIndexEntry = z.infer<
-  typeof gridActivationReadinessRunIndexEntrySchema
+/** Historical v1 run-index entry (no selected-action fields). */
+export const gridActivationReadinessRunIndexEntryV1Schema = z.object({
+  ...runIndexCommonEntryFields,
+});
+
+export type GridActivationReadinessRunIndexEntryV2 = z.infer<
+  typeof gridActivationReadinessRunIndexEntryV2Schema
 >;
 
+export type GridActivationReadinessRunIndexEntryV1 = z.infer<
+  typeof gridActivationReadinessRunIndexEntryV1Schema
+>;
+
+export type GridActivationReadinessRunIndexEntry =
+  | GridActivationReadinessRunIndexEntryV2
+  | GridActivationReadinessRunIndexEntryV1;
+
 function validateRunIndex(
-  envelope: z.infer<typeof GridActivationReadinessRunIndexEnvelopeSchema>,
+  envelope: {
+    schemaVersion: string;
+    suiteId: string;
+    evaluationId: string;
+    items: Array<{ runNumber: number; recordIndex: number; reportIndex: number; matchId: string }>;
+  },
   ctx: z.RefinementCtx,
 ): void {
   if (envelope.items.length !== GRID_ACTIVATION_READINESS_RUN_COUNT) {
@@ -101,18 +136,36 @@ function validateRunIndex(
   }
 }
 
-export const GridActivationReadinessRunIndexEnvelopeSchema = z
+export const GridActivationReadinessRunIndexEnvelopeV2Schema = z
   .object({
-    schemaVersion: z.literal("1"),
+    schemaVersion: z.literal("2"),
     suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID),
     evaluationId: z.string().uuid(),
-    items: z.array(gridActivationReadinessRunIndexEntrySchema),
+    items: z.array(gridActivationReadinessRunIndexEntryV2Schema),
   })
   .superRefine(validateRunIndex);
 
-export type GridActivationReadinessRunIndexEnvelope = z.infer<
-  typeof GridActivationReadinessRunIndexEnvelopeSchema
+export type GridActivationReadinessRunIndexEnvelopeV2 = z.infer<
+  typeof GridActivationReadinessRunIndexEnvelopeV2Schema
 >;
+
+/** Historical v1 run-index envelope, retained for historical parsers only. */
+export const GridActivationReadinessRunIndexEnvelopeV1Schema = z
+  .object({
+    schemaVersion: z.literal("1"),
+    suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID_V1),
+    evaluationId: z.string().uuid(),
+    items: z.array(gridActivationReadinessRunIndexEntryV1Schema),
+  })
+  .superRefine(validateRunIndex);
+
+export type GridActivationReadinessRunIndexEnvelopeV1 = z.infer<
+  typeof GridActivationReadinessRunIndexEnvelopeV1Schema
+>;
+
+export type GridActivationReadinessRunIndexEnvelope =
+  | GridActivationReadinessRunIndexEnvelopeV2
+  | GridActivationReadinessRunIndexEnvelopeV1;
 
 function validateMatchRecordsEnvelope(
   envelope: z.infer<typeof GridActivationReadinessMatchRecordsEnvelopeSchema>,
@@ -194,16 +247,26 @@ export function serializeGridActivationReadinessEnvelope(envelope: unknown): str
   return JSON.stringify(envelope, null, 2);
 }
 
+/**
+ * Version-aware run-index deserializer. Reads both the current v2 contract
+ * and the historical v1 contract. `schemaVersion` distinguishes them; only
+ * v2 is accepted as current activation-readiness evidence.
+ */
 export function deserializeGridActivationReadinessRunIndex(
   json: string,
 ):
-  | { ok: true; envelope: GridActivationReadinessRunIndexEnvelope }
+  | { ok: true; envelope: GridActivationReadinessRunIndexEnvelope; schemaVersion: "1" | "2" }
   | { ok: false; errors: string } {
   try {
     const data = JSON.parse(json) as unknown;
-    const result = GridActivationReadinessRunIndexEnvelopeSchema.safeParse(data);
-    if (result.success) return { ok: true, envelope: result.data };
-    return { ok: false, errors: result.error.message };
+    const v2 = GridActivationReadinessRunIndexEnvelopeV2Schema.safeParse(data);
+    if (v2.success) return { ok: true, envelope: v2.data, schemaVersion: "2" };
+    const v1 = GridActivationReadinessRunIndexEnvelopeV1Schema.safeParse(data);
+    if (v1.success) return { ok: true, envelope: v1.data, schemaVersion: "1" };
+    return {
+      ok: false,
+      errors: `run-index matched neither v2 (${v2.error.message}) nor v1 (${v1.error.message})`,
+    };
   } catch (e) {
     return { ok: false, errors: e instanceof SyntaxError ? e.message : String(e) };
   }

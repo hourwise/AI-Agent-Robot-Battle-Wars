@@ -86,7 +86,15 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
   nine-file bundle is published under `data/readiness/grid/`. It is
   non-benchmark, non-holding-out and non-activating, and classifies the
   implementation as `ready_for_opt_in_beta_review`, `inconclusive` or
-  `not_ready` without authorising any activation. The live
+  `not_ready` without authorising any activation. Phase 3E1.1 hardened the
+  evaluation's evidence provenance: selected movement/combat actions are now
+  counted from `policy_triggered` events (so stationary `hold` coverage is
+  correctly evidenced without a `movement_resolved`), the scenario registry is
+  deeply frozen with distinct per-scenario definitions, and the published
+  bundle is revalidated end-to-end by recomputing per-run evidence, metrics,
+  gates, the decision and the report from the persisted records and reports
+  (v2 artifacts; the historical v1 bundle remains preserved for archival
+  inspection). The live
   five-zone simulator is unchanged: the normal application still uses
   `runMatch` (legacy `0.2.0`) and emits schema v2, and `runGridMatch` is not
   wired into CLI, series or application commands.
@@ -228,6 +236,24 @@ partitions, and never writes to `data/matches`, `data/series` or either canary
 root. Even a `ready_for_opt_in_beta_review` classification is not permission to
 activate grid; an opt-in beta decision and any default activation remain later,
 separately authorised decisions.
+
+Since Phase 3E1.1 the evaluation uses **v2 evidence artifacts**
+(`schemaVersion` 2, suite `grid-activation-readiness-v2`, action-evidence
+model `policy-triggered-round-actions-v1`). Selected movement and combat
+actions are derived from `policy_triggered` events (exactly one per fighter per
+completed round; the selected-action total always equals `2 × completed
+rounds`), so a stationary `hold` is counted as selected movement coverage
+without any `movement_resolved`. Ordinary `movement_resolved` events must
+exactly agree with the actor's selected policy movement; knockback and grapple
+repositions are target-subject events and are never selected actions. The
+persisted bundle is validated by recomputing per-run evidence from the
+records, then metrics, gates, the decision and the report from those artifacts;
+any disagreement fails the bundle. The scenario registry is deeply frozen
+(every nested build proposal, armour object and policy) with distinct
+definitions per scenario and no shared references. The historical Phase 3E1 v1
+bundle (`data/readiness/grid/864991f7-d060-4669-beec-11e0d42b7e68/`, suite
+checksum `dd38ac8a…`) remains preserved and parses as v1 but is rejected as
+current readiness evidence.
 
 ### Replay
 

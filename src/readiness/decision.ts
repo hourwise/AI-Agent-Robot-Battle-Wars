@@ -4,10 +4,13 @@ import type {
   ReadinessGateOutcome,
   ReadinessGateResult,
 } from "./gates.js";
-import { GRID_ACTIVATION_READINESS_SUITE_ID } from "./run-plan.js";
+import {
+  GRID_ACTIVATION_READINESS_SUITE_ID,
+  GRID_ACTIVATION_READINESS_SUITE_ID_V1,
+} from "./run-plan.js";
 
 /**
- * Grid activation-readiness decision v1 (Milestone 0.2C Phase 3E1).
+ * Grid activation-readiness decision v2 (Milestone 0.2C Phase 3E1 / 3E1.1).
  *
  * The decision classifies the current implementation as exactly one of
  * `ready_for_opt_in_beta_review`, `inconclusive` or `not_ready`. Even
@@ -16,6 +19,11 @@ import { GRID_ACTIVATION_READINESS_SUITE_ID } from "./run-plan.js";
  * contains every gate with its category, outcome, frozen threshold, observed
  * value, concise evidence and blocking reason, and never contains a tuning
  * recommendation.
+ *
+ * The current contract is decision schema v2 under suite
+ * `grid-activation-readiness-v2`. Historical v1 decisions remain readable
+ * through the version-aware deserializer but are never accepted as current
+ * activation-readiness evidence.
  */
 export type GridActivationReadinessDecision =
   "ready_for_opt_in_beta_review" | "inconclusive" | "not_ready";
@@ -37,9 +45,10 @@ export type GridActivationReadinessGateEntry = z.infer<
   typeof gridActivationReadinessGateEntrySchema
 >;
 
-export const gridActivationReadinessDecisionSchema = z
+/** Current decision v2 schema. */
+export const gridActivationReadinessDecisionV2Schema = z
   .object({
-    schemaVersion: z.literal("1"),
+    schemaVersion: z.literal("2"),
     evaluationKind: z.literal("grid-activation-readiness"),
     suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID),
     status: z.literal("completed"),
@@ -55,9 +64,35 @@ export const gridActivationReadinessDecisionSchema = z
   })
   .strict();
 
-export type GridActivationReadinessDecisionV1 = z.infer<
-  typeof gridActivationReadinessDecisionSchema
+export type GridActivationReadinessDecisionV2 = z.infer<
+  typeof gridActivationReadinessDecisionV2Schema
 >;
+
+/** Historical decision v1 schema, retained for historical parsers only. */
+export const gridActivationReadinessDecisionV1Schema = z
+  .object({
+    schemaVersion: z.literal("1"),
+    evaluationKind: z.literal("grid-activation-readiness"),
+    suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID_V1),
+    status: z.literal("completed"),
+    evaluationId: z.string().uuid(),
+    createdAt: z.string().min(1),
+    simulatorVersion: z.literal("0.3.0"),
+    positioningModel: z.literal("grid-3x3-v1"),
+    rulesetVersion: z.literal("0.2.0"),
+    catalogueVersion: z.literal("1"),
+    decision: z.enum(["ready_for_opt_in_beta_review", "inconclusive", "not_ready"]),
+    gates: z.array(gridActivationReadinessGateEntrySchema),
+    disclaimer: z.literal(GRID_ACTIVATION_READINESS_DISCLAIMER),
+  })
+  .strict();
+
+export type GridActivationReadinessDecisionV1 = z.infer<
+  typeof gridActivationReadinessDecisionV1Schema
+>;
+
+/** Current decision artifact type (v2). */
+export type GridActivationReadinessDecisionV2Artifact = GridActivationReadinessDecisionV2;
 
 export class GridActivationReadinessDecisionError extends Error {
   constructor(message: string) {
@@ -88,15 +123,15 @@ export function deriveGridActivationReadinessDecision(
 }
 
 /**
- * Builds and validates the decision v1 artifact. No tuning recommendation is
+ * Builds and validates the decision v2 artifact. No tuning recommendation is
  * ever included.
  */
 export function buildGridActivationReadinessDecision(
   input: BuildGridActivationReadinessDecisionInput,
-): GridActivationReadinessDecisionV1 {
+): GridActivationReadinessDecisionV2 {
   const decision = deriveGridActivationReadinessDecision(input);
-  const raw: GridActivationReadinessDecisionV1 = {
-    schemaVersion: "1",
+  const raw: GridActivationReadinessDecisionV2 = {
+    schemaVersion: "2",
     evaluationKind: "grid-activation-readiness",
     suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
     status: "completed",
@@ -118,7 +153,7 @@ export function buildGridActivationReadinessDecision(
     })),
     disclaimer: GRID_ACTIVATION_READINESS_DISCLAIMER,
   };
-  const parsed = gridActivationReadinessDecisionSchema.safeParse(raw);
+  const parsed = gridActivationReadinessDecisionV2Schema.safeParse(raw);
   if (!parsed.success) {
     throw new GridActivationReadinessDecisionError(
       `Grid activation readiness decision failed its authoritative schema: ${parsed.error.message}`,
@@ -127,16 +162,30 @@ export function buildGridActivationReadinessDecision(
   return parsed.data;
 }
 
+/**
+ * Version-aware decision deserializer. Reads both the current v2 contract and
+ * the historical v1 contract. Only v2 is accepted as current
+ * activation-readiness evidence.
+ */
 export function deserializeGridActivationReadinessDecision(
   json: string,
 ):
-  | { ok: true; decision: GridActivationReadinessDecisionV1 }
+  | {
+      ok: true;
+      decision: GridActivationReadinessDecisionV2 | GridActivationReadinessDecisionV1;
+      schemaVersion: "1" | "2";
+    }
   | { ok: false; errors: string } {
   try {
     const data = JSON.parse(json) as unknown;
-    const result = gridActivationReadinessDecisionSchema.safeParse(data);
-    if (result.success) return { ok: true, decision: result.data };
-    return { ok: false, errors: result.error.message };
+    const v2 = gridActivationReadinessDecisionV2Schema.safeParse(data);
+    if (v2.success) return { ok: true, decision: v2.data, schemaVersion: "2" };
+    const v1 = gridActivationReadinessDecisionV1Schema.safeParse(data);
+    if (v1.success) return { ok: true, decision: v1.data, schemaVersion: "1" };
+    return {
+      ok: false,
+      errors: `decision matched neither v2 (${v2.error.message}) nor v1 (${v1.error.message})`,
+    };
   } catch (e) {
     return { ok: false, errors: e instanceof SyntaxError ? e.message : String(e) };
   }

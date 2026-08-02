@@ -233,51 +233,94 @@ const SENTINEL_FIGHTER: ReadinessFighterDefinition = {
   },
 };
 
-/** Frozen scenario families in canonical order (R1–R7). */
-const SCENARIO_FAMILIES: readonly GridReadinessScenarioFamily[] = Object.freeze([
-  Object.freeze({
+/**
+ * Focused deep-freeze helper (Phase 3E1.1). Clones every nested plain object
+ * or array first, then freezes the clone, so caller-owned module state is
+ * never frozen in place and no mutable nested references are shared between
+ * two frozen values.
+ */
+export function deepFreezeReadinessValue<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map((item) => deepFreezeReadinessValue(item))) as T;
+  }
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const clone: Record<string, unknown> = {};
+    for (const key of Object.keys(record)) {
+      clone[key] = deepFreezeReadinessValue(record[key]);
+    }
+    return Object.freeze(clone) as T;
+  }
+  return value;
+}
+
+/** Fighter source data keyed by a short identifier. */
+const FIGHTER_SOURCES: Readonly<Record<string, ReadinessFighterDefinition>> = {
+  bulwark: BULWARK_FIGHTER,
+  flanker: FLANKER_FIGHTER,
+  spinner: SPINNER_FIGHTER,
+  grappler: GRAPPLER_FIGHTER,
+  flipper: FLIPPER_FIGHTER,
+  runner: RUNNER_FIGHTER,
+  sentinel: SENTINEL_FIGHTER,
+};
+
+/**
+ * Frozen scenario family definitions in canonical order (R1–R7). Each entry
+ * references fighter source keys; the registry factory creates a distinct
+ * deeply frozen copy of every fighter definition per occurrence, so equal
+ * Bulwark definitions in different scenarios (and the mirror X and Y) never
+ * share nested references.
+ */
+const SCENARIO_DEFS: ReadonlyArray<{
+  scenarioId: string;
+  familyName: string;
+  fighterXSource: string;
+  fighterYSource: string;
+}> = [
+  {
     scenarioId: "bulwark-mirror",
     familyName: "Bulwark Mirror",
-    fighterX: Object.freeze(BULWARK_FIGHTER),
-    fighterY: Object.freeze(BULWARK_FIGHTER),
-  }),
-  Object.freeze({
+    fighterXSource: "bulwark",
+    fighterYSource: "bulwark",
+  },
+  {
     scenarioId: "flanker-bulwark",
     familyName: "Flanker versus Bulwark",
-    fighterX: Object.freeze(FLANKER_FIGHTER),
-    fighterY: Object.freeze(BULWARK_FIGHTER),
-  }),
-  Object.freeze({
+    fighterXSource: "flanker",
+    fighterYSource: "bulwark",
+  },
+  {
     scenarioId: "spinner-bulwark",
     familyName: "Spinner versus Bulwark",
-    fighterX: Object.freeze(SPINNER_FIGHTER),
-    fighterY: Object.freeze(BULWARK_FIGHTER),
-  }),
-  Object.freeze({
+    fighterXSource: "spinner",
+    fighterYSource: "bulwark",
+  },
+  {
     scenarioId: "grappler-bulwark",
     familyName: "Grappler versus Bulwark",
-    fighterX: Object.freeze(GRAPPLER_FIGHTER),
-    fighterY: Object.freeze(BULWARK_FIGHTER),
-  }),
-  Object.freeze({
+    fighterXSource: "grappler",
+    fighterYSource: "bulwark",
+  },
+  {
     scenarioId: "flipper-bulwark",
     familyName: "Flipper versus Bulwark",
-    fighterX: Object.freeze(FLIPPER_FIGHTER),
-    fighterY: Object.freeze(BULWARK_FIGHTER),
-  }),
-  Object.freeze({
+    fighterXSource: "flipper",
+    fighterYSource: "bulwark",
+  },
+  {
     scenarioId: "runner-bulwark",
     familyName: "Runner versus Bulwark",
-    fighterX: Object.freeze(RUNNER_FIGHTER),
-    fighterY: Object.freeze(BULWARK_FIGHTER),
-  }),
-  Object.freeze({
+    fighterXSource: "runner",
+    fighterYSource: "bulwark",
+  },
+  {
     scenarioId: "sentinel-bulwark",
     familyName: "Sentinel versus Bulwark",
-    fighterX: Object.freeze(SENTINEL_FIGHTER),
-    fighterY: Object.freeze(BULWARK_FIGHTER),
-  }),
-]);
+    fighterXSource: "sentinel",
+    fighterYSource: "bulwark",
+  },
+];
 
 /** Frozen role assignments: one mirror + six role-swapped pairs. */
 const SCENARIO_ASSIGNMENTS: readonly GridReadinessRoleAssignment[] = Object.freeze([
@@ -425,24 +468,41 @@ function assertRegistryInvariants(registry: GridReadinessScenarioRegistry): void
 }
 
 /**
- * Builds and validates the frozen scenario registry. Every build is validated
- * against catalogue v1; every nested object is frozen; no shared mutable
- * values escape. Callers must obtain fighter values through
- * `createGridReadinessFighterConfig`, which always returns fresh clones.
+ * Builds and validates the deeply frozen scenario registry. Every returned
+ * value — registry, scenarios, assignments, every scenario, every
+ * assignment, every fighter definition, every build proposal, every armour
+ * object and every policy — is a fresh deeply frozen clone. Equal Bulwark
+ * definitions in different scenarios, and the mirror fighter X and Y, are
+ * distinct deeply frozen values with equal content; no scenario shares
+ * mutable nested references with another. The serialized bytes and canonical
+ * checksum are unchanged because the values are unchanged. Callers must
+ * obtain fighter values through `createGridReadinessFighterConfig`, which
+ * always returns fresh mutable clones.
  */
 export function createGridReadinessScenarioRegistry(): GridReadinessScenarioRegistry {
-  for (const scenario of SCENARIO_FAMILIES) {
-    validateFighterDefinition(scenario.scenarioId, "x", scenario.fighterX);
-    validateFighterDefinition(scenario.scenarioId, "y", scenario.fighterY);
-  }
+  const scenarios: GridReadinessScenarioFamily[] = SCENARIO_DEFS.map((def) => {
+    const fighterXSource = FIGHTER_SOURCES[def.fighterXSource]!;
+    const fighterYSource = FIGHTER_SOURCES[def.fighterYSource]!;
+    validateFighterDefinition(def.scenarioId, "x", fighterXSource);
+    validateFighterDefinition(def.scenarioId, "y", fighterYSource);
+    return Object.freeze({
+      scenarioId: def.scenarioId,
+      familyName: def.familyName,
+      fighterX: deepFreezeReadinessValue(fighterXSource),
+      fighterY: deepFreezeReadinessValue(fighterYSource),
+    });
+  });
+  const assignments = SCENARIO_ASSIGNMENTS.map((assignment) =>
+    deepFreezeReadinessValue(assignment),
+  );
   const registry: GridReadinessScenarioRegistry = Object.freeze({
     registryId: GRID_READINESS_SCENARIO_REGISTRY_ID,
     simulatorVersion: "0.3.0",
     positioningModel: "grid-3x3-v1",
     rulesetVersion: "0.2.0",
     catalogueVersion: "1",
-    scenarios: Object.freeze([...SCENARIO_FAMILIES]),
-    assignments: Object.freeze([...SCENARIO_ASSIGNMENTS]),
+    scenarios: Object.freeze(scenarios),
+    assignments: Object.freeze(assignments),
   });
   assertRegistryInvariants(registry);
   return registry;

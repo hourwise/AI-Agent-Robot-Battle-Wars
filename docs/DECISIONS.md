@@ -1144,6 +1144,67 @@ slot-order and progress gates passed); opt-in beta decision **not performed**;
 default grid activation **not performed**; Milestone 0.2C **not complete**
 pending a separately authorised activation-readiness decision.
 
+## D47: Grid readiness evidence hardening (Phase 3E1.1, 2026-08-03)
+
+Phase 3E1.1 corrects the readiness action-evidence source and hardens decision
+provenance, without changing the 24 seeds, 7 scenarios, 13 assignments, the
+312-run plan, gate thresholds or simulator semantics. The historical Phase 3E1
+v1 evaluation remains preserved (`864991f7-d060-4669-beec-11e0d42b7e68`,
+`inconclusive`, C02 + C04; v1 suite checksum
+`dd38ac8a5d2e35007b4b6890418b21aca8f621f3e165fa7d158d2f179672ae5a` frozen).
+
+- **Selected actions are counted from `policy_triggered`, not
+  `movement_resolved`.** The Phase 3E1 C02 gap counted selected actions from
+  ordinary `movement_resolved`, so a stationary `hold` (which emits no
+  movement event) was never observed and C02 was inconclusive. The shared
+  record-evidence inspector now derives selected movement/combat actions from
+  `policy_triggered` (exactly one per fighter per completed round; canonical
+  actor/movement/combat; no duplicates; no events after completion; selected
+  total = `2 × completed rounds`). Ordinary `movement_resolved` must agree with
+  the actor's selected policy movement; knockback/grapple are target-subject
+  and never selected actions. The live core and the read-back validator share
+  this inspector, so live and persisted evidence are always identical.
+- **The scenario registry is deeply frozen.** Every nested build proposal,
+  armour object and policy is a distinct deeply frozen clone; equal Bulwark
+  definitions and the mirror X/Y are distinct objects with no shared
+  references. Deserialized registries reconstruct the same guarantees; the
+  canonical checksum
+  (`b07270171f6e38efac2d1992f051d7bd881e323c00cee92b9caa9490ddb85b67`) is
+  unchanged.
+- **The published bundle is revalidated end-to-end.** The validator recomputes
+  per-run evidence and render checksums from the persisted records, then
+  metrics, gates, the decision and `report.txt` from those artifacts; any
+  disagreement fails the bundle. `run-index.json` gains
+  `selectedMovementActionCounts` / `selectedCombatActionCounts`; `metrics.json`,
+  `decision.json` and `manifest.json` are v2 (suite
+  `grid-activation-readiness-v2`, action-evidence model
+  `policy-triggered-round-actions-v1`). Version-aware parsers read v1 and v2;
+  only v2 is current readiness evidence.
+- **No supplemental grapple scenario was added.** C04 (no grapple reposition
+  observed) may remain inconclusive; that is accepted and recorded. No
+  seed/scenario/policy/threshold/simulator change occurred; no benchmark ran;
+  no seed bank was opened; held-out/all remain sealed; C1/C2/AB2 and
+  simulator/ruleset constants are unchanged; no provider call, tuning or
+  activation occurred.
+
+**Official v2 run (2026-08-03):** `evaluationId
+d788284d-a795-4125-984c-9146261e271a` under
+`data/readiness/grid/d788284d-a795-4125-984c-9146261e271a/` (suite checksum
+`df9444101ca68f7b7ca9fef24adfe8575363ef744e9f37b4449b111e0bb29fd9`).
+Determinism passed; H01–H10, S01–S03, P01–P02 and C01/C02/C03/C05/C06 passed
+(C02 now passes via `policy_triggered` evidence); C04 was **inconclusive** (no
+grapple reposition observed). Final readiness classification:
+**`inconclusive`**. No tuning occurred; no supplemental grapple scenario was
+added; no opt-in activation decision and no default activation was performed.
+
+Status: Phase 3E1 v1 tooling **historical**; Phase 3E1 v1 official evaluation
+**complete** (`inconclusive`, C02 + C04); Phase 3E1.1 v2 evidence hardening
+**complete**; Phase 3E1.1 v2 official evaluation **complete** (`inconclusive`,
+C04 only); current readiness classification **`inconclusive`**; supplemental
+grapple coverage **not performed**; opt-in beta decision **not performed**;
+default grid activation **not performed**; Milestone 0.2C **not complete**
+pending a separately authorised activation-readiness decision.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

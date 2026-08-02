@@ -3,22 +3,6 @@ import { MAX_ROUNDS } from "../simulator/constants.js";
 import { matchResultToRecord } from "../persistence/match-converter.js";
 import { buildGridFactualReport } from "../reports/factual-match-report.js";
 import { bindGridFactualReportToMatchRecord } from "../reports/grid-factual-report-binding.js";
-import { renderTextReplay } from "../replay/text-replay-renderer.js";
-import { renderAsciiReplay } from "../replay/ascii/ascii-replay-renderer.js";
-import { buildReviewUserPrompt } from "../prompts/review-prompt.v1.js";
-import { POSITIONING_MODEL_GRID } from "../schemas/positioning.schema.js";
-import {
-  isGridZone,
-  getRelativeBearing,
-  getPlanarExposedArmourZones,
-  type GridZone,
-  type RelativeBearing,
-  type PlanarArmourZone,
-} from "../simulator/arena-grid.js";
-import {
-  getMovementEventSubjectId,
-  isMovementEventAction,
-} from "../events/battle-event.js";
 import {
   isV3Record,
   serializeMatchRecord,
@@ -30,15 +14,10 @@ import {
   validateFactualMatchReport,
   type FactualMatchReportV2,
 } from "../schemas/factual-report.schema.js";
-import { sha256Hex } from "../canary/grid-canary-digest.js";
 import { assertGridCanaryFinalAgreement } from "../canary/grid-match-canary-evidence.js";
 import type {
-  Direction,
-  GridFighterState,
   GridMatchResult,
   MatchConfig,
-  MovementAction,
-  SimulationEvent,
   VictoryMethod,
 } from "../simulator/types.js";
 import type { GridReadinessSeedRegistry } from "./seed-registry.js";
@@ -54,16 +33,29 @@ import {
   type GridActivationReadinessRunPlan,
 } from "./run-plan.js";
 import { GRID_ACTIVATION_READINESS_RUN_COUNT } from "./run-plan.js";
+import {
+  gridRecordToGridResult,
+  inspectGridReadinessRecordEvidence,
+  recomputeGridActivationReadinessRunChecksums,
+  type GridActivationReadinessRunEvidence,
+} from "./record-evidence.js";
+
+export type { GridActivationReadinessRunEvidence } from "./record-evidence.js";
+export { computeMaximumConsecutiveNoProgressRounds } from "./record-evidence.js";
 
 /**
- * Pure grid activation-readiness execution core (Milestone 0.2C Phase 3E1).
+ * Pure grid activation-readiness execution core (Milestone 0.2C Phase 3E1 /
+ * 3E1.1).
  *
  * Executes exactly 312 deterministic grid matches from the frozen run plan
  * with fresh scenario values per run, converts each to a match-record v3 (with
  * explicitly injected identities), builds and binds the factual-report v2,
  * validates every record and report, verifies replay/report/final-round
  * agreement, renders text and ASCII replays and the grid-aware review prompt,
- * collects canonical per-run evidence, and fails closed on any violation.
+ * and derives canonical per-run evidence through the shared persisted-record
+ * inspector (`inspectGridReadinessRecordEvidence`) — selected actions come
+ * from `policy_triggered`, translated ordinary movement from
+ * `movement_resolved`, and reposition events use target-subject semantics.
  *
  * The core is deliberately pure: it never reads or writes files, never
  * generates UUIDs, never reads the clock, never calls a provider, never calls
@@ -75,28 +67,6 @@ export interface GridActivationReadinessIdentities {
   createdAt: string;
   /** Exactly 312 unique match UUIDs, ordered by run number. */
   matchIds: readonly string[];
-}
-
-export interface GridActivationReadinessRunEvidence {
-  readonly actionCounts: Readonly<Record<MovementAction, number>>;
-  readonly translatedActionCounts: Readonly<Record<MovementAction, number>>;
-  readonly stationaryHoldCount: number;
-  readonly zoneVisits: Readonly<Record<GridZone, number>>;
-  readonly bearingCounts: Readonly<Record<RelativeBearing, number>>;
-  readonly exposedPlanarArmourZoneCounts: Readonly<Record<PlanarArmourZone, number>>;
-  readonly eventTypeCounts: Readonly<Record<string, number>>;
-  readonly maximumConsecutiveNoProgressRounds: number;
-  readonly attacksAttempted: number;
-  readonly hits: number;
-  readonly misses: number;
-  readonly integrityDamageEvents: number;
-  readonly criticalHits: number;
-  readonly knockbackEvents: number;
-  readonly grappleRepositionEvents: number;
-  readonly overturnEvents: number;
-  readonly componentDamaged: number;
-  readonly componentDisabled: number;
-  readonly componentDamageResisted: number;
 }
 
 export interface GridActivationReadinessRunResult {
@@ -161,209 +131,15 @@ function isUuid(value: string): boolean {
   return UUID_RE.test(value);
 }
 
-const CARDINAL_FACINGS: ReadonlySet<string> = new Set<string>([
-  "north",
-  "east",
-  "south",
-  "west",
-]);
-
-const VALID_CONDITIONS: ReadonlySet<string> = new Set<string>([
-  "overturned",
-  "immobilised",
-  "overheated",
-  "stunned",
-]);
-
-const BEARINGS: readonly RelativeBearing[] = [
-  "same",
-  "front",
-  "front_right",
-  "right",
-  "rear_right",
-  "rear",
-  "rear_left",
-  "left",
-  "front_left",
-];
-
-const PLANAR_ZONES: readonly PlanarArmourZone[] = ["front", "left", "right", "rear"];
-
-const GRID_ZONES: readonly GridZone[] = [
-  "north_west",
-  "north",
-  "north_east",
-  "west",
-  "center",
-  "east",
-  "south_west",
-  "south",
-  "south_east",
-];
-
-function emptyActionCounts(): Record<MovementAction, number> {
-  return {
-    advance: 0,
-    retreat: 0,
-    circle_left: 0,
-    circle_right: 0,
-    hold: 0,
-  };
-}
-
-function emptyZoneVisits(): Record<GridZone, number> {
-  const visits = {} as Record<GridZone, number>;
-  for (const zone of GRID_ZONES) visits[zone] = 0;
-  return visits;
-}
-
-function emptyBearingCounts(): Record<RelativeBearing, number> {
-  const counts = {} as Record<RelativeBearing, number>;
-  for (const bearing of BEARINGS) counts[bearing] = 0;
-  return counts;
-}
-
-function emptyExposedCounts(): Record<PlanarArmourZone, number> {
-  const counts = {} as Record<PlanarArmourZone, number>;
-  for (const zone of PLANAR_ZONES) counts[zone] = 0;
-  return counts;
-}
-
 function deepSnapshot(value: unknown): string {
   return JSON.stringify(value);
 }
 
-/**
- * Tracks fighter positions and facings through the event stream to collect
- * canonical zone-visit, relative-bearing and exposed planar armour-zone
- * evidence. Never mutates any event or state.
- */
-function collectPositionEvidence(
-  initialState: { fighterA: GridFighterState; fighterB: GridFighterState },
-  events: readonly SimulationEvent[],
-): {
-  zoneVisits: Record<GridZone, number>;
-  bearingCounts: Record<RelativeBearing, number>;
-  exposedPlanarArmourZoneCounts: Record<PlanarArmourZone, number>;
-} {
-  const zoneVisits = emptyZoneVisits();
-  const bearingCounts = emptyBearingCounts();
-  const exposed = emptyExposedCounts();
-
-  let zoneA: GridZone = initialState.fighterA.zone;
-  let facingA: Direction = initialState.fighterA.facing;
-  let zoneB: GridZone = initialState.fighterB.zone;
-  let facingB: Direction = initialState.fighterB.facing;
-
-  const sample = (): void => {
-    zoneVisits[zoneA] += 1;
-    zoneVisits[zoneB] += 1;
-    const bearingAToB = getRelativeBearing(zoneA, zoneB, facingB);
-    const bearingBToA = getRelativeBearing(zoneB, zoneA, facingA);
-    bearingCounts[bearingAToB] += 1;
-    bearingCounts[bearingBToA] += 1;
-    for (const exposedZone of getPlanarExposedArmourZones(bearingAToB)) {
-      exposed[exposedZone] += 1;
-    }
-    for (const exposedZone of getPlanarExposedArmourZones(bearingBToA)) {
-      exposed[exposedZone] += 1;
-    }
-  };
-
-  sample();
-
-  for (const event of events) {
-    if (event.type === "movement_resolved") {
-      const data = event.data as { from?: unknown; to?: unknown; facing?: unknown };
-      const subject = getMovementEventSubjectId(event);
-      if (subject === "fighter_a") {
-        zoneA = data.to as GridZone;
-        facingA = data.facing as Direction;
-      } else if (subject === "fighter_b") {
-        zoneB = data.to as GridZone;
-        facingB = data.facing as Direction;
-      }
-      sample();
-    } else if (event.type === "round_ended") {
-      const data = event.data as {
-        fighterA: { zone: string };
-        fighterB: { zone: string };
-      };
-      zoneA = data.fighterA.zone as GridZone;
-      zoneB = data.fighterB.zone as GridZone;
-      sample();
-    }
-  }
-
-  return { zoneVisits, bearingCounts, exposedPlanarArmourZoneCounts: exposed };
-}
-
-/**
- * Maximum consecutive rounds (within rounds 1..N) with no meaningful progress.
- * Meaningful progress: translated movement, attack attempt, integrity damage,
- * component transition, overturn, knockback/grapple reposition, or a
- * condition-set change.
- */
-export function computeMaximumConsecutiveNoProgressRounds(
-  events: readonly SimulationEvent[],
-): number {
-  const progress = new Map<number, boolean>();
-  let prevConditionsA = "";
-  let prevConditionsB = "";
-  let maxRound = 0;
-
-  for (const event of events) {
-    if (event.round > maxRound) maxRound = event.round;
-    if (event.type === "movement_resolved") {
-      const data = event.data as { from?: unknown; to?: unknown };
-      if (data.from !== data.to) progress.set(event.round, true);
-    } else if (
-      event.type === "attack_attempted" ||
-      event.type === "integrity_damaged" ||
-      event.type === "component_damaged" ||
-      event.type === "component_disabled" ||
-      event.type === "component_damage_resisted" ||
-      event.type === "robot_overturned"
-    ) {
-      progress.set(event.round, true);
-    } else if (event.type === "round_ended") {
-      const data = event.data as {
-        fighterA: { conditions: readonly string[] };
-        fighterB: { conditions: readonly string[] };
-      };
-      const keyA = [...data.fighterA.conditions].sort().join(",");
-      const keyB = [...data.fighterB.conditions].sort().join(",");
-      if (keyA !== prevConditionsA || keyB !== prevConditionsB) {
-        progress.set(event.round, true);
-      }
-      prevConditionsA = keyA;
-      prevConditionsB = keyB;
-    }
-  }
-
-  let maxStreak = 0;
-  let current = 0;
-  for (let round = 1; round <= maxRound; round++) {
-    if (progress.get(round) === true) current = 0;
-    else current += 1;
-    if (current > maxStreak) maxStreak = current;
-  }
-  return maxStreak;
-}
-
-interface CollectedRunEvidence extends GridActivationReadinessRunEvidence {
-  actionCounts: Record<MovementAction, number>;
-  translatedActionCounts: Record<MovementAction, number>;
-  zoneVisits: Record<GridZone, number>;
-  bearingCounts: Record<RelativeBearing, number>;
-  exposedPlanarArmourZoneCounts: Record<PlanarArmourZone, number>;
-  eventTypeCounts: Record<string, number>;
-}
-
 function inspectRunResult(
   result: GridMatchResult,
+  record: MatchRecordV3,
   run: GridActivationReadinessRun,
-): CollectedRunEvidence {
+): GridActivationReadinessRunEvidence {
   const label = `run ${run.runNumber} (${run.scenarioId}/${run.assignmentId}, seed ${run.seed})`;
 
   if (result.runtime.simulatorVersion !== "0.3.0") {
@@ -392,144 +168,17 @@ function inspectRunResult(
     );
   }
 
-  for (const fighter of [result.initialState.fighterA, result.initialState.fighterB]) {
-    if (!isGridZone(fighter.zone)) {
-      throw new GridActivationReadinessCoreError(
-        `${label} initial zone is not canonical: ${String(fighter.zone)}`,
-      );
+  // The shared persisted-record inspector validates every initial/event
+  // zone, policy action, movement subject/action/facing, round-end condition
+  // and no-progress fact from the actual persisted record.
+  try {
+    return inspectGridReadinessRecordEvidence(record);
+  } catch (e) {
+    if (e instanceof Error) {
+      throw new GridActivationReadinessCoreError(`${label} ${e.message}`);
     }
-    if (!CARDINAL_FACINGS.has(fighter.facing)) {
-      throw new GridActivationReadinessCoreError(
-        `${label} initial facing is not cardinal: ${String(fighter.facing)}`,
-      );
-    }
-    for (const condition of fighter.conditions) {
-      if (!VALID_CONDITIONS.has(condition)) {
-        throw new GridActivationReadinessCoreError(
-          `${label} initial condition is not canonical: ${String(condition)}`,
-        );
-      }
-    }
+    throw e;
   }
-
-  const actionCounts = emptyActionCounts();
-  const translatedActionCounts = emptyActionCounts();
-  const eventTypeCounts: Record<string, number> = {};
-  let attacksAttempted = 0;
-  let hits = 0;
-  let misses = 0;
-  let integrityDamageEvents = 0;
-  let criticalHits = 0;
-  let knockbackEvents = 0;
-  let grappleRepositionEvents = 0;
-  let overturnEvents = 0;
-  let componentDamaged = 0;
-  let componentDisabled = 0;
-  let componentDamageResisted = 0;
-
-  for (const event of result.events) {
-    eventTypeCounts[event.type] = (eventTypeCounts[event.type] ?? 0) + 1;
-
-    if (event.type === "movement_resolved") {
-      const data = event.data as {
-        from?: unknown;
-        to?: unknown;
-        facing?: unknown;
-        action?: unknown;
-      };
-      if (!isGridZone(data.from) || !isGridZone(data.to)) {
-        throw new GridActivationReadinessCoreError(
-          `${label} movement_resolved from/to must be canonical grid zones; received ${String(data.from)} -> ${String(data.to)}`,
-        );
-      }
-      if (!isMovementEventAction(data.action)) {
-        throw new GridActivationReadinessCoreError(
-          `${label} movement_resolved has a non-canonical action: ${String(data.action)}`,
-        );
-      }
-      if (typeof data.facing !== "string" || !CARDINAL_FACINGS.has(data.facing)) {
-        throw new GridActivationReadinessCoreError(
-          `${label} movement_resolved facing must be a cardinal direction; received ${String(data.facing)}`,
-        );
-      }
-      const subject = getMovementEventSubjectId(event);
-      if (subject !== "fighter_a" && subject !== "fighter_b") {
-        throw new GridActivationReadinessCoreError(
-          `${label} movement_resolved event has no canonical subject`,
-        );
-      }
-      if (data.action === "knockback") knockbackEvents += 1;
-      else if (data.action === "grapple") grappleRepositionEvents += 1;
-      else {
-        const action = data.action as MovementAction;
-        actionCounts[action] += 1;
-        if (data.from !== data.to) translatedActionCounts[action] += 1;
-      }
-    } else if (event.type === "round_ended") {
-      const data = event.data as {
-        fighterA: { zone: string; conditions: readonly string[] };
-        fighterB: { zone: string; conditions: readonly string[] };
-      };
-      if (!isGridZone(data.fighterA.zone) || !isGridZone(data.fighterB.zone)) {
-        throw new GridActivationReadinessCoreError(
-          `${label} round_ended zones must be canonical grid zones; received ${String(data.fighterA.zone)} / ${String(data.fighterB.zone)}`,
-        );
-      }
-      for (const fighter of [data.fighterA, data.fighterB]) {
-        for (const condition of fighter.conditions) {
-          if (!VALID_CONDITIONS.has(condition)) {
-            throw new GridActivationReadinessCoreError(
-              `${label} round_ended condition is not canonical: ${String(condition)}`,
-            );
-          }
-        }
-      }
-    } else if (event.type === "attack_attempted") {
-      attacksAttempted += 1;
-    } else if (event.type === "attack_hit") {
-      hits += 1;
-      const data = event.data as { isCritical?: unknown };
-      if (data.isCritical === true) criticalHits += 1;
-    } else if (event.type === "attack_missed") {
-      misses += 1;
-    } else if (event.type === "integrity_damaged") {
-      integrityDamageEvents += 1;
-    } else if (event.type === "robot_overturned") {
-      overturnEvents += 1;
-    } else if (event.type === "component_damaged") {
-      componentDamaged += 1;
-    } else if (event.type === "component_disabled") {
-      componentDisabled += 1;
-    } else if (event.type === "component_damage_resisted") {
-      componentDamageResisted += 1;
-    }
-  }
-
-  const positionEvidence = collectPositionEvidence(result.initialState, result.events);
-
-  return {
-    actionCounts,
-    translatedActionCounts,
-    stationaryHoldCount: actionCounts.hold,
-    zoneVisits: positionEvidence.zoneVisits,
-    bearingCounts: positionEvidence.bearingCounts,
-    exposedPlanarArmourZoneCounts: positionEvidence.exposedPlanarArmourZoneCounts,
-    eventTypeCounts,
-    maximumConsecutiveNoProgressRounds: computeMaximumConsecutiveNoProgressRounds(
-      result.events,
-    ),
-    attacksAttempted,
-    hits,
-    misses,
-    integrityDamageEvents,
-    criticalHits,
-    knockbackEvents,
-    grappleRepositionEvents,
-    overturnEvents,
-    componentDamaged,
-    componentDisabled,
-    componentDamageResisted,
-  };
 }
 
 /**
@@ -612,8 +261,6 @@ export function executeGridActivationReadinessSuite(
 
     const result = runGridMatch(config);
 
-    const evidence = inspectRunResult(result, run);
-
     const identity = {
       matchId: identities.matchIds[index]!,
       createdAt: identities.createdAt,
@@ -644,18 +291,21 @@ export function executeGridActivationReadinessSuite(
       );
     }
 
-    assertGridCanaryFinalAgreement(result, report);
+    // The shared persisted-record inspector derives the authoritative
+    // per-run evidence (selected actions from policy_triggered, translated
+    // ordinary movement, reposition events, zones, bearings, exposure,
+    // no-progress and combat evidence) from the actual persisted record.
+    const evidence = inspectRunResult(result, record, run);
 
-    const textReplay = renderTextReplay(result);
-    const asciiReplay = renderAsciiReplay(
-      result,
-      { mode: "ascii" },
-      POSITIONING_MODEL_GRID,
-    );
-    const reviewPrompt = buildReviewUserPrompt(report);
+    // Reconstruct the renderer-compatible grid result from the persisted
+    // record so replay rendering, the review prompt, final agreement and the
+    // derived checksums are identical to the read-back reconstruction.
+    const renderResult = gridRecordToGridResult(record);
+    assertGridCanaryFinalAgreement(renderResult, report);
 
     const serializedRecord = serializeMatchRecord(record);
     const serializedReport = serializeFactualMatchReport(report);
+    const checksums = recomputeGridActivationReadinessRunChecksums(record, report);
 
     results.push({
       runNumber: run.runNumber,
@@ -677,11 +327,11 @@ export function executeGridActivationReadinessSuite(
       report,
       serializedRecord,
       serializedReport,
-      recordChecksum: sha256Hex(serializedRecord),
-      reportChecksum: sha256Hex(serializedReport),
-      textReplayChecksum: sha256Hex(textReplay),
-      asciiReplayChecksum: sha256Hex(asciiReplay),
-      reviewPromptChecksum: sha256Hex(reviewPrompt),
+      recordChecksum: checksums.recordChecksum,
+      reportChecksum: checksums.reportChecksum,
+      textReplayChecksum: checksums.textReplayChecksum,
+      asciiReplayChecksum: checksums.asciiReplayChecksum,
+      reviewPromptChecksum: checksums.reviewPromptChecksum,
     });
 
     params.onRunComplete?.(run.runNumber);

@@ -1649,6 +1649,80 @@ classification is **`inconclusive`**. No code, scenario, policy, seed,
 threshold or gate was altered after seeing the result; no tuning occurred; no
 opt-in activation decision and no default activation was performed.
 
+### 9.21 Phase 3E1.1 — grid readiness evidence hardening (2026-08-03)
+
+Phase 3E1.1 corrects the readiness action-evidence source and hardens decision
+provenance without changing the 24 seeds, 7 scenarios, 13 assignments, the
+312-run plan, gate thresholds or simulator semantics. The historical Phase 3E1
+v1 evaluation (`864991f7-d060-4669-beec-11e0d42b7e68`,
+`inconclusive`, C02 + C04) is preserved as historical evidence; the v1 suite
+checksum `dd38ac8a5d2e35007b4b6890418b21aca8f621f3e165fa7d158d2f179672ae5a`
+and the v1 bundle remain frozen for archival inspection.
+
+- **Selected actions come from `policy_triggered`, not `movement_resolved`.**
+  The Phase 3E1 C02 gap counted selected actions from ordinary
+  `movement_resolved` events, so a stationary `hold` (which emits no movement
+  event) was never observed and C02 was inconclusive. The shared
+  record-evidence inspector (`src/readiness/record-evidence.ts`) now derives
+  selected movement and combat actions from `policy_triggered` events —
+  exactly one per fighter per completed round, canonical actor/movement/combat,
+  no duplicates, no events after competition completion, and a selected-action
+  total that must equal `2 × completed rounds`. Ordinary `movement_resolved`
+  events are still validated against the actor's selected policy movement for
+  the same round; knockback and grapple repositions use target-subject
+  semantics and are never selected actions. The live execution core and the
+  read-back bundle validator both use this same inspector, so live evidence
+  and persisted-record evidence are always identical. The Sentinel hold
+  scenario is now correctly evidenced (`hold` selected count 4373 across the
+  v2 suite).
+- **Deep-frozen scenario registry with distinct definitions.** Every nested
+  fighter definition, build proposal, armour object and policy is a fresh
+  deeply frozen clone; equal Bulwark definitions across scenarios, and the
+  mirror X and Y, are distinct objects with equal content and no shared
+  references. Deserialized registries reconstruct the same guarantees. The
+  serialized bytes and canonical checksum
+  (`b07270171f6e38efac2d1992f051d7bd881e323c00cee92b9caa9490ddb85b67`) are
+  unchanged.
+- **The published bundle recomputes its evidence end-to-end.** The validator
+  no longer trusts the persisted derived artifacts alone: it parses all nine
+  artifacts, verifies digests and registry checksums, recomputes the exact run
+  plan and suite checksum, derives per-run evidence and render checksums from
+  the persisted records, recomputes metrics from the records/reports (timing
+  supplied as informational input), recomputes gates from those metrics and
+  records, derives the decision, and regenerates `report.txt` byte-for-byte.
+  Any disagreement fails the bundle. `run-index.json` now carries
+  `selectedMovementActionCounts` and `selectedCombatActionCounts` per entry;
+  `metrics.json`, `decision.json` and `manifest.json` are v2 (`schemaVersion`
+  2, suite `grid-activation-readiness-v2`, action-evidence model
+  `policy-triggered-round-actions-v1`). Version-aware parsers read both v1 and
+  v2; only v2 is accepted as current readiness evidence.
+- **No supplemental grapple scenario was added.** C04 (reposition feature
+  coverage — no grapple reposition observed, grapple count 0) may remain
+  inconclusive in the v2 result; that is an accepted, recorded outcome of this
+  phase.
+- **All frozen constraints are preserved.** Seeds, scenarios, assignments, the
+  312-run plan, gate thresholds, C1/C2/AB2 checksums, simulator/ruleset
+  constants `0.2.0 / 0.2.0`, catalogue `1`, legacy match/series, both canaries
+  and the frozen seed/scenario registry checksums are unchanged. No benchmark
+  partition ran, no seed bank was opened, held-out/all remain sealed, no
+  provider call occurred, no tuning occurred and no activation occurred.
+
+**Official v2 development-only run (2026-08-03):** exactly one official run of
+`npm run readiness:grid` executed (`evaluationId
+d788284d-a795-4125-984c-9146261e271a`), publishing the immutable nine-file v2
+bundle under `data/readiness/grid/d788284d-a795-4125-984c-9146261e271a/`
+(suite checksum `df9444101ca68f7b7ca9fef24adfe8575363ef744e9f37b4449b111e0bb29fd9`).
+Determinism passed; all ten hard correctness gates (H01–H10), all three
+slot-order gates (S01–S03), both progress gates (P01–P02) and coverage gates
+C01, C02, C03, C05 and C06 passed (C02 movement coverage now passes because
+selected actions come from `policy_triggered`). Coverage gate **C04**
+(reposition feature coverage — no grapple reposition was observed) was
+**inconclusive**. Per the frozen decision derivation, the final readiness
+classification is **`inconclusive`**. No code, scenario, policy, seed,
+threshold or gate was altered after seeing the result; no tuning occurred; no
+supplemental grapple scenario was added; no opt-in activation decision and no
+default activation was performed.
+
 ### 9.20 Phase 3E1 status
 
 - Development-only seed registry (`grid-readiness-development-v1`, 24 seeds,
@@ -1692,12 +1766,18 @@ reporting hardening complete; Phase 3D2A isolated grid match canary
 **implemented**; Phase 3D2A.1 evidence and artifact verification **complete**;
 Phase 3D2A.2 immutable publication hardening **complete**; Phase 3D2B isolated
 grid adaptive-series canary **implemented**; Phase 3D2B.1 provenance and
-immutability hardening **complete**; Phase 3E1 evaluation tooling **complete**;
-Phase 3E1 official development run **complete**; readiness classification
-**inconclusive** (coverage gates C02 and C04 inconclusive; all hard,
-slot-order and progress gates passed); opt-in beta decision **not performed**;
-default grid activation **not performed**; Milestone 0.2C **not complete**
-pending a separately authorised activation-readiness decision.
+immutability hardening **complete**; Phase 3E1 v1 tooling **historical**; Phase
+3E1 v1 official evaluation **complete** (`864991f7-d060-4669-beec-11e0d42b7e68`,
+`inconclusive`, C02 + C04); Phase 3E1.1 v2 evidence hardening **complete**;
+Phase 3E1.1 v2 official evaluation **complete**
+(`d788284d-a795-4125-984c-9146261e271a`, suite checksum
+`df9444101ca68f7b7ca9fef24adfe8575363ef744e9f37b4449b111e0bb29fd9`); current
+readiness classification **`inconclusive`** (coverage gate C04 inconclusive —
+no grapple reposition observed; all hard, slot-order, progress and remaining
+coverage gates passed); supplemental grapple coverage **not performed**;
+opt-in beta decision **not performed**; default grid activation **not
+performed**; Milestone 0.2C **not complete** pending a separately authorised
+activation-readiness decision.
 
 ## 10. Still out of scope
 

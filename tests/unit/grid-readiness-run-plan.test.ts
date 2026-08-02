@@ -9,11 +9,23 @@ import {
   buildGridActivationReadinessRunPlan,
   gridActivationReadinessSuiteChecksum,
   GRID_ACTIVATION_READINESS_RUN_COUNT,
+  GRID_ACTIVATION_READINESS_SUITE_ID,
+  GRID_ACTIVATION_READINESS_SUITE_ID_V1,
+  GRID_ACTIVATION_READINESS_V1_SUITE_CHECKSUM,
+  GRID_READINESS_ACTION_EVIDENCE_MODEL,
   GridActivationReadinessRunPlanError,
   type GridActivationReadinessRunPlan,
 } from "../../src/readiness/run-plan.js";
 
+// Milestone 0.2C Phase 3E1.1 v2 evidence-hardened suite checksum. Includes
+// the v2 suite id, the policy-triggered action-evidence model, registry IDs
+// and checksums, runtime identity and the ordered 312 runs.
 const FROZEN_SUITE_CHECKSUM =
+  "df9444101ca68f7b7ca9fef24adfe8575363ef744e9f37b4449b111e0bb29fd9";
+
+// The historical Phase 3E1 v1 suite checksum stays frozen for archival
+// inspection of the v1 evaluation bundle.
+const FROZEN_V1_SUITE_CHECKSUM =
   "dd38ac8a5d2e35007b4b6890418b21aca8f621f3e165fa7d158d2f179672ae5a";
 
 function buildPlan(): GridActivationReadinessRunPlan {
@@ -94,6 +106,17 @@ describe("grid activation readiness run plan (Phase 3E1)", () => {
     expect(plan.scenarioRegistryId).toBe("grid-readiness-scenarios-v1");
     expect(plan.simulatorVersion).toBe("0.3.0");
     expect(plan.positioningModel).toBe("grid-3x3-v1");
+  });
+
+  it("uses the v2 suite id and the policy-triggered action-evidence model", () => {
+    const plan = buildPlan();
+    expect(plan.suiteId).toBe(GRID_ACTIVATION_READINESS_SUITE_ID);
+    expect(plan.suiteId).toBe("grid-activation-readiness-v2");
+    expect(plan.actionEvidenceModel).toBe(GRID_READINESS_ACTION_EVIDENCE_MODEL);
+    expect(plan.actionEvidenceModel).toBe("policy-triggered-round-actions-v1");
+    // The historical v1 identity and checksum remain frozen constants.
+    expect(GRID_ACTIVATION_READINESS_SUITE_ID_V1).toBe("grid-activation-readiness-v1");
+    expect(GRID_ACTIVATION_READINESS_V1_SUITE_CHECKSUM).toBe(FROZEN_V1_SUITE_CHECKSUM);
   });
 
   it("rejects a plan that does not yield exactly 312 runs", () => {

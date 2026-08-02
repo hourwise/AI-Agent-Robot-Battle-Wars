@@ -8,6 +8,7 @@ import {
   type GridReadinessSeedRegistry,
 } from "./seed-registry.js";
 import {
+  deepFreezeReadinessValue,
   gridReadinessScenarioRegistryChecksum,
   type GridReadinessScenarioRegistry,
 } from "./scenario-registry.js";
@@ -16,21 +17,40 @@ import {
   gridActivationReadinessSuiteChecksum,
   GRID_ACTIVATION_READINESS_RUN_COUNT,
   GRID_ACTIVATION_READINESS_SUITE_ID,
+  GRID_ACTIVATION_READINESS_SUITE_ID_V1,
+  GRID_READINESS_ACTION_EVIDENCE_MODEL,
 } from "./run-plan.js";
 import {
   deserializeGridActivationReadinessRunIndex,
   deserializeGridActivationReadinessMatchRecords,
   deserializeGridActivationReadinessFactualReports,
-  type GridActivationReadinessRunIndexEnvelope,
+  type GridActivationReadinessRunIndexEnvelopeV2,
   type GridActivationReadinessMatchRecordsEnvelope,
   type GridActivationReadinessFactualReportsEnvelope,
 } from "./envelopes.schema.js";
-import { deserializeGridActivationReadinessMetrics } from "./metrics.js";
+import {
+  deserializeGridActivationReadinessMetrics,
+  recomputeGridActivationReadinessMetricsFromArtifacts,
+  stripGridActivationReadinessMetricsV2,
+  type GridActivationReadinessMetrics,
+  type GridActivationReadinessMetricsV2Artifact,
+} from "./metrics.js";
 import {
   deserializeGridActivationReadinessDecision,
   GRID_ACTIVATION_READINESS_DISCLAIMER,
-  type GridActivationReadinessDecisionV1,
+  type GridActivationReadinessDecisionV2,
 } from "./decision.js";
+import {
+  inspectGridReadinessRecordEvidence,
+  recomputeGridActivationReadinessRunChecksums,
+  type GridActivationReadinessRunEvidence,
+} from "./record-evidence.js";
+import {
+  evaluateGridActivationReadinessGates,
+  type GridActivationReadinessGateResults,
+} from "./gates.js";
+import { deriveGridActivationReadinessDecision } from "./decision.js";
+import { buildGridActivationReadinessReport } from "./report.js";
 
 /**
  * Grid activation-readiness immutable evaluation bundle (Milestone 0.2C Phase
@@ -184,6 +204,8 @@ export function deserializeGridActivationReadinessScenarioRegistry(
     const result = readinessScenarioArtifactSchema.safeParse(data);
     if (!result.success) return { ok: false, errors: result.error.message };
     const artifact = result.data;
+    // Reconstruct with the same deep-freeze and no-shared-reference
+    // guarantees as the live registry factory.
     const registry: GridReadinessScenarioRegistry = Object.freeze({
       registryId: artifact.registryId,
       simulatorVersion: artifact.simulatorVersion,
@@ -195,13 +217,15 @@ export function deserializeGridActivationReadinessScenarioRegistry(
           Object.freeze({
             scenarioId: scenario.scenarioId,
             familyName: scenario.familyName,
-            fighterX: Object.freeze(scenario.fighterX),
-            fighterY: Object.freeze(scenario.fighterY),
+            fighterX: deepFreezeReadinessValue(scenario.fighterX),
+            fighterY: deepFreezeReadinessValue(scenario.fighterY),
           }),
         ),
       ),
       assignments: Object.freeze(
-        artifact.assignments.map((assignment) => Object.freeze(assignment)),
+        artifact.assignments.map((assignment) =>
+          deepFreezeReadinessValue(assignment),
+        ),
       ),
     });
     return { ok: true, registry };
@@ -210,13 +234,27 @@ export function deserializeGridActivationReadinessScenarioRegistry(
   }
 }
 
-// ── manifest v1 ─────────────────────────────────────────────────────────────
+// ── manifest v2 (current) and v1 (historical) ───────────────────────────────
 
-export const gridActivationReadinessManifestSchema = z
+const manifestArtifactsSchema = z.object({
+  manifest: z.literal(GRID_READINESS_MANIFEST_FILE),
+  seedRegistry: z.literal(GRID_READINESS_SEED_REGISTRY_ARTIFACT),
+  scenarioRegistry: z.literal(GRID_READINESS_SCENARIO_REGISTRY_ARTIFACT),
+  runIndex: z.literal(GRID_READINESS_RUN_INDEX_ARTIFACT),
+  matchRecords: z.literal(GRID_READINESS_MATCH_RECORDS_ARTIFACT),
+  factualReports: z.literal(GRID_READINESS_FACTUAL_REPORTS_ARTIFACT),
+  metrics: z.literal(GRID_READINESS_METRICS_ARTIFACT),
+  decision: z.literal(GRID_READINESS_DECISION_ARTIFACT),
+  report: z.literal(GRID_READINESS_REPORT_ARTIFACT),
+});
+
+/** Current manifest v2 schema (suite v2, action-evidence model). */
+export const gridActivationReadinessManifestV2Schema = z
   .object({
-    schemaVersion: z.literal("1"),
+    schemaVersion: z.literal("2"),
     evaluationKind: z.literal("grid-activation-readiness"),
     suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID),
+    actionEvidenceModel: z.literal(GRID_READINESS_ACTION_EVIDENCE_MODEL),
     evaluationId: z.string().uuid(),
     createdAt: z.string().min(1),
     simulatorVersion: z.literal("0.3.0"),
@@ -235,17 +273,46 @@ export const gridActivationReadinessManifestSchema = z
     decisionChecksum: z.string().regex(/^[a-f0-9]{64}$/),
     reportChecksum: z.string().regex(/^[a-f0-9]{64}$/),
     decision: z.enum(["ready_for_opt_in_beta_review", "inconclusive", "not_ready"]),
-    artifacts: z.object({
-      manifest: z.literal(GRID_READINESS_MANIFEST_FILE),
-      seedRegistry: z.literal(GRID_READINESS_SEED_REGISTRY_ARTIFACT),
-      scenarioRegistry: z.literal(GRID_READINESS_SCENARIO_REGISTRY_ARTIFACT),
-      runIndex: z.literal(GRID_READINESS_RUN_INDEX_ARTIFACT),
-      matchRecords: z.literal(GRID_READINESS_MATCH_RECORDS_ARTIFACT),
-      factualReports: z.literal(GRID_READINESS_FACTUAL_REPORTS_ARTIFACT),
-      metrics: z.literal(GRID_READINESS_METRICS_ARTIFACT),
-      decision: z.literal(GRID_READINESS_DECISION_ARTIFACT),
-      report: z.literal(GRID_READINESS_REPORT_ARTIFACT),
+    artifacts: manifestArtifactsSchema,
+    digests: z.record(z.string(), z.string().regex(/^[a-f0-9]{64}$/)),
+    evidence: z.object({
+      deterministicReexecutionPassed: z.literal(true),
+      inputsUnmodified: z.literal(true),
+      fullBundleReadBackPassed: z.literal(true),
+      legacyIsolationRegressionPassed: z.literal(true),
     }),
+  })
+  .strict();
+
+export type GridActivationReadinessManifestV2 = z.infer<
+  typeof gridActivationReadinessManifestV2Schema
+>;
+
+/** Historical manifest v1 schema, retained for historical parsers only. */
+export const gridActivationReadinessManifestV1Schema = z
+  .object({
+    schemaVersion: z.literal("1"),
+    evaluationKind: z.literal("grid-activation-readiness"),
+    suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID_V1),
+    evaluationId: z.string().uuid(),
+    createdAt: z.string().min(1),
+    simulatorVersion: z.literal("0.3.0"),
+    positioningModel: z.literal("grid-3x3-v1"),
+    rulesetVersion: z.literal("0.2.0"),
+    catalogueVersion: z.literal("1"),
+    seedCount: z.literal(24),
+    scenarioCount: z.literal(7),
+    assignmentCount: z.literal(13),
+    runCount: z.literal(GRID_ACTIVATION_READINESS_RUN_COUNT),
+    seedRegistryId: z.literal("grid-readiness-development-v1"),
+    seedRegistryChecksum: z.string().regex(/^[a-f0-9]{64}$/),
+    scenarioRegistryId: z.literal("grid-readiness-scenarios-v1"),
+    scenarioRegistryChecksum: z.string().regex(/^[a-f0-9]{64}$/),
+    suiteChecksum: z.string().regex(/^[a-f0-9]{64}$/),
+    decisionChecksum: z.string().regex(/^[a-f0-9]{64}$/),
+    reportChecksum: z.string().regex(/^[a-f0-9]{64}$/),
+    decision: z.enum(["ready_for_opt_in_beta_review", "inconclusive", "not_ready"]),
+    artifacts: manifestArtifactsSchema,
     digests: z.record(z.string(), z.string().regex(/^[a-f0-9]{64}$/)),
     evidence: z.object({
       allArtifactsReadBack: z.literal(true),
@@ -256,8 +323,11 @@ export const gridActivationReadinessManifestSchema = z
   .strict();
 
 export type GridActivationReadinessManifestV1 = z.infer<
-  typeof gridActivationReadinessManifestSchema
+  typeof gridActivationReadinessManifestV1Schema
 >;
+
+/** Current manifest artifact type (v2). */
+export type GridActivationReadinessManifestV2Artifact = GridActivationReadinessManifestV2;
 
 export class GridActivationReadinessBundleError extends Error {
   constructor(message: string) {
@@ -272,7 +342,7 @@ export interface BuildGridActivationReadinessManifestInput {
   seedRegistry: GridReadinessSeedRegistry;
   scenarioRegistry: GridReadinessScenarioRegistry;
   suiteChecksum: string;
-  decision: GridActivationReadinessDecisionV1;
+  decision: GridActivationReadinessDecisionV2;
   /** SHA-256 digest of every non-manifest artifact, keyed by artifact name. */
   digests: Record<string, string>;
   decisionChecksum: string;
@@ -281,11 +351,12 @@ export interface BuildGridActivationReadinessManifestInput {
 
 export function buildGridActivationReadinessManifest(
   input: BuildGridActivationReadinessManifestInput,
-): GridActivationReadinessManifestV1 {
-  const manifest: GridActivationReadinessManifestV1 = {
-    schemaVersion: "1",
+): GridActivationReadinessManifestV2 {
+  const manifest: GridActivationReadinessManifestV2 = {
+    schemaVersion: "2",
     evaluationKind: "grid-activation-readiness",
     suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
+    actionEvidenceModel: GRID_READINESS_ACTION_EVIDENCE_MODEL,
     evaluationId: input.evaluationId,
     createdAt: input.createdAt,
     simulatorVersion: "0.3.0",
@@ -319,38 +390,53 @@ export function buildGridActivationReadinessManifest(
     },
     digests: { ...input.digests },
     evidence: {
-      allArtifactsReadBack: true,
-      bundleCrossAgreementPassed: true,
       deterministicReexecutionPassed: true,
+      inputsUnmodified: true,
+      fullBundleReadBackPassed: true,
+      legacyIsolationRegressionPassed: true,
     },
   };
   const parsed = deserializeGridActivationReadinessManifest(
     serializeGridActivationReadinessManifest(manifest),
   );
-  if (!parsed.ok) {
+  if (!parsed.ok || parsed.schemaVersion !== "2") {
     throw new GridActivationReadinessBundleError(
-      `Grid activation readiness manifest failed its authoritative schema: ${parsed.errors}`,
+      `Grid activation readiness manifest failed its authoritative v2 schema: ${parsed.ok ? "not v2" : parsed.errors}`,
     );
   }
-  return parsed.manifest;
+  return parsed.manifest as GridActivationReadinessManifestV2;
 }
 
 export function serializeGridActivationReadinessManifest(
-  manifest: GridActivationReadinessManifestV1,
+  manifest: GridActivationReadinessManifestV2 | GridActivationReadinessManifestV1,
 ): string {
   return JSON.stringify(manifest, null, 2);
 }
 
+/**
+ * Version-aware manifest deserializer. Reads both the current v2 contract and
+ * the historical v1 contract. Only v2 is accepted as current
+ * activation-readiness evidence.
+ */
 export function deserializeGridActivationReadinessManifest(
   json: string,
 ):
-  | { ok: true; manifest: GridActivationReadinessManifestV1 }
+  | {
+      ok: true;
+      manifest: GridActivationReadinessManifestV2 | GridActivationReadinessManifestV1;
+      schemaVersion: "1" | "2";
+    }
   | { ok: false; errors: string } {
   try {
     const data = JSON.parse(json) as unknown;
-    const result = gridActivationReadinessManifestSchema.safeParse(data);
-    if (result.success) return { ok: true, manifest: result.data };
-    return { ok: false, errors: result.error.message };
+    const v2 = gridActivationReadinessManifestV2Schema.safeParse(data);
+    if (v2.success) return { ok: true, manifest: v2.data, schemaVersion: "2" };
+    const v1 = gridActivationReadinessManifestV1Schema.safeParse(data);
+    if (v1.success) return { ok: true, manifest: v1.data, schemaVersion: "1" };
+    return {
+      ok: false,
+      errors: `manifest matched neither v2 (${v2.error.message}) nor v1 (${v1.error.message})`,
+    };
   } catch (e) {
     return { ok: false, errors: e instanceof SyntaxError ? e.message : String(e) };
   }
@@ -404,16 +490,40 @@ function buildProposalMatches(recordBuild: unknown, expectedProposal: unknown): 
 export interface GridActivationReadinessCoreArtifactsInput {
   seedRegistry: GridReadinessSeedRegistry;
   scenarioRegistry: GridReadinessScenarioRegistry;
-  runIndex: GridActivationReadinessRunIndexEnvelope;
+  runIndex: GridActivationReadinessRunIndexEnvelopeV2;
   records: GridActivationReadinessMatchRecordsEnvelope;
   reports: GridActivationReadinessFactualReportsEnvelope;
+}
+
+/** Compares recomputed evidence with a persisted v2 run-index entry. */
+function evidenceMatchesRunIndexEntry(
+  evidence: GridActivationReadinessRunEvidence,
+  entry: GridActivationReadinessRunIndexEnvelopeV2["items"][number],
+): boolean {
+  return (
+    sameJson(evidence.actionCounts, entry.actionCounts) &&
+    sameJson(evidence.selectedMovementActionCounts, entry.selectedMovementActionCounts) &&
+    sameJson(evidence.selectedCombatActionCounts, entry.selectedCombatActionCounts) &&
+    sameJson(evidence.translatedActionCounts, entry.translatedActionCounts) &&
+    evidence.stationaryHoldCount ===
+      (entry.actionCounts.hold ?? 0) &&
+    sameJson(evidence.zoneVisits, entry.zoneVisits) &&
+    sameJson(evidence.bearingCounts, entry.bearingCounts) &&
+    sameJson(evidence.exposedPlanarArmourZoneCounts, entry.exposedPlanarArmourZoneCounts) &&
+    sameJson(evidence.eventTypeCounts, entry.eventTypeCounts) &&
+    evidence.maximumConsecutiveNoProgressRounds ===
+      entry.maximumConsecutiveNoProgressRounds
+  );
 }
 
 /**
  * Core cross-agreement validation of the records/reports/run-index against
  * the persisted registries. This subset does not require the manifest or the
  * decision, so it can run before the decision is built (feeding the H09 gate)
- * and is reused by the full bundle validator.
+ * and is reused by the full bundle validator. For every run it also
+ * recomputes the authoritative per-run evidence and the derived artifact
+ * checksums from the persisted record/report pair and requires exact
+ * agreement with the persisted run-index entry (Phase 7).
  */
 export function validateGridActivationReadinessCoreArtifacts(
   input: GridActivationReadinessCoreArtifactsInput,
@@ -534,6 +644,38 @@ export function validateGridActivationReadinessCoreArtifacts(
         `${label} fighterB build/policy does not match the scenario assignment`,
       );
     }
+
+    // Phase 7: recompute the authoritative per-run evidence and the derived
+    // artifact checksums from the persisted record/report pair.
+    let recomputedEvidence: GridActivationReadinessRunEvidence;
+    try {
+      recomputedEvidence = inspectGridReadinessRecordEvidence(record);
+    } catch (e) {
+      check(
+        failures,
+        false,
+        `${label} persisted record failed the record-evidence inspector: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      continue;
+    }
+    check(
+      failures,
+      evidenceMatchesRunIndexEntry(recomputedEvidence, entry),
+      `${label} recomputed per-run evidence does not match the persisted run-index entry`,
+    );
+    const recomputedChecksums = recomputeGridActivationReadinessRunChecksums(
+      record,
+      report,
+    );
+    check(
+      failures,
+      recomputedChecksums.recordChecksum === entry.recordChecksum &&
+        recomputedChecksums.reportChecksum === entry.reportChecksum &&
+        recomputedChecksums.textReplayChecksum === entry.textReplayChecksum &&
+        recomputedChecksums.asciiReplayChecksum === entry.asciiReplayChecksum &&
+        recomputedChecksums.reviewPromptChecksum === entry.reviewPromptChecksum,
+      `${label} recomputed artifact checksums do not match the persisted run-index entry`,
+    );
   }
 
   if (failures.length > 0) {
@@ -545,17 +687,25 @@ export function validateGridActivationReadinessCoreArtifacts(
 
 export interface GridActivationReadinessBundleValidationResult {
   evaluationId: string;
-  decision: GridActivationReadinessDecisionV1["decision"];
+  decision: "ready_for_opt_in_beta_review" | "inconclusive" | "not_ready";
   digestAgreement: true;
 }
 
 /**
- * Pure cross-agreement validation of the complete read-back bundle. Parses
- * every artifact through its authoritative schema, verifies every manifest
- * digest and checksum, verifies cross-envelope identity/ordering/result
- * agreement, recomputes the run plan from the persisted registries, binds each
- * run's record/report to its scenario assignment, and fails closed on any
- * disagreement.
+ * Pure cross-agreement validation of the complete read-back bundle (Phase 11).
+ *
+ * Establishes the provenance chain:
+ *
+ *   seed registry + scenario registry → exact run plan → each persisted match
+ *   record and report → recomputed per-run evidence and render checksums →
+ *   recomputed metrics → recomputed gates → recomputed decision → regenerated
+ *   report → manifest identity and digests.
+ *
+ * All nine artifacts participate. A bundle is invalid when any derived
+ * artifact disagrees with the persisted records, even when every file is
+ * schema-valid and all manifest digests have been updated coherently.
+ * Historical v1 artifacts parse through the version-aware deserializers but
+ * are rejected as current v2 evidence.
  */
 export function validateGridActivationReadinessBundle(
   contents: Record<string, string>,
@@ -628,23 +778,47 @@ export function validateGridActivationReadinessBundle(
     failures.push(`invalid decision: ${decisionParsed.errors}`);
   }
 
+  // Current v2 evidence only: historical v1 artifacts parse but are rejected
+  // as current activation-readiness evidence.
+  if (manifestParsed.ok && manifestParsed.schemaVersion !== "2") {
+    failures.push("manifest is historical v1; only v2 is current readiness evidence");
+  }
+  if (runIndexParsed && runIndexParsed.ok && runIndexParsed.schemaVersion !== "2") {
+    failures.push(
+      "run-index is historical v1; only v2 selected-action evidence is current",
+    );
+  }
+  if (metricsParsed && metricsParsed.ok && metricsParsed.schemaVersion !== "2") {
+    failures.push("metrics is historical v1; only v2 is current readiness evidence");
+  }
+  if (decisionParsed && decisionParsed.ok && decisionParsed.schemaVersion !== "2") {
+    failures.push("decision is historical v1; only v2 is current readiness evidence");
+  }
+
   if (failures.length > 0) {
     throw new GridActivationReadinessBundleError(
       `Grid activation readiness bundle validation failed: ${failures.join("; ")}`,
     );
   }
 
-  const manifest = manifestParsed.ok ? manifestParsed.manifest : null;
+  const manifest = manifestParsed.ok
+    ? (manifestParsed.manifest as GridActivationReadinessManifestV2)
+    : null;
   const seedRegistry = seedParsed;
   const scenarioRegistry =
     scenarioParsed && scenarioParsed.ok ? scenarioParsed.registry : null;
-  const runIndex = runIndexParsed && runIndexParsed.ok ? runIndexParsed.envelope : null;
+  const runIndex =
+    runIndexParsed && runIndexParsed.ok
+      ? (runIndexParsed.envelope as GridActivationReadinessRunIndexEnvelopeV2)
+      : null;
   const records = recordsParsed && recordsParsed.ok ? recordsParsed.envelope : null;
   const reports = reportsParsed && reportsParsed.ok ? reportsParsed.envelope : null;
+  const metrics =
+    metricsParsed && metricsParsed.ok
+      ? (metricsParsed.metrics as GridActivationReadinessMetricsV2Artifact)
+      : null;
   const decision = decisionParsed && decisionParsed.ok ? decisionParsed.decision : null;
 
-  // All artifacts parsed: the failure check above guarantees these are
-  // non-null, so the core cross-agreement and manifest checks may proceed.
   if (
     manifest === null ||
     seedRegistry === null ||
@@ -652,10 +826,11 @@ export function validateGridActivationReadinessBundle(
     runIndex === null ||
     records === null ||
     reports === null ||
+    metrics === null ||
     decision === null
   ) {
     throw new GridActivationReadinessBundleError(
-      "Grid activation readiness bundle validation failed: one or more artifacts did not parse",
+      "Grid activation readiness bundle validation failed: one or more artifacts did not parse as current v2",
     );
   }
 
@@ -697,10 +872,15 @@ export function validateGridActivationReadinessBundle(
     );
   }
 
-  // Registry/plan recomputation and full cross-envelope agreement are handled
-  // by the reusable core validator (which also binds each run's record/report
-  // to its scenario assignment).
-  if (seedRegistry && scenarioRegistry && runIndex && records && reports) {
+  // Chain: registries → exact run plan → records/reports → per-run evidence
+  // and render checksums (core validator) and the manifest suite checksum.
+  const plan = buildGridActivationReadinessRunPlan({ seedRegistry, scenarioRegistry });
+  check(
+    failures,
+    gridActivationReadinessSuiteChecksum(plan) === manifest.suiteChecksum,
+    "manifest suite checksum does not match the recomputed run plan",
+  );
+  {
     const coreFailures: string[] = [];
     try {
       validateGridActivationReadinessCoreArtifacts({
@@ -714,24 +894,134 @@ export function validateGridActivationReadinessBundle(
       coreFailures.push(e instanceof Error ? e.message : String(e));
     }
     if (coreFailures.length > 0) failures.push(...coreFailures);
-    const plan = buildGridActivationReadinessRunPlan({ seedRegistry, scenarioRegistry });
-    check(
-      failures,
-      gridActivationReadinessSuiteChecksum(plan) === manifest!.suiteChecksum,
-      "manifest suite checksum does not match the recomputed run plan",
+  }
+
+  // Chain: persisted records → recomputed metrics must equal persisted
+  // metrics (timing is supplied as informational input and validated
+  // independently).
+  let recomputedMetrics: GridActivationReadinessMetrics | null = null;
+  try {
+    recomputedMetrics = recomputeGridActivationReadinessMetricsFromArtifacts({
+      runIndex,
+      records,
+      reports,
+      persistedMetrics: metrics,
+    });
+  } catch (e) {
+    failures.push(
+      `persisted records/reports could not be re-reduced to metrics: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
+  }
+  if (recomputedMetrics !== null) {
+    // The persisted artifact carries the v2 schemaVersion/suiteId identity
+    // wrapper; the recomputation returns the plain reduced shape, so compare
+    // against the stripped persisted metrics.
+    if (!sameJson(recomputedMetrics, stripGridActivationReadinessMetricsV2(metrics))) {
+      failures.push(
+        "persisted metrics do not match the metrics recomputed from the persisted records and reports",
+      );
+    }
+    // Timing constraints: finite, non-negative, internally coherent.
+    const timing = metrics.timing;
+    if (
+      !Number.isFinite(timing.totalElapsedMs) ||
+      !Number.isFinite(timing.meanMsPerMatch) ||
+      !Number.isFinite(timing.medianMsPerMatch) ||
+      !Number.isFinite(timing.p95MsPerMatch) ||
+      timing.totalElapsedMs < 0 ||
+      timing.meanMsPerMatch < 0 ||
+      timing.medianMsPerMatch < 0 ||
+      timing.p95MsPerMatch < 0
+    ) {
+      failures.push("metrics timing values must be finite and non-negative");
+    }
+    if (
+      !(timing.meanMsPerMatch >= timing.medianMsPerMatch && timing.meanMsPerMatch <= timing.p95MsPerMatch)
+    ) {
+      failures.push("metrics timing values are not internally coherent");
+    }
+  }
+
+  if (recomputedMetrics === null) {
+    throw new GridActivationReadinessBundleError(
+      `Grid activation readiness bundle cross-agreement failed: ${failures.join("; ")}`,
     );
   }
 
-  // Decision agreement with the manifest.
-  if (decision && manifest) {
-    check(
-      failures,
-      decision.decision === manifest.decision,
-      "decision artifact decision does not match manifest decision",
+  // Chain: recomputed metrics + persisted records → recomputed gates must
+  // exactly equal the persisted decision gates.
+  const recomputedGates: GridActivationReadinessGateResults =
+    evaluateGridActivationReadinessGates({
+      metrics: recomputedMetrics,
+      results: records.items.map((record, index) => ({
+        record,
+        report: reports.items[index]!,
+      })),
+      inputsUnmodified: manifest.evidence.inputsUnmodified,
+      artifactIntegrityVerified: true,
+      legacyIsolationVerified: manifest.evidence.legacyIsolationRegressionPassed,
+    });
+  if (!sameJson(recomputedGates.gates, decision.gates)) {
+    failures.push(
+      "persisted decision gates do not match the gates recomputed from the persisted records and metrics",
+    );
+  }
+  if (recomputedGates.anyFail !== decision.gates.some((g) => g.outcome === "fail")) {
+    failures.push("persisted decision gate fail-summary does not match recomputation");
+  }
+  if (
+    recomputedGates.anyInconclusive !==
+    decision.gates.some((g) => g.outcome === "inconclusive")
+  ) {
+    failures.push("persisted decision gate inconclusive-summary does not match recomputation");
+  }
+
+  // Chain: recomputed classification must equal persisted and manifest.
+  const recomputedDecision = deriveGridActivationReadinessDecision({
+    anyFail: recomputedGates.anyFail,
+    anyInconclusive: recomputedGates.anyInconclusive,
+  });
+  check(
+    failures,
+    decision.decision === recomputedDecision,
+    "persisted decision classification does not match the recomputed classification",
+  );
+  check(
+    failures,
+    decision.decision === manifest.decision,
+    "persisted decision classification does not match the manifest classification",
+  );
+
+  // Chain: the human report must regenerate byte-for-byte from the parsed
+  // manifest identity, registries, recomputed metrics, gates and decision.
+  const regeneratedReport = buildGridActivationReadinessReport({
+    evaluationId: manifest.evaluationId,
+    suiteId: manifest.suiteId,
+    actionEvidenceModel: manifest.actionEvidenceModel,
+    createdAt: manifest.createdAt,
+    seedRegistryId: seedRegistry.registryId,
+    seedRegistryChecksum: gridReadinessSeedRegistryChecksum(seedRegistry),
+    scenarioRegistryId: scenarioRegistry.registryId,
+    scenarioRegistryChecksum: gridReadinessScenarioRegistryChecksum(scenarioRegistry),
+    suiteChecksum: manifest.suiteChecksum,
+    seedCount: seedRegistry.seeds.length,
+    scenarioCount: scenarioRegistry.scenarios.length,
+    assignmentCount: scenarioRegistry.assignments.length,
+    totalSimulations: GRID_ACTIVATION_READINESS_RUN_COUNT,
+    deterministic: true,
+    metrics: recomputedMetrics,
+    gates: recomputedGates.gates,
+    decision: recomputedDecision,
+  });
+  if (reportText !== regeneratedReport) {
+    failures.push(
+      "persisted report.txt does not byte-for-byte match the report regenerated from the persisted artifacts",
     );
   }
 
-  // Report text contract.
+  // Report text contract (defence in depth beyond byte regeneration).
   if (reportText !== undefined) {
     check(failures, reportText.length > 0, "report.txt must be non-empty");
     check(failures, !reportText.includes("\u0000"), "report.txt must not contain NUL");
@@ -759,8 +1049,8 @@ export function validateGridActivationReadinessBundle(
   }
 
   return {
-    evaluationId: manifest!.evaluationId,
-    decision: decision!.decision,
+    evaluationId: manifest.evaluationId,
+    decision: decision.decision,
     digestAgreement: true,
   };
 }

@@ -105,7 +105,14 @@ pure metrics reducer, frozen hard/coverage/slot/progress gates, a decision
 v1, a human-readable report and an immutable nine-file evaluation bundle
 under `data/readiness/grid/`, all non-benchmark, non-holding-out and
 non-activating) is implemented by the `agent/0.2c-grid-activation-readiness`
-task. The authoritative runtime
+task. Phase 3E1.1 (grid readiness evidence hardening — selected actions
+counted from `policy_triggered` events so stationary `hold` coverage is
+correctly evidenced, deep-frozen scenario registry with distinct per-scenario
+definitions, and end-to-end published-bundle recomputation of per-run
+evidence, metrics, gates, decision and report from the persisted records and
+reports as v2 artifacts, with the historical v1 bundle preserved) is
+implemented by the `agent/0.2c-grid-readiness-hardening` task. The
+authoritative runtime
 migration and live grid match production remain future, separately
 authorised phases.
 
@@ -322,7 +329,7 @@ authorised phases.
   catalogue `1`; normal match/series legacy; no provider or external API
   call; no activation-readiness evaluation; no default activation.
 - Phase 3E1 — bounded development-only grid activation-readiness evaluation:
-  **tooling complete; official development run complete; readiness
+  **v1 tooling historical; v1 official development run complete; v1
   classification `inconclusive`**. One bounded,
   deterministic, development-only evaluation answers whether the grid runtime
   is technically suitable for a separately authorised opt-in beta decision.
@@ -373,6 +380,40 @@ authorised phases.
   final readiness classification **`inconclusive`**. Nothing was tuned after
   the result; no opt-in activation decision and no default activation was
   performed.
+- Phase 3E1.1 — grid readiness evidence hardening: **complete; official v2
+  run complete; readiness classification `inconclusive`**. The v2 evidence
+  hardening corrects the action-evidence source and hardens decision
+  provenance without changing seeds, scenarios, assignments, the 312-run plan,
+  thresholds or simulator semantics; the historical v1 evaluation
+  (`864991f7-d060-4669-beec-11e0d42b7e68`, suite checksum
+  `dd38ac8a5d2e35007b4b6890418b21aca8f621f3e165fa7d158d2f179672ae5a`) is
+  preserved. Selected movement and combat actions are now derived from
+  `policy_triggered` events (exactly one per fighter per completed round;
+  selected total = `2 × completed rounds`) by the shared record-evidence
+  inspector, so stationary `hold` coverage is correctly evidenced without a
+  `movement_resolved` (C02 now passes; `hold` selected count 4373); ordinary
+  `movement_resolved` must agree with the actor's selected policy movement,
+  and knockback/grapple are target-subject events that are never selected
+  actions. The scenario registry is deeply frozen (every nested build
+  proposal, armour object and policy is a distinct deeply frozen clone with
+  no shared references; checksum unchanged). The published bundle is
+  revalidated end-to-end: per-run evidence and render checksums are
+  recomputed from the persisted records, then metrics, gates, the decision
+  and `report.txt` byte-for-byte; run-index v2 carries
+  `selectedMovementActionCounts`/`selectedCombatActionCounts` and metrics/
+  decision/manifest are v2 artifacts (suite `grid-activation-readiness-v2`,
+  action-evidence model `policy-triggered-round-actions-v1`); v1 artifacts
+  parse but are rejected as current evidence. Exactly one official v2 run
+  executed (`evaluationId d788284d-a795-4125-984c-9146261e271a`, bundle
+  under `data/readiness/grid/d788284d-a795-4125-984c-9146261e271a/`, suite
+  checksum `df9444101ca68f7b7ca9fef24adfe8575363ef744e9f37b4449b111e0bb29fd9`):
+  determinism passed, all hard (H01–H10), slot-order (S01–S03), progress
+  (P01–P02) and coverage gates except C04 passed (C02 now passes via
+  `policy_triggered` evidence), and coverage gate **C04** (no grapple
+  reposition was observed) was **inconclusive**, producing the final
+  readiness classification **`inconclusive`**. No supplemental grapple
+  scenario was added; nothing was tuned after the result; no opt-in
+  activation decision and no default activation was performed.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not
