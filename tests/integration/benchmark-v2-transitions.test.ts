@@ -82,10 +82,13 @@ describe("synthetic benchmark — v2 transition detection", () => {
     // Check that v2 events exist
     const damagedEvents = match.events.filter((e) => e.type === "component_damaged");
     const disabledEvents = match.events.filter((e) => e.type === "component_disabled");
-    const resistedEvents = match.events.filter((e) => e.type === "component_damage_resisted");
+    const resistedEvents = match.events.filter(
+      (e) => e.type === "component_damage_resisted",
+    );
 
     // At least one transition should occur with these builds
-    const totalTransitions = damagedEvents.length + disabledEvents.length + resistedEvents.length;
+    const totalTransitions =
+      damagedEvents.length + disabledEvents.length + resistedEvents.length;
     expect(totalTransitions).toBeGreaterThan(0);
   });
 
@@ -99,8 +102,8 @@ describe("synthetic benchmark — v2 transition detection", () => {
     const anyTransition = results.some(
       (r) =>
         r.componentDamagedTransitions +
-        r.componentDisabledTransitions +
-        r.componentResistedTransitions >
+          r.componentDisabledTransitions +
+          r.componentResistedTransitions >
         0,
     );
     expect(anyTransition).toBe(true);
@@ -138,7 +141,9 @@ describe("synthetic benchmark — v2 transition detection", () => {
 
     const damagedEvents = match.events.filter((e) => e.type === "component_damaged");
     const disabledEvents = match.events.filter((e) => e.type === "component_disabled");
-    const resistedEvents = match.events.filter((e) => e.type === "component_damage_resisted");
+    const resistedEvents = match.events.filter(
+      (e) => e.type === "component_damage_resisted",
+    );
 
     // With Bulwark 60 front armour, effective damage = 1 for all hits
     // 1 < 10 (critical threshold) and 1 < 35 (high-damage threshold)
@@ -146,7 +151,11 @@ describe("synthetic benchmark — v2 transition detection", () => {
     expect(damagedEvents.length + disabledEvents.length + resistedEvents.length).toBe(0);
     const attackHits = match.events.filter((event) => event.type === "attack_hit");
     expect(attackHits.length).toBeGreaterThan(0);
-    expect(attackHits.every((event) => event.data.componentQualificationId === "component-impact-c2")).toBe(true);
+    expect(
+      attackHits.every(
+        (event) => event.data.componentQualificationId === "component-impact-c2",
+      ),
+    ).toBe(true);
     // Resisted events also require qualification, so 0 expected
   });
 

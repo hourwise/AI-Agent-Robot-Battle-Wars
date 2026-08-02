@@ -36,6 +36,15 @@ export const GRID_READINESS_SCENARIO_REGISTRY_ID = "grid-readiness-scenarios-v1"
 export const GRID_READINESS_SCENARIO_COUNT = 7 as const;
 export const GRID_READINESS_ASSIGNMENT_COUNT = 13 as const;
 
+/**
+ * The frozen canonical checksum of the authoritative scenario registry
+ * (Milestone 0.2C Phase 3E1.2). A persisted scenario registry is canonical
+ * exactly when it is structurally equal to a freshly created canonical
+ * registry AND its canonical checksum equals this value.
+ */
+export const GRID_READINESS_CANONICAL_SCENARIO_REGISTRY_CHECKSUM =
+  "b07270171f6e38efac2d1992f051d7bd881e323c00cee92b9caa9490ddb85b67" as const;
+
 export type GridReadinessCompetitor = "x" | "y";
 
 export interface ReadinessFighterDefinition {
@@ -565,4 +574,37 @@ export function gridReadinessScenarioRegistryChecksum(
     })),
   });
   return sha256Hex(canonical);
+}
+
+/**
+ * Pure canonical assertion (Phase 3E1.2). Requires exact structural equality
+ * with a freshly created canonical registry from
+ * `createGridReadinessScenarioRegistry()` AND the known canonical checksum
+ * `b0727017...`. The structural comparison covers the runtime identity,
+ * scenario IDs and order, family names, every fighter display name, every
+ * complete build proposal (including every armour value), every complete
+ * policy, every assignment ID, assignment order, role mapping and
+ * role-swapped flags. A self-consistent alternate scenario registry is never
+ * accepted. Preserves the Phase 3E1.1 deep-freeze and distinct-reference
+ * guarantees (a fresh canonical registry is built and compared structurally).
+ */
+export function assertCanonicalGridReadinessScenarioRegistry(
+  registry: GridReadinessScenarioRegistry,
+): void {
+  const canonical = createGridReadinessScenarioRegistry();
+  // Exact structural equality over every covered field (JSON.stringify of the
+  // canonical registry shape covers runtime identity, scenarios in order with
+  // fighterX/fighterY display names, build proposals, armour values and
+  // policies, and assignments in order with role mapping and swapped flags).
+  if (JSON.stringify(registry) !== JSON.stringify(canonical)) {
+    throw new GridReadinessScenarioRegistryError(
+      "Grid readiness scenario registry is not structurally equal to the canonical scenario registry",
+    );
+  }
+  const checksum = gridReadinessScenarioRegistryChecksum(registry);
+  if (checksum !== GRID_READINESS_CANONICAL_SCENARIO_REGISTRY_CHECKSUM) {
+    throw new GridReadinessScenarioRegistryError(
+      `Grid readiness scenario registry checksum does not match the canonical registry: expected ${GRID_READINESS_CANONICAL_SCENARIO_REGISTRY_CHECKSUM}, received ${checksum}`,
+    );
+  }
 }

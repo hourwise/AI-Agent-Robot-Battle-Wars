@@ -96,16 +96,18 @@ describe("grid activation-readiness CLI (Phase 3E1)", () => {
     for (const file of readinessFiles) {
       const source = read(file);
       for (const forbidden of forbiddenImports) {
-        expect(
-          source.includes(forbidden),
-          `${file} must not import ${forbidden}`,
-        ).toBe(false);
+        expect(source.includes(forbidden), `${file} must not import ${forbidden}`).toBe(
+          false,
+        );
       }
       expect(
         source.includes("benchmark-100-v1.json"),
         `${file} must not reference the benchmark seed bank`,
       ).toBe(false);
-      expect(source.includes("--partition"), `${file} must not use partition selectors`).toBe(false);
+      expect(
+        source.includes("--partition"),
+        `${file} must not use partition selectors`,
+      ).toBe(false);
     }
   });
 
@@ -117,7 +119,9 @@ describe("grid activation-readiness CLI (Phase 3E1)", () => {
     ];
     for (const file of readinessFiles) {
       const source = read(file);
-      expect(source.includes("ArenaAgent"), `${file} must not import ArenaAgent`).toBe(false);
+      expect(source.includes("ArenaAgent"), `${file} must not import ArenaAgent`).toBe(
+        false,
+      );
       expect(source.includes("deepseek"), `${file} must not call a provider`).toBe(false);
     }
   });

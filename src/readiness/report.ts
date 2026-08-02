@@ -18,6 +18,7 @@ export interface BuildGridActivationReadinessReportInput {
   evaluationId: string;
   suiteId: string;
   actionEvidenceModel: string;
+  provenanceModel: string;
   createdAt: string;
   seedRegistryId: string;
   seedRegistryChecksum: string;
@@ -52,6 +53,7 @@ export function buildGridActivationReadinessReport(
   lines.push(`Evaluation ID: ${input.evaluationId}`);
   lines.push(`Suite ID: ${input.suiteId}`);
   lines.push(`Action evidence model: ${input.actionEvidenceModel}`);
+  lines.push(`Provenance model: ${input.provenanceModel}`);
   lines.push(`Created: ${input.createdAt}`);
   lines.push(
     `Runtime identity: simulator ${"0.3.0"} (${"grid-3x3-v1"}) / ruleset ${"0.2.0"} / catalogue ${"1"}`,

@@ -93,11 +93,15 @@ describe("grid activation-readiness service integration (Phase 3E1)", () => {
       expect(manifest!.evidence.fullBundleReadBackPassed).toBe(true);
       expect(manifest!.evidence.legacyIsolationRegressionPassed).toBe(true);
       expect(manifest!.actionEvidenceModel).toBe("policy-triggered-round-actions-v1");
+      expect(manifest!.provenanceModel).toBe(
+        "canonical-registry-record-derived-decision-v1",
+      );
+      expect(manifest!.schemaVersion).toBe("3");
 
       // Decision artifact and report.
       const decisionText = contents[GRID_READINESS_DECISION_ARTIFACT]!;
       expect(JSON.parse(decisionText)).toMatchObject({
-        schemaVersion: "2",
+        schemaVersion: "3",
         evaluationKind: "grid-activation-readiness",
         suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
         decision: outcome.decision,

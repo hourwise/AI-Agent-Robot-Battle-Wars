@@ -9,9 +9,7 @@ import {
   buildGridActivationReadinessDecision,
 } from "../../src/readiness/decision.js";
 import type { GridActivationReadinessMetrics } from "../../src/readiness/metrics.js";
-import type {
-  GridActivationReadinessRunResult,
-} from "../../src/readiness/execution-core.js";
+import type { GridActivationReadinessRunResult } from "../../src/readiness/execution-core.js";
 
 function baseMetrics(): GridActivationReadinessMetrics {
   return {
@@ -164,6 +162,7 @@ function evaluate(
   overrides: {
     metrics?: GridActivationReadinessMetrics;
     results?: GridActivationReadinessRunResult[];
+    deterministicReexecutionPassed?: boolean;
     inputsUnmodified?: boolean;
     artifactIntegrityVerified?: boolean;
     legacyIsolationVerified?: boolean;
@@ -175,9 +174,12 @@ function evaluate(
       record: run.record,
       report: run.report,
     })),
-    inputsUnmodified: overrides.inputsUnmodified ?? true,
-    artifactIntegrityVerified: overrides.artifactIntegrityVerified ?? true,
-    legacyIsolationVerified: overrides.legacyIsolationVerified ?? true,
+    operational: {
+      deterministicReexecutionPassed: overrides.deterministicReexecutionPassed ?? true,
+      inputsUnmodified: overrides.inputsUnmodified ?? true,
+      artifactIntegrityVerified: overrides.artifactIntegrityVerified ?? true,
+      legacyIsolationVerified: overrides.legacyIsolationVerified ?? true,
+    },
   });
 }
 
@@ -206,10 +208,11 @@ describe("grid activation readiness gates (Phase 3E1)", () => {
     expect(gate(evaluate({ metrics }), "H01").outcome).toBe("fail");
   });
 
-  it("H02 fails when determinism is not verified", () => {
-    const metrics = baseMetrics();
-    metrics.execution.deterministicMatches = 0;
-    expect(gate(evaluate({ metrics }), "H02").outcome).toBe("fail");
+  it("H02 fails when the deterministic-reexecution attestation is false", () => {
+    expect(gate(evaluate({ deterministicReexecutionPassed: false }), "H02").outcome).toBe(
+      "fail",
+    );
+    expect(gate(evaluate(), "H02").outcome).toBe("pass");
   });
 
   it("H03 fails on a record identity mismatch", () => {
@@ -224,7 +227,7 @@ describe("grid activation readiness gates (Phase 3E1)", () => {
     expect(gate(evaluate({ results: [run] }), "H04").outcome).toBe("fail");
   });
 
-  it("H05 fails when replay agreement is not complete", () => {
+  it("H05 fails when complete report/final-state agreement is not complete", () => {
     const metrics = baseMetrics();
     metrics.execution.replayAgreeingMatches = 311;
     expect(gate(evaluate({ metrics }), "H05").outcome).toBe("fail");
@@ -236,11 +239,9 @@ describe("grid activation readiness gates (Phase 3E1)", () => {
     expect(gate(evaluate({ metrics }), "H06").outcome).toBe("fail");
   });
 
-  it("H07 fails on input mutation", () => {
+  it("H07 fails when the input-immutability attestation is false", () => {
     expect(gate(evaluate({ inputsUnmodified: false }), "H07").outcome).toBe("fail");
-    const metrics = baseMetrics();
-    metrics.execution.mutationFailures = 1;
-    expect(gate(evaluate({ metrics }), "H07").outcome).toBe("fail");
+    expect(gate(evaluate(), "H07").outcome).toBe("pass");
   });
 
   it("H08 fails only above 10 consecutive no-progress rounds", () => {
@@ -353,9 +354,9 @@ describe("grid activation readiness gates (Phase 3E1)", () => {
       anyFail: results.anyFail,
       anyInconclusive: results.anyInconclusive,
     });
-    expect(decision.schemaVersion).toBe("2");
+    expect(decision.schemaVersion).toBe("3");
     expect(decision.evaluationKind).toBe("grid-activation-readiness");
-    expect(decision.suiteId).toBe("grid-activation-readiness-v2");
+    expect(decision.suiteId).toBe("grid-activation-readiness-v3");
     expect(decision.status).toBe("completed");
     expect(decision.decision).toBe("ready_for_opt_in_beta_review");
     expect(decision.gates.length).toBe(21);

@@ -640,7 +640,11 @@ permission to activate grid.
   values. The numeric range is reserved for grid-readiness development and
   must not be used by future benchmark or held-out registries; the registry
   is never read through a benchmark seed bank and the readiness command never
-  opens any existing benchmark seed file.
+  opens any existing benchmark seed file. Since Phase 3E1.2
+  `assertCanonicalGridReadinessSeedRegistry` anchors the exact canonical
+  registry (metadata identity, exactly 24 seeds in the exact order, the exact
+  reserved domain and the exact canonical checksum `54acf015...` as the
+  single-source anchor).
 - `src/readiness/scenario-registry.ts` — the frozen scenario registry
   (`grid-readiness-scenarios-v1`): seven families and thirteen assignments
   (one Bulwark-mirror assignment plus six role-swapped pairs — Flanker,
@@ -652,12 +656,16 @@ permission to activate grid.
   armour object and policy is a distinct deeply frozen clone (equal Bulwark
   definitions and the mirror X/Y never share references); deserialized
   registries reconstruct the same guarantees and the canonical checksum is
-  unchanged.
+  unchanged. Since Phase 3E1.2
+  `assertCanonicalGridReadinessScenarioRegistry` requires exact structural
+  equality with a freshly created canonical registry and the exact canonical
+  checksum `b0727017...`.
 - `src/readiness/run-plan.ts` — the exact run-plan builder: 312 primary runs
   (24 seeds × 13 assignments) ordered scenario → assignment → seed with a
   unique `(scenarioId, assignmentId, seed)` tuple, no shuffling, frozen plan
-  and entries, and a deterministic suite checksum that includes the registry
-  IDs, registry checksums, runtime identity and ordered runs.
+  and entries, and a deterministic suite checksum that includes the suite ID,
+  action-evidence model, provenance model (`canonical-registry-record-derived-decision-v1`),
+  registry IDs and checksums, runtime identity and ordered runs.
 - `src/readiness/execution-core.ts` — the pure execution core. Calls
   `runGridMatch` directly; requires the exact grid runtime identity
   `0.3.0 / grid-3x3-v1 / 0.2.0 / 1` and `1 ≤ rounds ≤ MAX_ROUNDS`; validates
@@ -672,16 +680,22 @@ permission to activate grid.
   from `policy_triggered` selected actions (stationary `hold` needs no
   `movement_resolved`; selected total = `2 × completed rounds`; knockback/
   grapple are target-subject and never selected actions), and render checksums
-  are recomputed from the persisted record/report. The live core and the
+  are recomputed from the persisted record/report. Since Phase 3E1.2 the same
+  inspector enforces the complete event chronology (`competition_started`
+  first, one `round_started` + two `policy_triggered` + one `round_ended` per
+  completed round, `competition_ended` last, monotonic rounds, strictly
+  increasing unique sequences within each of the frozen runtime's two
+  counters) and the ordinary-hold invariants (translated `hold` always zero;
+  an emitted `hold` must be same-cell and same-facing). The live core and the
   read-back validator use the same inspector, so live and persisted evidence
   are identical. `verifyGridActivationReadinessDeterminism` requires
   byte-identical re-execution.
-- `src/readiness/envelopes.schema.ts` — version-aware envelopes. Current v2:
-  run-index v2 (312 ordered run entries including
+- `src/readiness/envelopes.schema.ts` — version-aware envelopes. Current v3:
+  run-index v3 (312 ordered run entries including
   `selectedMovementActionCounts` / `selectedCombatActionCounts`), with
   match-records v1 and factual-reports v1 carrying the evaluation UUID and
-  order/uniqueness/identity contracts. Historical v1 run-index (no selected
-  counts) parses but is rejected as current readiness evidence.
+  order/uniqueness/identity contracts. Historical v2 and v1 run-index
+  artifacts parse but are rejected as current readiness evidence.
 - `src/readiness/metrics.ts` — the pure metrics reducer: execution,
   movement (selected and translated actions, stationary holds, nine zone
   visits, relative bearings, exposed planar armour zones), combat (attempts,
@@ -692,19 +706,23 @@ permission to activate grid.
   Bulwark-mirror slot imbalance, paired role-swap sensitivity) and timing
   percentiles. Slot-order diagnostics detect gross slot-order pathology only;
   timing is informational and never affects the decision. The persisted
-  `metrics.json` is the v2 artifact (schemaVersion 2, suite id, selected
+  `metrics.json` is the v3 artifact (schemaVersion 3, suite id, selected
   combat counts); `recomputeGridActivationReadinessMetricsFromArtifacts`
-  re-derives metrics exactly from the persisted records and reports.
+  re-derives metrics exactly from the persisted records and reports, deriving
+  the execution fields authoritatively (record counts, complete
+  report/final-state agreement count, zero invalid events after inspection)
+  plus the explicit operational attestations, and never copies non-timing
+  execution fields from the persisted artifact.
 - `src/readiness/gates.ts` — the frozen gates: H01–H10 hard pass/fail,
   C01–C06 coverage pass/inconclusive, S01–S03 and P01–P02 gross-pathology
   pass/inconclusive/fail with frozen thresholds.
-- `src/readiness/decision.ts` — `GridActivationReadinessDecisionV2` derives
+- `src/readiness/decision.ts` — `GridActivationReadinessDecisionV3` derives
   the classification (any hard/slot/progress failure → `not_ready`; else any
   inconclusive gate → `inconclusive`; else `ready_for_opt_in_beta_review`),
   carries every gate with its frozen threshold, observed value, evidence and
   blocking reason, and the mandatory non-activation disclaimer. No tuning
-  recommendation is ever included. The historical v1 decision parses but is
-  rejected as current readiness evidence.
+  recommendation is ever included. Historical v2 and v1 decisions parse but
+  are rejected as current readiness evidence.
 - `src/readiness/report.ts` — the deterministic human-readable development
   report (IDs, runtime identity, registry checksums, counts, determinism,
   contract/coverage/slot/progress/timing diagnostics, every gate, the final
@@ -715,20 +733,25 @@ permission to activate grid.
   nine fixed regular files (`manifest.json`, `seed-registry.json`,
   `scenario-registry.json`, `run-index.json`, `match-records.json`,
   `factual-reports.json`, `metrics.json`, `decision.json`, `report.txt`) under
-  `data/readiness/grid/<evaluationId>/`. Manifest v2 carries the evaluation
-  UUID, creation time, suite/runtime identity and action-evidence model,
-  exact counts (24/7/13/312), registry/suite/outcome/report checksums, the
-  decision, fixed artifact names and SHA-256 digests with the attestations
+  `data/readiness/grid/<evaluationId>/`. Manifest v3 carries the evaluation
+  UUID, creation time, suite/runtime identity, the action-evidence model and
+  the provenance model (`canonical-registry-record-derived-decision-v1`),
+  exact counts (24/7/13/312), the exact canonical registry checksums,
+  registry/suite/outcome/report checksums, the decision, fixed artifact names
+  and SHA-256 digests with the attestations
   `deterministicReexecutionPassed`, `inputsUnmodified`,
   `fullBundleReadBackPassed` and `legacyIsolationRegressionPassed`.
   `validateGridActivationReadinessCoreArtifacts` and
-  `validateGridActivationReadinessBundle` cross-validate the persisted
-  records/reports/run-index against the registries (including scenario
-  assignment build/policy binding) and, since Phase 3E1.1, recompute per-run
-  evidence and render checksums from the persisted records, then metrics,
-  gates, the decision and `report.txt` byte-for-byte; any disagreement fails
-  the bundle. Individual replay text is never included. Historical v1
-  artifacts parse but are rejected as current readiness evidence.
+  `validateGridActivationReadinessBundle` require the exact canonical
+  registries and cross-validate the persisted records/reports/run-index
+  (including scenario assignment build/policy binding), recompute per-run
+  evidence and render checksums from the persisted records, then metrics
+  (with the corrected timing invariants), gates (H02/H07 from the manifest
+  attestations, H06 from record inspection, H05 from complete
+  report/final-state agreement), the decision and `report.txt` byte-for-byte;
+  any disagreement fails the bundle. Individual replay text is never
+  included. Historical v1 and v2 artifacts parse but are rejected as current
+  readiness evidence.
 - `src/canary/canary-output-root.ts` — the kind-aware root guard now includes
   `grid-readiness → data/readiness/grid`; the readiness service rejects normal
   match/series storage, both canary roots, every other in-repository data
@@ -781,6 +804,32 @@ stationary holds), and coverage gate **C04** (no grapple reposition was
 observed) was inconclusive. No supplemental grapple scenario was added; no
 tuning occurred; no opt-in activation decision and no default activation was
 performed.
+
+Phase 3E1.2 finalised the provenance chain and bound the suite to the exact
+canonical registries (the v1 and v2 results above are preserved as historical
+evidence). The current suite is `grid-activation-readiness-v3` with the
+provenance model `canonical-registry-record-derived-decision-v1`.
+`assertCanonicalGridReadinessSeedRegistry` / `assertCanonicalGridReadinessScenarioRegistry`
+anchor the exact canonical seed (checksum `54acf015...`) and scenario
+(checksum `b0727017...`) registries; the record-evidence inspector enforces
+the complete event chronology and the ordinary-hold invariants;
+`assertGridReadinessRecordReportFinalAgreement` enforces complete
+report/final-state agreement; execution metrics are record-derived with
+explicit operational attestations (H02/H07 from the manifest directly, H06
+from record inspection, H05 from the complete agreement count); and timing
+validation requires `mean ≈ totalElapsedMs / 312` and `p95 >= median` without
+the invalid `median <= mean <= p95` assumption. Prettier is configured with
+`endOfLine: crlf` and `format:check` passes repository-wide. The exactly-one
+official v3 run (`evaluationId 0d8487a8-939d-4f9a-a16a-544b71eaa869`, bundle
+under `data/readiness/grid/0d8487a8-939d-4f9a-a16a-544b71eaa869/`, suite
+checksum `c3b8a16d407891d0a92966fb9d6ed20fe5e11776bf545624fb3dbcadb4e2503c`)
+classified the implementation as **`inconclusive`**: determinism passed, all
+hard gates (H01–H10), all slot-order gates (S01–S03), both progress gates
+(P01–P02) and coverage gates C01/C02/C03/C05/C06 passed (selected `hold` =
+4373, translated `hold` = 0), and coverage gate **C04** (no grapple
+reposition was observed) was inconclusive. No supplemental grapple scenario
+was added; no tuning occurred; no opt-in activation decision and no default
+activation was performed.
 
 ### Agent usage tracking
 

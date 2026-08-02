@@ -111,8 +111,16 @@ correctly evidenced, deep-frozen scenario registry with distinct per-scenario
 definitions, and end-to-end published-bundle recomputation of per-run
 evidence, metrics, gates, decision and report from the persisted records and
 reports as v2 artifacts, with the historical v1 bundle preserved) is
-implemented by the `agent/0.2c-grid-readiness-hardening` task. The
-authoritative runtime
+implemented by the `agent/0.2c-grid-readiness-hardening` task. Phase 3E1.2
+(grid readiness provenance finalisation and canonical suite binding — the
+current v3 suite identity with the
+`canonical-registry-record-derived-decision-v1` provenance model, exact
+canonical seed and scenario registry anchoring, complete event chronology and
+ordinary-hold invariant enforcement, record-derived execution metrics with
+explicit operational attestations, complete report/final-state agreement,
+corrected timing validation, and an explicit CRLF formatting contract) is
+implemented by the `agent/0.2c-grid-readiness-provenance-finalization` task.
+The authoritative runtime
 migration and live grid match production remain future, separately
 authorised phases.
 
@@ -414,6 +422,49 @@ authorised phases.
   readiness classification **`inconclusive`**. No supplemental grapple
   scenario was added; nothing was tuned after the result; no opt-in
   activation decision and no default activation was performed.
+- Phase 3E1.2 — grid readiness provenance finalisation and canonical suite
+  binding: **complete; official v3 run complete; readiness classification
+  `inconclusive`**. The current suite is `grid-activation-readiness-v3` with
+  the action-evidence model `policy-triggered-round-actions-v1` and the
+  provenance model `canonical-registry-record-derived-decision-v1`; the v3
+  suite checksum includes the suite ID, action-evidence model, provenance
+  model, exact canonical registry checksums, runtime identity and all ordered
+  run tuples (and differs from v1/v2 only by the versioned identity). Current
+  executions emit run-index v3, metrics v3, decision v3 and manifest v3; the
+  record and factual-report envelopes keep their schema versions. The exact
+  canonical seed registry (checksum `54acf015...`, exactly 24 seeds in exact
+  order) and scenario registry (checksum `b0727017...`, exact structural
+  equality with a freshly created canonical registry) are anchored and a
+  self-consistent alternate registry is never accepted. The record-evidence
+  inspector enforces complete event chronology (`competition_started` first,
+  one `round_started` + two `policy_triggered` + one `round_ended` per
+  completed round, `competition_ended` last with terminal payload agreeing,
+  monotonic rounds, strictly increasing unique sequences within each of the
+  frozen runtime's two counters) and the ordinary-hold invariants (translated
+  `hold` always zero; `stationaryHoldCount` = selected hold count; an emitted
+  `hold` must be same-cell and same-facing). Execution metrics are derived
+  from the parsed records and the explicit operational attestations
+  (`deterministicMatches` 312, `mutationFailures` 0, `invalidEventCount` 0
+  after all inspectors pass, `replayAgreeingMatches` from the complete
+  report/final-state agreement check); H02/H07 use the manifest attestations
+  directly and H05/H06 derive from record inspection. Timing validation now
+  requires finite/non-negative values, `mean ≈ totalElapsedMs / 312` within a
+  documented tolerance and `p95 >= median` (the invalid `median <= mean <=
+p95` assumption is removed); timing changes never alter a gate or decision.
+  Prettier is configured with `endOfLine: crlf` and `npm run format:check`
+  passes repository-wide. Exactly one official v3 run executed (`evaluationId
+0d8487a8-939d-4f9a-a16a-544b71eaa869`, bundle under
+  `data/readiness/grid/0d8487a8-939d-4f9a-a16a-544b71eaa869/`, suite checksum
+  `c3b8a16d407891d0a92966fb9d6ed20fe5e11776bf545624fb3dbcadb4e2503c`):
+  determinism passed; H01–H10, S01–S03, P01–P02 and C01/C02/C03/C05/C06 passed
+  (selected `hold` = 4373, translated `hold` = 0, grapple reposition = 0);
+  coverage gate **C04** (no grapple reposition observed) was **inconclusive**,
+  producing the final readiness classification **`inconclusive`**. The
+  historical v1 (`864991f7-...`) and v2 (`d788284d-...`) bundles remain
+  preserved. No supplemental grapple scenario was added; no seed, scenario,
+  policy, threshold or simulator semantics changed; no benchmark ran; no seed
+  bank was opened; held-out/all remain sealed; no provider call, tuning,
+  opt-in beta decision or default activation occurred.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

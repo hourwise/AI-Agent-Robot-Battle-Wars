@@ -80,8 +80,13 @@ describe("runtime component qualification selection", () => {
     });
     const bandedEvents = match.events.filter(
       (event) =>
-        ["attack_hit", "component_damaged", "component_disabled", "component_damage_resisted"].includes(event.type) &&
-          event.data.componentQualificationId === "component-impact-ab2",
+        [
+          "attack_hit",
+          "component_damaged",
+          "component_disabled",
+          "component_damage_resisted",
+        ].includes(event.type) &&
+        event.data.componentQualificationId === "component-impact-ab2",
     );
     expect(bandedEvents.length).toBeGreaterThan(0);
     expect(
@@ -90,7 +95,10 @@ describe("runtime component qualification selection", () => {
           event.data.componentQualificationChecksum === "6b9f70450d3f10b8" &&
           typeof event.data.componentArmourBandId === "string" &&
           typeof event.data.componentArmourBandMinInclusive === "number" &&
-          Object.prototype.hasOwnProperty.call(event.data, "componentArmourBandMaxInclusive"),
+          Object.prototype.hasOwnProperty.call(
+            event.data,
+            "componentArmourBandMaxInclusive",
+          ),
       ),
     ).toBe(true);
     expect(validateMatchRecord(matchResultToRecord(match)).ok).toBe(true);

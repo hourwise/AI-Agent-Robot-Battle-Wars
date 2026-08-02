@@ -15,11 +15,7 @@ import {
   type FactualMatchReportV2,
 } from "../schemas/factual-report.schema.js";
 import { assertGridCanaryFinalAgreement } from "../canary/grid-match-canary-evidence.js";
-import type {
-  GridMatchResult,
-  MatchConfig,
-  VictoryMethod,
-} from "../simulator/types.js";
+import type { GridMatchResult, MatchConfig, VictoryMethod } from "../simulator/types.js";
 import type { GridReadinessSeedRegistry } from "./seed-registry.js";
 import {
   createGridReadinessFighterConfig,

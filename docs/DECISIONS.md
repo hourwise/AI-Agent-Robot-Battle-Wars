@@ -1144,7 +1144,7 @@ slot-order and progress gates passed); opt-in beta decision **not performed**;
 default grid activation **not performed**; Milestone 0.2C **not complete**
 pending a separately authorised activation-readiness decision.
 
-## D47: Grid readiness evidence hardening (Phase 3E1.1, 2026-08-03)
+## D47: Grid readiness evidence hardening (Phase 3E1.1, 2026-08-02)
 
 Phase 3E1.1 corrects the readiness action-evidence source and hardens decision
 provenance, without changing the 24 seeds, 7 scenarios, 13 assignments, the
@@ -1187,7 +1187,7 @@ v1 evaluation remains preserved (`864991f7-d060-4669-beec-11e0d42b7e68`,
   simulator/ruleset constants are unchanged; no provider call, tuning or
   activation occurred.
 
-**Official v2 run (2026-08-03):** `evaluationId
+**Official v2 run (2026-08-02):** `evaluationId
 d788284d-a795-4125-984c-9146261e271a` under
 `data/readiness/grid/d788284d-a795-4125-984c-9146261e271a/` (suite checksum
 `df9444101ca68f7b7ca9fef24adfe8575363ef744e9f37b4449b111e0bb29fd9`).
@@ -1204,6 +1204,93 @@ C04 only); current readiness classification **`inconclusive`**; supplemental
 grapple coverage **not performed**; opt-in beta decision **not performed**;
 default grid activation **not performed**; Milestone 0.2C **not complete**
 pending a separately authorised activation-readiness decision.
+
+## D48: Grid readiness provenance finalisation and canonical suite binding (Phase 3E1.2, 2026-08-02)
+
+Phase 3E1.2 finalises the readiness provenance chain and binds the suite to
+the exact canonical registries, without changing seeds, scenarios,
+assignments, the 312-run tuples, gate thresholds or simulator semantics. The
+historical v1 (`864991f7-d060-4669-beec-11e0d42b7e68`) and v2
+(`d788284d-a795-4125-984c-9146261e271a`) evaluations remain preserved and
+their parsers remain available; neither is accepted as the current evidence
+contract.
+
+- **Current v3 suite identity.** `grid-activation-readiness-v3` with
+  action-evidence model `policy-triggered-round-actions-v1` and provenance
+  model `canonical-registry-record-derived-decision-v1`. The v3 suite checksum
+  includes the suite ID, action-evidence model, provenance model, exact
+  canonical registry checksums, runtime identity and all ordered run tuples.
+  Current executions emit run-index v3, metrics v3, decision v3 and manifest
+  v3; record and factual-report envelopes keep their schema versions.
+- **Exact canonical registries are anchored.** `assertCanonicalGridReadinessSeedRegistry`
+  requires the exact metadata, exactly 24 seeds in the exact order, the exact
+  reserved domain and the exact canonical checksum `54acf015...` (single-source
+  anchor, no second seed list). `assertCanonicalGridReadinessScenarioRegistry`
+  requires exact structural equality with a freshly created canonical registry
+  plus the known checksum `b0727017...`. A self-consistent alternate registry
+  is never accepted, even with all downstream artifacts coherently changed.
+- **Complete event chronology is enforced.** `competition_started` exactly
+  once and first; `competition_ended` exactly once and last with terminal
+  winner/method/rounds agreeing with the record; per completed round exactly
+  one `round_started`, two `policy_triggered` (one per fighter, between
+  `round_started` and `round_ended`) and one `round_ended`; monotonic round
+  ordering; no ordinary/combat event after the round's `round_ended`; and
+  strictly increasing unique sequence numbers within each of the frozen
+  runtime's two sequence counters.
+- **Ordinary hold invariants are frozen.** Selected `hold` from
+  `policy_triggered`; translated `hold` always zero; `stationaryHoldCount` =
+  selected hold count; an emitted ordinary `hold` movement event must be
+  same-cell and same-facing (translated hold or facing change rejected).
+- **Execution metrics are record-derived.** `totalPlannedRuns`,
+  `totalCompletedRuns`, `schemaValidRecords`, `schemaValidReports` and
+  `replayAgreeingMatches` (complete report/final-state agreement count) are
+  derived from the parsed records; `invalidEventCount` is zero after every
+  record passes the authoritative inspector; `deterministicMatches` (312) and
+  `mutationFailures` (0) follow the explicit operational attestations. The
+  persisted metrics artifact is the value being verified, never the source of
+  truth for its non-timing execution fields. H02/H07 use the manifest
+  attestations directly; H06 derives from record inspection; H05 derives from
+  the complete agreement count.
+- **Complete report/final-state agreement.** `assertGridReadinessRecordReportFinalAgreement`
+  reconstructs both fighters' complete final states from the authoritative
+  event stream and requires exact agreement with the bound report on identity,
+  result, integrity, energy, heat, zone, facing, conditions, component
+  lifecycle states, binary component projection and armour where represented.
+- **Timing validation corrected.** Finite and non-negative; `mean ≈
+totalElapsedMs / 312` within a documented tolerance; `p95 >= median`; the
+  invalid `median <= mean <= p95` assumption is removed. Timing changes never
+  alter a gate or decision.
+- **Operational attestations** remain exactly `deterministicReexecutionPassed`,
+  `inputsUnmodified`, `fullBundleReadBackPassed` and
+  `legacyIsolationRegressionPassed`; record-derived, registry-derived and
+  informational-only timing evidence are documented separately.
+- **Formatting contract.** Prettier is configured with `endOfLine: crlf`;
+  non-conforming line endings were normalised without altering code content;
+  `npm run format:check` passes repository-wide.
+- **No supplemental grapple coverage was added** and the honest C04 result is
+  preserved (nothing is hard-coded). No seed, scenario, policy, threshold or
+  simulator semantics changed; no benchmark ran; no seed bank was opened;
+  held-out/all remain sealed; C1/C2/AB2 and constants are unchanged; no
+  provider call, tuning, opt-in beta decision or default activation occurred.
+
+**Official v3 run (2026-08-02):** `evaluationId
+0d8487a8-939d-4f9a-a16a-544b71eaa869` under
+`data/readiness/grid/0d8487a8-939d-4f9a-a16a-544b71eaa869/` (suite checksum
+`c3b8a16d407891d0a92966fb9d6ed20fe5e11776bf545624fb3dbcadb4e2503c`).
+Determinism passed (operational attestation); H01–H10, S01–S03, P01–P02 and
+C01/C02/C03/C05/C06 passed; selected `hold` = 4373, translated `hold` = 0,
+grapple reposition = 0 (knockback 36, overturn 8); C04 was **inconclusive**.
+Final readiness classification: **`inconclusive`**. No tuning occurred; no
+supplemental grapple scenario was added; no opt-in activation decision and no
+default activation was performed.
+
+Status: Phase 3E1 v1 evaluation **historical**; Phase 3E1.1 v2 evaluation
+**historical**; Phase 3E1.2 v3 provenance finalisation **complete**; Phase
+3E1.2 v3 official evaluation **complete**; current readiness classification
+**`inconclusive`** (C04 only); supplemental grapple coverage **not performed**;
+opt-in beta decision **not performed**; default grid activation **not
+performed**; Milestone 0.2C **not complete** pending a separately authorised
+activation-readiness decision.
 
 ## D24: Candidate C component-impact qualification
 

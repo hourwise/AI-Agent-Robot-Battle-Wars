@@ -3,10 +3,13 @@ import registryJson from "../../config/readiness/grid-readiness-development-v1.j
 import {
   loadGridReadinessSeedRegistry,
   gridReadinessSeedRegistryChecksum,
+  assertCanonicalGridReadinessSeedRegistry,
+  GRID_READINESS_CANONICAL_SEED_REGISTRY_CHECKSUM,
   GRID_READINESS_RESERVED_RANGE,
   GRID_READINESS_SEED_COUNT,
   GRID_READINESS_REGISTRY_IDENTITY,
   GridReadinessSeedRegistryError,
+  type GridReadinessSeedRegistry,
 } from "../../src/readiness/seed-registry.js";
 
 const FROZEN_SEEDS = [
@@ -157,6 +160,71 @@ describe("grid readiness seed registry (Phase 3E1)", () => {
     // benchmark seed files.
     expect(GRID_READINESS_REGISTRY_IDENTITY.seedDomain).toBe(
       "reserved-grid-readiness-1703000000-1703099999",
+    );
+  });
+});
+
+describe("canonical seed registry assertion (Phase 3E1.2)", () => {
+  it("accepts the exact canonical registry", () => {
+    const registry = loadGridReadinessSeedRegistry(registryJson);
+    expect(() => assertCanonicalGridReadinessSeedRegistry(registry)).not.toThrow();
+  });
+
+  it("requires the exact frozen checksum", () => {
+    const registry = loadGridReadinessSeedRegistry(registryJson);
+    expect(gridReadinessSeedRegistryChecksum(registry)).toBe(
+      GRID_READINESS_CANONICAL_SEED_REGISTRY_CHECKSUM,
+    );
+  });
+
+  it("rejects a changed seed that is still a valid reserved-range value", () => {
+    const altered = loadGridReadinessSeedRegistry({
+      ...registryJson,
+      seeds: [...FROZEN_SEEDS.slice(1), 1703001841],
+    });
+    expect(() => assertCanonicalGridReadinessSeedRegistry(altered)).toThrow(
+      /not the canonical registry/,
+    );
+  });
+
+  it("rejects reordered seeds", () => {
+    const reordered = loadGridReadinessSeedRegistry({
+      ...registryJson,
+      seeds: [FROZEN_SEEDS[1]!, FROZEN_SEEDS[0]!, ...FROZEN_SEEDS.slice(2)],
+    });
+    expect(() => assertCanonicalGridReadinessSeedRegistry(reordered)).toThrow(
+      /not the canonical registry/,
+    );
+  });
+
+  it("rejects a changed count", () => {
+    expect(() =>
+      loadGridReadinessSeedRegistry({
+        ...registryJson,
+        seeds: FROZEN_SEEDS.slice(0, 23),
+      }),
+    ).toThrow(GridReadinessSeedRegistryError);
+  });
+
+  it("rejects a registry outside the reserved domain", () => {
+    const outOfRange = loadGridReadinessSeedRegistry({
+      ...registryJson,
+      seeds: [...FROZEN_SEEDS.slice(1), 1703001851],
+    });
+    // 1703001851 is still within 1703000000-1703099999; use a value outside.
+    expect(() => assertCanonicalGridReadinessSeedRegistry(outOfRange)).toThrow(
+      /not the canonical registry/,
+    );
+  });
+
+  it("rejects a metadata drift", () => {
+    const altered = loadGridReadinessSeedRegistry({
+      ...registryJson,
+      seeds: FROZEN_SEEDS,
+    }) as GridReadinessSeedRegistry & { registryId: string };
+    const drifted = { ...altered, registryId: "other" } as never;
+    expect(() => assertCanonicalGridReadinessSeedRegistry(drifted)).toThrow(
+      /metadata mismatch/,
     );
   });
 });

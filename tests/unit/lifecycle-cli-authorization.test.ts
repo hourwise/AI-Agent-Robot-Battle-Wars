@@ -74,9 +74,7 @@ describe("lifecycle benchmark authorisation after the AB2 held-out seal", () => 
   });
 
   it("keeps the all partition rejected through the CLI", () => {
-    expect(() => runLifecycleBenchmarkCli(["--partition", "all"])).toThrow(
-      /prohibited/i,
-    );
+    expect(() => runLifecycleBenchmarkCli(["--partition", "all"])).toThrow(/prohibited/i);
     expect(runBenchmarkDetailedMock).not.toHaveBeenCalled();
   });
 
@@ -86,9 +84,9 @@ describe("lifecycle benchmark authorisation after the AB2 held-out seal", () => 
     expect(() =>
       runBenchmarkSuite({ suite, seedBank: bank, partition: "held-out" }),
     ).toThrow(/permanently sealed/i);
-    expect(() =>
-      runBenchmarkSuite({ suite, seedBank: bank, partition: "all" }),
-    ).toThrow(/prohibited/i);
+    expect(() => runBenchmarkSuite({ suite, seedBank: bank, partition: "all" })).toThrow(
+      /prohibited/i,
+    );
     expect(() =>
       runBenchmarkSuite({
         suite,
@@ -101,9 +99,9 @@ describe("lifecycle benchmark authorisation after the AB2 held-out seal", () => 
   });
 
   it("still parses the development CLI shape without a confirmation flag", () => {
-    expect(
-      parseLifecycleBenchmarkArgs(["--partition", "development"]),
-    ).toMatchObject({ partition: "development" });
+    expect(parseLifecycleBenchmarkArgs(["--partition", "development"])).toMatchObject({
+      partition: "development",
+    });
     expect(
       parseLifecycleBenchmarkArgs([
         "--partition",

@@ -68,7 +68,7 @@ export function parseLifecycleBenchmarkArgs(args: readonly string[]): CliOptions
 export function validateLifecycleBenchmarkAuthorization(options: CliOptions): void {
   if (options.partition === "held-out") {
     throw new Error(
-      'The held-out partition is permanently sealed after the one-time AB2 confirmation; only the development partition may be executed.',
+      "The held-out partition is permanently sealed after the one-time AB2 confirmation; only the development partition may be executed.",
     );
   }
 }

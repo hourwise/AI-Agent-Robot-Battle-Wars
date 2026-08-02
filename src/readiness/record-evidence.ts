@@ -10,7 +10,10 @@ import {
   getMovementEventSubjectId,
   isMovementEventAction,
 } from "../events/battle-event.js";
-import { serializeMatchRecord, type MatchRecordV3 } from "../schemas/match-record.schema.js";
+import {
+  serializeMatchRecord,
+  type MatchRecordV3,
+} from "../schemas/match-record.schema.js";
 import {
   serializeFactualMatchReport,
   type FactualMatchReportV2,
@@ -18,6 +21,7 @@ import {
 import { renderTextReplay } from "../replay/text-replay-renderer.js";
 import { renderAsciiReplay } from "../replay/ascii/ascii-replay-renderer.js";
 import { buildReviewUserPrompt } from "../prompts/review-prompt.v1.js";
+import { projectFinalFighterState } from "../reports/final-state-projection.js";
 import { POSITIONING_MODEL_GRID } from "../schemas/positioning.schema.js";
 import { sha256Hex } from "../canary/grid-canary-digest.js";
 import type {
@@ -319,6 +323,311 @@ interface SelectedPolicyAction {
   combat: CombatAction;
 }
 
+const STRUCTURAL_EVENT_TYPES: ReadonlySet<string> = new Set<string>([
+  "competition_started",
+  "round_started",
+  "policy_triggered",
+  "round_ended",
+  "competition_ended",
+]);
+
+/**
+ * Complete event chronology validation (Phase 3E1.2, Phase 4). Validates the
+ * authoritative chronological structure of a persisted v3 record:
+ *
+ *   - exactly one `competition_started`, and it is the first semantic event;
+ *   - exactly one `competition_ended`, and it is the final event (no event of
+ *     any type appears after it);
+ *   - `competition_ended.round === record.rounds` and its terminal winner,
+ *     method and rounds agree with the record result;
+ *   - each completed round has exactly one `round_started`, exactly two
+ *     `policy_triggered` (one per fighter) and exactly one `round_ended`;
+ *   - both policy events occur after that round's `round_started` and before
+ *     that round's `round_ended`;
+ *   - round ordering is monotonic (all round-N events precede all round-(N+1)
+ *     events, and a new round never begins before the previous round ended);
+ *   - no ordinary or combat event occurs after the round's `round_ended`;
+ *   - sequence-number invariants within the frozen runtime's two counters:
+ *     structural events (competition_started / round_started / policy_triggered
+ *     / round_ended / competition_ended) carry strictly increasing unique
+ *     sequence numbers in array order, and non-structural (movement/combat)
+ *     events carry strictly increasing unique sequence numbers within each
+ *     round's segment. Cross-counter collisions between structural and
+ *     non-structural sequence numbers are a documented frozen runtime emission
+ *     behaviour (the grid adapter emits a per-round detail counter), so they
+ *     are not rejected; non-monotonic or duplicate numbers within either
+ *     counter are rejected.
+ *
+ * The array order (not round numbers alone) is the authoritative chronology;
+ * this function fails closed on any violation.
+ */
+export function validateGridReadinessEventChronology(record: MatchRecordV3): void {
+  const events = record.events;
+  if (events.length === 0) {
+    throw new GridActivationReadinessEvidenceError("record event stream is empty");
+  }
+
+  // ── Terminal events ──────────────────────────────────────────────────────
+  const startedCount = events.filter((e) => e.type === "competition_started").length;
+  if (startedCount !== 1) {
+    throw new GridActivationReadinessEvidenceError(
+      `record must contain exactly one competition_started; found ${startedCount}`,
+    );
+  }
+  const endedCount = events.filter((e) => e.type === "competition_ended").length;
+  if (endedCount !== 1) {
+    throw new GridActivationReadinessEvidenceError(
+      `record must contain exactly one competition_ended; found ${endedCount}`,
+    );
+  }
+  const first = events[0]!;
+  const last = events[events.length - 1]!;
+  if (first.type !== "competition_started") {
+    throw new GridActivationReadinessEvidenceError(
+      `competition_started must be the first event; found ${first.type}`,
+    );
+  }
+  if (first.round !== 0) {
+    throw new GridActivationReadinessEvidenceError(
+      `competition_started must be in round 0; found round ${first.round}`,
+    );
+  }
+  if (last.type !== "competition_ended") {
+    throw new GridActivationReadinessEvidenceError(
+      `competition_ended must be the final event; found ${last.type} at the end`,
+    );
+  }
+  if (last.round !== record.rounds) {
+    throw new GridActivationReadinessEvidenceError(
+      `competition_ended round ${last.round} must equal record.rounds ${record.rounds}`,
+    );
+  }
+  const endedData = last.data as {
+    winner?: unknown;
+    loser?: unknown;
+    method?: unknown;
+    rounds?: unknown;
+  };
+  if (endedData.winner !== record.result.winner) {
+    throw new GridActivationReadinessEvidenceError(
+      "competition_ended winner does not agree with the record result",
+    );
+  }
+  if (endedData.method !== record.result.method) {
+    throw new GridActivationReadinessEvidenceError(
+      "competition_ended method does not agree with the record result",
+    );
+  }
+  if (endedData.rounds !== record.rounds) {
+    throw new GridActivationReadinessEvidenceError(
+      "competition_ended rounds does not agree with the record result",
+    );
+  }
+
+  // ── Positional round structure and ordering ──────────────────────────────
+  const roundStartedCounts = new Map<number, number>();
+  const roundEndedCounts = new Map<number, number>();
+  const roundPolicyActors = new Map<number, Set<string>>();
+
+  let lastRound: number | null = null;
+  let roundEndedLastSeen = false;
+  let roundStartedLastSeen = false;
+
+  // Sequence invariants within the frozen runtime's two counters.
+  let lastStructuralSeq = -1;
+  const structuralSeqs = new Set<number>();
+  const nonStructuralByRound = new Map<number, { last: number; seen: Set<number> }>();
+
+  for (let index = 0; index < events.length; index++) {
+    const event = events[index]!;
+    if (
+      typeof event.sequence !== "number" ||
+      !Number.isSafeInteger(event.sequence) ||
+      event.sequence < 0
+    ) {
+      throw new GridActivationReadinessEvidenceError(
+        `event ${index} has an invalid sequence number: ${String(event.sequence)}`,
+      );
+    }
+    const isStructural = STRUCTURAL_EVENT_TYPES.has(event.type);
+    if (isStructural) {
+      if (event.sequence <= lastStructuralSeq) {
+        throw new GridActivationReadinessEvidenceError(
+          `structural event sequence numbers must be strictly increasing and unique; ${event.type} at sequence ${event.sequence} follows ${lastStructuralSeq}`,
+        );
+      }
+      if (structuralSeqs.has(event.sequence)) {
+        throw new GridActivationReadinessEvidenceError(
+          `duplicate structural sequence number ${event.sequence}`,
+        );
+      }
+      structuralSeqs.add(event.sequence);
+      lastStructuralSeq = event.sequence;
+    } else {
+      const segment = nonStructuralByRound.get(event.round) ?? {
+        last: -1,
+        seen: new Set<number>(),
+      };
+      if (event.sequence <= segment.last) {
+        throw new GridActivationReadinessEvidenceError(
+          `non-structural event sequence numbers within round ${event.round} must be strictly increasing and unique; ${event.type} at sequence ${event.sequence}`,
+        );
+      }
+      if (segment.seen.has(event.sequence)) {
+        throw new GridActivationReadinessEvidenceError(
+          `duplicate non-structural sequence number ${event.sequence} in round ${event.round}`,
+        );
+      }
+      segment.seen.add(event.sequence);
+      segment.last = event.sequence;
+      nonStructuralByRound.set(event.round, segment);
+    }
+
+    if (event.type === "competition_ended") {
+      // Already validated as the final event; nothing follows it in the loop.
+      continue;
+    }
+    if (event.type === "competition_started") {
+      if (index !== 0) {
+        throw new GridActivationReadinessEvidenceError(
+          "competition_started must be the first semantic event",
+        );
+      }
+      lastRound = event.round;
+      continue;
+    }
+
+    if (lastRound === null) {
+      throw new GridActivationReadinessEvidenceError(
+        "an event appears before competition_started",
+      );
+    }
+    const round = event.round;
+    if (round < lastRound) {
+      throw new GridActivationReadinessEvidenceError(
+        `round ordering must be monotonic; ${event.type} in round ${round} follows round ${lastRound}`,
+      );
+    }
+    if (round > lastRound) {
+      // Round 0 (competition_started) has no round_ended; every subsequent
+      // new round must begin only after the previous completed round ended.
+      if (lastRound >= 1 && !roundEndedLastSeen) {
+        throw new GridActivationReadinessEvidenceError(
+          `round ${round} begins before round ${lastRound} ended`,
+        );
+      }
+      lastRound = round;
+      roundEndedLastSeen = false;
+      roundStartedLastSeen = false;
+    }
+
+    // Same round now.
+    if (event.type === "round_started") {
+      if (roundEndedLastSeen) {
+        throw new GridActivationReadinessEvidenceError(
+          `round_started appears after round ${round}'s round_ended`,
+        );
+      }
+      if (roundStartedLastSeen) {
+        throw new GridActivationReadinessEvidenceError(
+          `duplicate round_started in round ${round}`,
+        );
+      }
+      roundStartedLastSeen = true;
+      roundStartedCounts.set(round, (roundStartedCounts.get(round) ?? 0) + 1);
+    } else if (event.type === "policy_triggered") {
+      if (!roundStartedLastSeen) {
+        throw new GridActivationReadinessEvidenceError(
+          `policy_triggered in round ${round} appears before the round's round_started`,
+        );
+      }
+      if (roundEndedLastSeen) {
+        throw new GridActivationReadinessEvidenceError(
+          `policy_triggered in round ${round} appears after the round's round_ended`,
+        );
+      }
+      const actors = roundPolicyActors.get(round) ?? new Set<string>();
+      if (event.actorId !== "fighter_a" && event.actorId !== "fighter_b") {
+        throw new GridActivationReadinessEvidenceError(
+          `policy_triggered in round ${round} has a non-canonical actor`,
+        );
+      }
+      if (actors.has(event.actorId)) {
+        throw new GridActivationReadinessEvidenceError(
+          `duplicate policy_triggered for ${event.actorId} in round ${round}`,
+        );
+      }
+      actors.add(event.actorId);
+      roundPolicyActors.set(round, actors);
+    } else if (event.type === "round_ended") {
+      if (roundEndedLastSeen) {
+        throw new GridActivationReadinessEvidenceError(
+          `duplicate round_ended in round ${round}`,
+        );
+      }
+      roundEndedLastSeen = true;
+      roundEndedCounts.set(round, (roundEndedCounts.get(round) ?? 0) + 1);
+    } else {
+      // Ordinary or combat event (movement_resolved, attack_*, integrity_*,
+      // component_*, robot_*, ...): must not appear after the round's
+      // round_ended, and must not appear before the round's round_started.
+      if (roundEndedLastSeen) {
+        throw new GridActivationReadinessEvidenceError(
+          `ordinary or combat event ${event.type} in round ${round} appears after the round's round_ended`,
+        );
+      }
+      if (!roundStartedLastSeen) {
+        throw new GridActivationReadinessEvidenceError(
+          `ordinary or combat event ${event.type} in round ${round} appears before the round's round_started`,
+        );
+      }
+    }
+  }
+
+  // Every completed round must have exactly one round_started, two
+  // policy_triggered (one per fighter) and one round_ended.
+  for (let round = 1; round <= record.rounds; round++) {
+    const started = roundStartedCounts.get(round) ?? 0;
+    if (started !== 1) {
+      throw new GridActivationReadinessEvidenceError(
+        `completed round ${round} must have exactly one round_started; found ${started}`,
+      );
+    }
+    const ended = roundEndedCounts.get(round) ?? 0;
+    if (ended !== 1) {
+      throw new GridActivationReadinessEvidenceError(
+        `completed round ${round} must have exactly one round_ended; found ${ended}`,
+      );
+    }
+    const actors = roundPolicyActors.get(round);
+    if (
+      !actors ||
+      !actors.has("fighter_a") ||
+      !actors.has("fighter_b") ||
+      actors.size !== 2
+    ) {
+      throw new GridActivationReadinessEvidenceError(
+        `completed round ${round} must have exactly two policy_triggered events (one per fighter)`,
+      );
+    }
+  }
+  // No structural round event may appear in a round beyond completion.
+  for (const round of roundStartedCounts.keys()) {
+    if (round > record.rounds) {
+      throw new GridActivationReadinessEvidenceError(
+        `round_started appears for round ${round} beyond competition completion (${record.rounds} rounds)`,
+      );
+    }
+  }
+  for (const round of roundEndedCounts.keys()) {
+    if (round > record.rounds) {
+      throw new GridActivationReadinessEvidenceError(
+        `round_ended appears for round ${round} beyond competition completion (${record.rounds} rounds)`,
+      );
+    }
+  }
+}
+
 /**
  * Pure authoritative evidence inspector for a persisted match-record v3.
  *
@@ -340,6 +649,7 @@ export function inspectGridReadinessRecordEvidence(
     );
   }
   assertCanonicalInitialState(record);
+  validateGridReadinessEventChronology(record);
 
   const selectedByRoundAndActor = new Map<
     number,
@@ -380,10 +690,7 @@ export function inspectGridReadinessRecordEvidence(
         `policy_triggered event has an unknown movement selection: ${String(movement)}`,
       );
     }
-    if (
-      typeof combat !== "string" ||
-      !COMBAT_ACTIONS.includes(combat as CombatAction)
-    ) {
+    if (typeof combat !== "string" || !COMBAT_ACTIONS.includes(combat as CombatAction)) {
       throw new GridActivationReadinessEvidenceError(
         `policy_triggered event has an unknown combat selection: ${String(combat)}`,
       );
@@ -410,7 +717,11 @@ export function inspectGridReadinessRecordEvidence(
   // Every completed round must have exactly one policy action per fighter.
   for (let round = 1; round <= record.rounds; round++) {
     const roundMap = selectedByRoundAndActor.get(round);
-    if (!roundMap || roundMap.fighter_a === undefined || roundMap.fighter_b === undefined) {
+    if (
+      !roundMap ||
+      roundMap.fighter_a === undefined ||
+      roundMap.fighter_b === undefined
+    ) {
       throw new GridActivationReadinessEvidenceError(
         `completed round ${round} must have exactly two policy_triggered events (one per fighter)`,
       );
@@ -428,6 +739,12 @@ export function inspectGridReadinessRecordEvidence(
 
   const translatedActionCounts = emptyActionCounts();
   const eventTypeCounts: Record<string, number> = {};
+  // Current canonical facing per fighter, used to reject an emitted `hold`
+  // that changes facing (impossible under the frozen grid runtime).
+  const currentFacing: Record<"fighter_a" | "fighter_b", Direction> = {
+    fighter_a: record.initialState.fighterA.facing,
+    fighter_b: record.initialState.fighterB.facing,
+  };
   let attacksAttempted = 0;
   let hits = 0;
   let misses = 0;
@@ -474,10 +791,12 @@ export function inspectGridReadinessRecordEvidence(
       }
       if (data.action === "knockback") {
         knockbackEvents += 1;
+        currentFacing[subject] = data.facing as Direction;
         continue;
       }
       if (data.action === "grapple") {
         grappleRepositionEvents += 1;
+        currentFacing[subject] = data.facing as Direction;
         continue;
       }
       const action = data.action as MovementAction;
@@ -492,7 +811,23 @@ export function inspectGridReadinessRecordEvidence(
           `ordinary movement_resolved action ${action} for ${subject} in round ${event.round} does not equal the selected policy movement ${selected.movement}`,
         );
       }
+      if (action === "hold") {
+        // Frozen grid runtime invariant: a `hold` never translates and never
+        // changes facing. An emitted ordinary `hold` movement event must be
+        // same-cell and same-facing.
+        if (data.from !== data.to) {
+          throw new GridActivationReadinessEvidenceError(
+            `translated hold is impossible under the frozen grid runtime: ${subject} moved ${String(data.from)} -> ${String(data.to)}`,
+          );
+        }
+        if (data.facing !== currentFacing[subject]) {
+          throw new GridActivationReadinessEvidenceError(
+            `hold must preserve facing; ${subject} facing changed from ${currentFacing[subject]} to ${String(data.facing)}`,
+          );
+        }
+      }
       if (data.from !== data.to) translatedActionCounts[action] += 1;
+      currentFacing[subject] = data.facing as Direction;
     } else if (event.type === "round_ended") {
       const data = event.data as {
         fighterA: { zone: string; conditions: readonly string[] };
@@ -566,6 +901,168 @@ export function inspectGridReadinessRecordEvidence(
 }
 
 /**
+ * Complete record/report final-state agreement (Phase 3E1.2, Phase 8).
+ *
+ * Validates that a persisted match-record v3 and its bound factual-report v2
+ * agree on every reconstructable fact:
+ *
+ *   - match ID, seed, rounds, winner and result method;
+ *   - runtime identity (simulator/positioning/ruleset/catalogue);
+ *   - every complete fighter A/B final state reconstructed from the event
+ *     stream via the shared `projectFinalFighterState` (which applies the
+ *     latest authoritative `round_ended` facts): integrity, max integrity,
+ *     energy, heat, grid zone, facing, conditions, component lifecycle states
+ *     (healthy/damaged/disabled) and the binary component projection;
+ *   - armour where represented (the report's fighter summaries must equal the
+ *     record build armour).
+ *
+ * A report never counts as agreeing merely because its winner and round count
+ * match. Fails closed with a descriptive error on any disagreement. This is
+ * the authoritative source for `replayAgreeingMatches`.
+ */
+export function assertGridReadinessRecordReportFinalAgreement(
+  record: MatchRecordV3,
+  report: FactualMatchReportV2,
+): void {
+  const failures: string[] = [];
+  const label = `record ${record.matchId}`;
+
+  // Identity and result agreement.
+  if (report.matchId !== record.matchId) failures.push("matchId mismatch");
+  if (report.seed !== record.seed) failures.push("seed mismatch");
+  if (report.rounds !== record.rounds) failures.push("rounds mismatch");
+  if (report.winner !== record.result.winner) failures.push("winner mismatch");
+  if (report.resultMethod !== record.result.method) {
+    failures.push("result method mismatch");
+  }
+  if (
+    report.simulatorVersion !== "0.3.0" ||
+    report.positioningModel !== "grid-3x3-v1" ||
+    report.rulesetVersion !== "0.2.0" ||
+    report.catalogueVersion !== "1"
+  ) {
+    failures.push("report runtime identity mismatch");
+  }
+  if (
+    record.simulatorVersion !== "0.3.0" ||
+    record.positioningModel !== "grid-3x3-v1" ||
+    record.rulesetVersion !== "0.2.0" ||
+    record.catalogueVersion !== "1"
+  ) {
+    failures.push("record runtime identity mismatch");
+  }
+
+  // Armour where represented (report fighter summaries vs record build armour).
+  const armourA = report.fighterA.armour;
+  const armourB = report.fighterB.armour;
+  const recordArmourA = record.config.fighterA.build.proposal.armour;
+  const recordArmourB = record.config.fighterB.build.proposal.armour;
+  if (
+    !sameRecordJson(armourA, recordArmourA) ||
+    !sameRecordJson(armourB, recordArmourB)
+  ) {
+    failures.push("armour mismatch");
+  }
+
+  // Complete final state reconstruction per fighter.
+  const fighterKeys = [
+    { stateKey: "fighterA" as const, fighterId: "fighter_a" },
+    { stateKey: "fighterB" as const, fighterId: "fighter_b" },
+  ];
+  for (const { stateKey, fighterId } of fighterKeys) {
+    const projected = projectFinalFighterState(
+      record.initialState[stateKey],
+      record.events,
+      fighterId,
+      POSITIONING_MODEL_GRID,
+    );
+    const reportState = report.finalStates[stateKey];
+    const fighter = stateKey;
+    if (projected.integrity !== reportState.integrity) {
+      failures.push(
+        `${fighter} integrity ${reportState.integrity} != ${projected.integrity}`,
+      );
+    }
+    if (projected.maxIntegrity !== reportState.maxIntegrity) {
+      failures.push(
+        `${fighter} maxIntegrity ${reportState.maxIntegrity} != ${projected.maxIntegrity}`,
+      );
+    }
+    if (projected.energy !== reportState.energy) {
+      failures.push(`${fighter} energy ${reportState.energy} != ${projected.energy}`);
+    }
+    if (projected.heat !== reportState.heat) {
+      failures.push(`${fighter} heat ${reportState.heat} != ${projected.heat}`);
+    }
+    if (projected.zone !== reportState.zone) {
+      failures.push(`${fighter} zone ${reportState.zone} != ${projected.zone}`);
+    }
+    if (projected.facing !== reportState.facing) {
+      failures.push(`${fighter} facing ${reportState.facing} != ${projected.facing}`);
+    }
+    const projectedConditions = [...projected.conditions].sort().join(",");
+    const reportConditions = [...reportState.conditions].sort().join(",");
+    if (projectedConditions !== reportConditions) {
+      failures.push(
+        `${fighter} conditions [${reportConditions}] != [${projectedConditions}]`,
+      );
+    }
+    const projectedMobilityDisabled = projected.comps.mobility.state === "disabled";
+    const projectedWeaponDisabled = projected.comps.weapon.state === "disabled";
+    const projectedUtilityDisabled = projected.comps.utility.state === "disabled";
+    if (reportState.mobilityDisabled !== projectedMobilityDisabled) {
+      failures.push(
+        `${fighter} mobilityDisabled ${reportState.mobilityDisabled} != ${projectedMobilityDisabled}`,
+      );
+    }
+    if (reportState.weaponDisabled !== projectedWeaponDisabled) {
+      failures.push(
+        `${fighter} weaponDisabled ${reportState.weaponDisabled} != ${projectedWeaponDisabled}`,
+      );
+    }
+    if (reportState.utilityDisabled !== projectedUtilityDisabled) {
+      failures.push(
+        `${fighter} utilityDisabled ${reportState.utilityDisabled} != ${projectedUtilityDisabled}`,
+      );
+    }
+    const projectedMobilityDamaged = projected.comps.mobility.state === "damaged";
+    const projectedWeaponDamaged = projected.comps.weapon.state === "damaged";
+    const projectedUtilityDamaged = projected.comps.utility.state === "damaged";
+    if (reportState.mobilityDamaged !== projectedMobilityDamaged) {
+      failures.push(
+        `${fighter} mobilityDamaged ${reportState.mobilityDamaged} != ${projectedMobilityDamaged}`,
+      );
+    }
+    if (reportState.weaponDamaged !== projectedWeaponDamaged) {
+      failures.push(
+        `${fighter} weaponDamaged ${reportState.weaponDamaged} != ${projectedWeaponDamaged}`,
+      );
+    }
+    if (reportState.utilityDamaged !== projectedUtilityDamaged) {
+      failures.push(
+        `${fighter} utilityDamaged ${reportState.utilityDamaged} != ${projectedUtilityDamaged}`,
+      );
+    }
+    if (
+      reportState.machineName !== record.initialState[stateKey].build.proposal.machineName
+    ) {
+      failures.push(`${fighter} machineName mismatch`);
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new GridActivationReadinessEvidenceError(
+      `${label} report/final-state agreement failed: ${failures.join("; ")}`,
+    );
+  }
+}
+
+/** Structural JSON equality for nested plain values. */
+function sameRecordJson(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
  * Focused pure conversion from a validated match-record v3 to the
  * renderer-compatible grid result shape. No alternate renderer is created;
  * the canonical text/ASCII renderers and final-agreement helper consume the
@@ -601,7 +1098,11 @@ export function recomputeGridActivationReadinessRunChecksums(
   const serializedReport = serializeFactualMatchReport(report);
   const result = gridRecordToGridResult(record);
   const textReplay = renderTextReplay(result);
-  const asciiReplay = renderAsciiReplay(result, { mode: "ascii" }, POSITIONING_MODEL_GRID);
+  const asciiReplay = renderAsciiReplay(
+    result,
+    { mode: "ascii" },
+    POSITIONING_MODEL_GRID,
+  );
   const reviewPrompt = buildReviewUserPrompt(report);
   return {
     recordChecksum: sha256Hex(serializedRecord),

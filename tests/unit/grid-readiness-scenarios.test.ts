@@ -3,6 +3,8 @@ import {
   createGridReadinessScenarioRegistry,
   createGridReadinessFighterConfig,
   gridReadinessScenarioRegistryChecksum,
+  assertCanonicalGridReadinessScenarioRegistry,
+  GRID_READINESS_CANONICAL_SCENARIO_REGISTRY_CHECKSUM,
   GRID_READINESS_SCENARIO_COUNT,
   GRID_READINESS_ASSIGNMENT_COUNT,
   GridReadinessScenarioRegistryError,
@@ -138,9 +140,7 @@ describe("grid readiness scenario registry (Phase 3E1)", () => {
     const registry = buildRegistry();
     const bulwarkValues = registry.scenarios
       .flatMap((scenario) =>
-        ["fighterX", "fighterY"].map((c) =>
-          scenario[c as "fighterX" | "fighterY"],
-        ),
+        ["fighterX", "fighterY"].map((c) => scenario[c as "fighterX" | "fighterY"]),
       )
       .filter((d) => d.displayName === "The Bulwark");
     // The mirror contributes two Bulwarks; every other scenario contributes one.
@@ -249,3 +249,110 @@ describe("grid readiness scenario registry (Phase 3E1)", () => {
     );
   });
 });
+
+describe("canonical scenario registry assertion (Phase 3E1.2)", () => {
+  it("accepts the exact canonical registry and checksum", () => {
+    const registry = buildRegistry();
+    expect(() => assertCanonicalGridReadinessScenarioRegistry(registry)).not.toThrow();
+    expect(gridReadinessScenarioRegistryChecksum(registry)).toBe(
+      GRID_READINESS_CANONICAL_SCENARIO_REGISTRY_CHECKSUM,
+    );
+  });
+
+  it("rejects a changed scenario build", () => {
+    const registry = buildRegistry();
+    const altered = mutateScenarioRegistry(registry, (scenario) => ({
+      ...scenario,
+      fighterX: {
+        ...scenario.fighterX,
+        buildProposal: {
+          ...scenario.fighterX.buildProposal,
+          armour: { ...scenario.fighterX.buildProposal.armour, front: 41 },
+        },
+      },
+    }));
+    expect(() => assertCanonicalGridReadinessScenarioRegistry(altered)).toThrow(
+      /not structurally equal/,
+    );
+  });
+
+  it("rejects a changed scenario policy", () => {
+    const registry = buildRegistry();
+    const altered = mutateScenarioRegistry(registry, (scenario) => ({
+      ...scenario,
+      fighterY: {
+        ...scenario.fighterY,
+        policy: { ...scenario.fighterY.policy, aggression: 1 },
+      },
+    }));
+    expect(() => assertCanonicalGridReadinessScenarioRegistry(altered)).toThrow(
+      /not structurally equal/,
+    );
+  });
+
+  it("rejects a changed assignment", () => {
+    const registry = buildRegistry();
+    const altered = {
+      ...registry,
+      assignments: registry.assignments.map((a, i) =>
+        i === 0 ? { ...a, roleSwapped: true } : a,
+      ),
+    };
+    expect(() => assertCanonicalGridReadinessScenarioRegistry(altered)).toThrow(
+      /not structurally equal/,
+    );
+  });
+
+  it("rejects a changed family name", () => {
+    const registry = buildRegistry();
+    const altered = mutateScenarioRegistry(registry, (scenario) => ({
+      ...scenario,
+      familyName: `${scenario.familyName} X`,
+    }));
+    expect(() => assertCanonicalGridReadinessScenarioRegistry(altered)).toThrow(
+      /not structurally equal/,
+    );
+  });
+
+  it("rejects a reordered scenario or assignment", () => {
+    const registry = buildRegistry();
+    const reordered = {
+      ...registry,
+      scenarios: [...registry.scenarios].reverse(),
+    };
+    expect(() => assertCanonicalGridReadinessScenarioRegistry(reordered)).toThrow(
+      /not structurally equal/,
+    );
+  });
+
+  it("does not accept a self-consistent alternate registry", () => {
+    // A structurally valid alternate registry (all seven scenarios present but
+    // a changed display name) must be rejected even though it is internally
+    // consistent.
+    const registry = buildRegistry();
+    const altered = mutateScenarioRegistry(registry, (scenario) => ({
+      ...scenario,
+      fighterX: {
+        ...scenario.fighterX,
+        displayName: `${scenario.fighterX.displayName} Alt`,
+      },
+    }));
+    expect(() => assertCanonicalGridReadinessScenarioRegistry(altered)).toThrow(
+      /not structurally equal/,
+    );
+  });
+});
+
+/** Clones the registry and applies `mutate` to every scenario. */
+function mutateScenarioRegistry(
+  registry: GridReadinessScenarioRegistry,
+  mutate: (
+    scenario: GridReadinessScenarioRegistry["scenarios"][number],
+  ) => GridReadinessScenarioRegistry["scenarios"][number],
+): GridReadinessScenarioRegistry {
+  return {
+    ...registry,
+    scenarios: registry.scenarios.map(mutate),
+    assignments: [...registry.assignments],
+  };
+}

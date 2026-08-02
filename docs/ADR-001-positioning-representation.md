@@ -1649,7 +1649,7 @@ classification is **`inconclusive`**. No code, scenario, policy, seed,
 threshold or gate was altered after seeing the result; no tuning occurred; no
 opt-in activation decision and no default activation was performed.
 
-### 9.21 Phase 3E1.1 — grid readiness evidence hardening (2026-08-03)
+### 9.21 Phase 3E1.1 — grid readiness evidence hardening (2026-08-02)
 
 Phase 3E1.1 corrects the readiness action-evidence source and hardens decision
 provenance without changing the 24 seeds, 7 scenarios, 13 assignments, the
@@ -1707,7 +1707,7 @@ and the v1 bundle remain frozen for archival inspection.
   partition ran, no seed bank was opened, held-out/all remain sealed, no
   provider call occurred, no tuning occurred and no activation occurred.
 
-**Official v2 development-only run (2026-08-03):** exactly one official run of
+**Official v2 development-only run (2026-08-02):** exactly one official run of
 `npm run readiness:grid` executed (`evaluationId
 d788284d-a795-4125-984c-9146261e271a`), publishing the immutable nine-file v2
 bundle under `data/readiness/grid/d788284d-a795-4125-984c-9146261e271a/`
@@ -1722,6 +1722,121 @@ classification is **`inconclusive`**. No code, scenario, policy, seed,
 threshold or gate was altered after seeing the result; no tuning occurred; no
 supplemental grapple scenario was added; no opt-in activation decision and no
 default activation was performed.
+
+### 9.22 Phase 3E1.2 — grid readiness provenance finalisation and canonical suite binding (2026-08-02)
+
+Phase 3E1.2 finalises the readiness provenance chain and binds the suite to
+the exact canonical registries. It changes no seeds, scenarios, assignments,
+312-run tuples, gate thresholds or simulator semantics. The historical v1
+(`864991f7-d060-4669-beec-11e0d42b7e68`, suite checksum `dd38ac8a...`) and v2
+(`d788284d-a795-4125-984c-9146261e271a`, suite checksum `df944410...`) bundles
+are preserved as historical evidence; their parsers remain available but they
+are never accepted as the current evidence contract.
+
+- **Current v3 suite identity.** The current suite is
+  `grid-activation-readiness-v3` with the action-evidence model
+  `policy-triggered-round-actions-v1` and the provenance model
+  `canonical-registry-record-derived-decision-v1`. The v3 suite checksum
+  includes the suite ID, action-evidence model, provenance model, exact
+  canonical seed-registry and scenario-registry checksums, runtime identity
+  and all ordered run tuples; it differs from v1 and v2 solely because the
+  versioned evidence/provenance identity changed. Current executions emit
+  run-index v3, metrics v3, decision v3 and manifest v3; the record and
+  factual-report envelopes keep their schema versions because their meaning is
+  unchanged.
+- **Exact canonical registries are anchored.** `assertCanonicalGridReadinessSeedRegistry`
+  requires the exact metadata identity, exactly 24 seeds in the exact order,
+  the exact reserved domain and the exact canonical checksum
+  `54acf0151360f59d429fd7b2a84f48b48f4a791e522cf58bc381b927d62b78a0`
+  (single-source, no second seed list). `assertCanonicalGridReadinessScenarioRegistry`
+  requires exact structural equality with a freshly created canonical registry
+  (runtime identity, scenario IDs and order, family names, every fighter
+  display name, every complete build proposal and armour value, every complete
+  policy, every assignment ID and order, role mapping and role-swapped flags)
+  and the known checksum
+  `b07270171f6e38efac2d1992f051d7bd881e323c00cee92b9caa9490ddb85b67`. The
+  bundle validator rejects a persisted seed or scenario registry even when all
+  downstream records, reports, metrics, gates, decision, report and manifest
+  values are coherently changed to match it.
+- **Complete event chronology is enforced.** The record-evidence inspector
+  now requires: exactly one `competition_started` first and exactly one
+  `competition_ended` last (no event of any type after it); terminal winner,
+  method and rounds agree with the record result and `competition_ended.round
+=== record.rounds`; each completed round has exactly one `round_started`,
+  exactly two `policy_triggered` (one per fighter, after `round_started` and
+  before `round_ended`) and exactly one `round_ended`; round ordering is
+  monotonic; no ordinary or combat event occurs after the round's
+  `round_ended`; structural events carry strictly increasing unique sequence
+  numbers and non-structural events carry strictly increasing unique sequence
+  numbers within each round (the frozen runtime emits two sequence counters;
+  cross-counter collisions are documented emission behaviour and are not
+  rejected). Sequence/order within the same round is validated, not just round
+  numbers.
+- **Ordinary hold invariants are frozen.** Selected `hold` is derived from
+  `policy_triggered`; translated `hold` is always zero; `stationaryHoldCount`
+  equals the selected hold count. An emitted ordinary `movement_resolved`
+  `hold` must be same-cell and same-facing; a translated hold or a hold that
+  changes facing is rejected as impossible under the frozen grid runtime.
+- **Execution metrics are record-derived, not copied from metrics.json.**
+  `totalPlannedRuns` (312), `totalCompletedRuns`, `schemaValidRecords` and
+  `schemaValidReports` come from the parsed and bound records; `replayAgreeingMatches`
+  is the count of record/report pairs passing the complete report/final-state
+  agreement; `invalidEventCount` is exactly zero after every record passes the
+  authoritative inspector; `deterministicMatches` and `mutationFailures` follow
+  the explicit operational attestations (manifest `deterministicReexecutionPassed`
+  → 312 and `inputsUnmodified` → 0). The persisted metrics artifact is the
+  value being verified, never the source of truth for its non-timing execution
+  fields. H02 uses the manifest deterministic-reexecution attestation directly,
+  H07 uses the manifest input-immutability attestation directly, H06 derives
+  from record inspection and H05 derives from the complete report/final-state
+  agreement count.
+- **Complete report/final-state agreement.** `assertGridReadinessRecordReportFinalAgreement`
+  reconstructs each fighter's complete final state from the authoritative
+  event stream (including the latest `round_ended` facts) and requires exact
+  agreement with the bound factual-report v2 on match ID, seed, runtime
+  identity, rounds, winner, result method, integrity, energy, heat, grid zone,
+  facing, conditions, component lifecycle states, the binary component
+  projection and armour where represented. A report never counts as agreeing
+  merely because its winner and round count match; `replayAgreeingMatches =
+312` is required for a publishable bundle.
+- **Timing validation is corrected.** All four timing values must be finite
+  and non-negative; `meanMsPerMatch` must approximate `totalElapsedMs / 312`
+  within a documented tolerance; `p95MsPerMatch >= medianMsPerMatch`. The
+  invalid `median <= mean <= p95` assumption is removed because the mean is
+  not mathematically guaranteed to lie between those percentiles. Because
+  individual samples are not persisted, median and p95 are described as
+  operational timing attestations. Timing changes alone never change a gate or
+  decision.
+- **Operational attestations.** The manifest v3 retains exactly
+  `deterministicReexecutionPassed`, `inputsUnmodified`,
+  `fullBundleReadBackPassed` and `legacyIsolationRegressionPassed` (all true)
+  as the only non-reconstructable execution facts; record-derived evidence,
+  registry-derived evidence and informational-only timing are documented
+  separately.
+- **Honest C04 result is preserved.** No Grappler, Bulwark, policy, seed,
+  312-run plan or C04 threshold was altered and no supplemental grapple probe
+  was added; the official v3 result may remain `C04: inconclusive /
+classification: inconclusive`. Nothing is hard-coded.
+- **Formatting contract.** Prettier is configured explicitly with
+  `endOfLine: crlf` (`.prettierrc`); non-conforming line endings were
+  normalised to CRLF without altering code content, and `npm run format:check`
+  now passes repository-wide.
+
+**Official v3 development-only run (2026-08-02):** exactly one official run of
+`npm run readiness:grid` executed (`evaluationId
+0d8487a8-939d-4f9a-a16a-544b71eaa869`), publishing the immutable nine-file v3
+bundle under `data/readiness/grid/0d8487a8-939d-4f9a-a16a-544b71eaa869/`
+(suite checksum `c3b8a16d407891d0a92966fb9d6ed20fe5e11776bf545624fb3dbcadb4e2503c`).
+Determinism passed (operational attestation true); all ten hard correctness
+gates (H01–H10), all three slot-order gates (S01–S03), both progress gates
+(P01–P02) and coverage gates C01, C02, C03, C05 and C06 passed. Selected
+`hold` = 4373, translated `hold` = 0, grapple reposition = 0 (knockback 36,
+overturn 8). Coverage gate **C04** (no grapple reposition was observed) was
+**inconclusive**. Per the frozen decision derivation, the final readiness
+classification is **`inconclusive`**. No code, seed, scenario, policy,
+threshold, evidence rule or gate was altered after seeing the result; no
+tuning occurred; no supplemental grapple scenario was added; no opt-in
+activation decision and no default activation was performed.
 
 ### 9.20 Phase 3E1 status
 
@@ -1766,18 +1881,18 @@ reporting hardening complete; Phase 3D2A isolated grid match canary
 **implemented**; Phase 3D2A.1 evidence and artifact verification **complete**;
 Phase 3D2A.2 immutable publication hardening **complete**; Phase 3D2B isolated
 grid adaptive-series canary **implemented**; Phase 3D2B.1 provenance and
-immutability hardening **complete**; Phase 3E1 v1 tooling **historical**; Phase
-3E1 v1 official evaluation **complete** (`864991f7-d060-4669-beec-11e0d42b7e68`,
-`inconclusive`, C02 + C04); Phase 3E1.1 v2 evidence hardening **complete**;
-Phase 3E1.1 v2 official evaluation **complete**
-(`d788284d-a795-4125-984c-9146261e271a`, suite checksum
-`df9444101ca68f7b7ca9fef24adfe8575363ef744e9f37b4449b111e0bb29fd9`); current
-readiness classification **`inconclusive`** (coverage gate C04 inconclusive —
-no grapple reposition observed; all hard, slot-order, progress and remaining
-coverage gates passed); supplemental grapple coverage **not performed**;
-opt-in beta decision **not performed**; default grid activation **not
-performed**; Milestone 0.2C **not complete** pending a separately authorised
-activation-readiness decision.
+immutability hardening **complete**; Phase 3E1 v1 evaluation **historical**
+(`864991f7-d060-4669-beec-11e0d42b7e68`, `inconclusive`, C02 + C04); Phase 3E1.1
+v2 evaluation **historical** (`d788284d-a795-4125-984c-9146261e271a`,
+`inconclusive`, C04); Phase 3E1.2 v3 provenance finalisation **complete**;
+Phase 3E1.2 v3 official evaluation **complete** (`0d8487a8-939d-4f9a-a16a-544b71eaa869`,
+suite checksum `c3b8a16d407891d0a92966fb9d6ed20fe5e11776bf545624fb3dbcadb4e2503c`);
+current readiness classification **`inconclusive`** (coverage gate C04
+inconclusive — no grapple reposition observed; all hard, slot-order, progress
+and remaining coverage gates passed); supplemental grapple coverage **not
+performed**; opt-in beta decision **not performed**; default grid activation
+**not performed**; Milestone 0.2C **not complete** pending a separately
+authorised activation-readiness decision.
 
 ## 10. Still out of scope
 

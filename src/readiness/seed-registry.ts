@@ -35,6 +35,17 @@ export const GRID_READINESS_RESERVED_RANGE = {
 /** Exactly 24 frozen seeds. */
 export const GRID_READINESS_SEED_COUNT = 24 as const;
 
+/**
+ * The frozen canonical checksum of the authoritative development-only seed
+ * registry (Milestone 0.2C Phase 3E1.2). This single constant is the
+ * single-source anchor for canonicity: a registry is canonical exactly when
+ * its canonical checksum equals this value, which enforces the exact metadata,
+ * the exact 24 values, the exact order and the exact count without maintaining
+ * a second divergent seed list.
+ */
+export const GRID_READINESS_CANONICAL_SEED_REGISTRY_CHECKSUM =
+  "54acf0151360f59d429fd7b2a84f48b48f4a791e522cf58bc381b927d62b78a0" as const;
+
 /** Identity contract for the development-only registry. */
 export const GRID_READINESS_REGISTRY_IDENTITY = Object.freeze({
   schemaVersion: "1",
@@ -189,4 +200,76 @@ export function gridReadinessSeedRegistryChecksum(
     seeds: [...registry.seeds],
   });
   return sha256Hex(canonical);
+}
+
+/**
+ * Pure canonical assertion (Phase 3E1.2). Requires the exact frozen canonical
+ * seed registry: exact metadata identity, exactly 24 seeds in the exact
+ * frozen order, the exact reserved domain, and the exact canonical checksum
+ * `54acf015...`. The checksum comparison is the single-source enforcement of
+ * the exact values and order (any value change, reorder or count change
+ * produces a different checksum), so no second seed list is maintained.
+ * Fails closed on any divergence.
+ */
+export function assertCanonicalGridReadinessSeedRegistry(
+  registry: GridReadinessSeedRegistry,
+): void {
+  const identity = GRID_READINESS_REGISTRY_IDENTITY;
+  const identityFailures: string[] = [];
+  if (registry.schemaVersion !== identity.schemaVersion) {
+    identityFailures.push(`schemaVersion ${registry.schemaVersion}`);
+  }
+  if (registry.registryId !== identity.registryId) {
+    identityFailures.push(`registryId ${registry.registryId}`);
+  }
+  if (registry.purpose !== identity.purpose) {
+    identityFailures.push(`purpose ${registry.purpose}`);
+  }
+  if (registry.partition !== identity.partition) {
+    identityFailures.push(`partition ${registry.partition}`);
+  }
+  if (registry.seedDomain !== identity.seedDomain) {
+    identityFailures.push(`seedDomain ${registry.seedDomain}`);
+  }
+  if (registry.generatorVersion !== identity.generatorVersion) {
+    identityFailures.push(`generatorVersion ${registry.generatorVersion}`);
+  }
+  if (registry.simulatorVersion !== identity.simulatorVersion) {
+    identityFailures.push(`simulatorVersion ${registry.simulatorVersion}`);
+  }
+  if (registry.positioningModel !== identity.positioningModel) {
+    identityFailures.push(`positioningModel ${registry.positioningModel}`);
+  }
+  if (registry.rulesetVersion !== identity.rulesetVersion) {
+    identityFailures.push(`rulesetVersion ${registry.rulesetVersion}`);
+  }
+  if (registry.catalogueVersion !== identity.catalogueVersion) {
+    identityFailures.push(`catalogueVersion ${registry.catalogueVersion}`);
+  }
+  if (identityFailures.length > 0) {
+    throw new GridReadinessSeedRegistryError(
+      `Canonical grid readiness seed registry metadata mismatch: ${identityFailures.join(", ")}`,
+    );
+  }
+  if (registry.seeds.length !== GRID_READINESS_SEED_COUNT) {
+    throw new GridReadinessSeedRegistryError(
+      `Canonical grid readiness seed registry must contain exactly ${GRID_READINESS_SEED_COUNT} seeds; received ${registry.seeds.length}`,
+    );
+  }
+  for (const seed of registry.seeds) {
+    if (
+      seed < GRID_READINESS_RESERVED_RANGE.minInclusive ||
+      seed > GRID_READINESS_RESERVED_RANGE.maxInclusive
+    ) {
+      throw new GridReadinessSeedRegistryError(
+        `Canonical grid readiness seed ${seed} lies outside the reserved range ${GRID_READINESS_RESERVED_RANGE.minInclusive}-${GRID_READINESS_RESERVED_RANGE.maxInclusive}`,
+      );
+    }
+  }
+  const checksum = gridReadinessSeedRegistryChecksum(registry);
+  if (checksum !== GRID_READINESS_CANONICAL_SEED_REGISTRY_CHECKSUM) {
+    throw new GridReadinessSeedRegistryError(
+      `Grid readiness seed registry is not the canonical registry: expected checksum ${GRID_READINESS_CANONICAL_SEED_REGISTRY_CHECKSUM}, received ${checksum}`,
+    );
+  }
 }

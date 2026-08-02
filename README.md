@@ -92,9 +92,14 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
   correctly evidenced without a `movement_resolved`), the scenario registry is
   deeply frozen with distinct per-scenario definitions, and the published
   bundle is revalidated end-to-end by recomputing per-run evidence, metrics,
-  gates, the decision and the report from the persisted records and reports
-  (v2 artifacts; the historical v1 bundle remains preserved for archival
-  inspection). The live
+  gates, the decision and the report from the persisted records and reports.
+  Phase 3E1.2 finalised the provenance chain: the current v3 suite is bound to
+  the exact canonical seed and scenario registries, the complete event
+  chronology is enforced, execution metrics are record-derived with explicit
+  operational attestations, complete report/final-state agreement drives H05,
+  timing validation is corrected, and Prettier uses an explicit CRLF contract
+  (the historical v1 and v2 bundles remain preserved for archival inspection).
+  The live
   five-zone simulator is unchanged: the normal application still uses
   `runMatch` (legacy `0.2.0`) and emits schema v2, and `runGridMatch` is not
   wired into CLI, series or application commands.
@@ -237,22 +242,32 @@ root. Even a `ready_for_opt_in_beta_review` classification is not permission to
 activate grid; an opt-in beta decision and any default activation remain later,
 separately authorised decisions.
 
-Since Phase 3E1.1 the evaluation uses **v2 evidence artifacts**
-(`schemaVersion` 2, suite `grid-activation-readiness-v2`, action-evidence
-model `policy-triggered-round-actions-v1`). Selected movement and combat
+Since Phase 3E1.2 the evaluation uses **v3 evidence artifacts**
+(`schemaVersion` 3, suite `grid-activation-readiness-v3`, action-evidence
+model `policy-triggered-round-actions-v1`, provenance model
+`canonical-registry-record-derived-decision-v1`). Selected movement and combat
 actions are derived from `policy_triggered` events (exactly one per fighter per
 completed round; the selected-action total always equals `2 × completed
 rounds`), so a stationary `hold` is counted as selected movement coverage
-without any `movement_resolved`. Ordinary `movement_resolved` events must
-exactly agree with the actor's selected policy movement; knockback and grapple
-repositions are target-subject events and are never selected actions. The
-persisted bundle is validated by recomputing per-run evidence from the
-records, then metrics, gates, the decision and the report from those artifacts;
-any disagreement fails the bundle. The scenario registry is deeply frozen
-(every nested build proposal, armour object and policy) with distinct
-definitions per scenario and no shared references. The historical Phase 3E1 v1
-bundle (`data/readiness/grid/864991f7-d060-4669-beec-11e0d42b7e68/`, suite
-checksum `dd38ac8a…`) remains preserved and parses as v1 but is rejected as
+without any `movement_resolved`; translated `hold` is always zero. Ordinary
+`movement_resolved` events must exactly agree with the actor's selected policy
+movement; knockback and grapple repositions are target-subject events and are
+never selected actions. The bundle validator requires the **exact canonical
+seed and scenario registries** (checksums `54acf015…` and `b0727017…`),
+enforces the **complete event chronology** (`competition_started` first, one
+`round_started` + two `policy_triggered` + one `round_ended` per completed
+round, `competition_ended` last, monotonic rounds, strictly increasing unique
+sequence numbers within each of the frozen runtime's two counters), derives
+the execution metrics from the records plus the explicit operational
+attestations (deterministic re-execution, input immutability), enforces
+complete report/final-state agreement for H05, and regenerates the report
+byte-for-byte; any disagreement fails the bundle. The scenario registry is
+deeply frozen (every nested build proposal, armour object and policy) with
+distinct definitions per scenario and no shared references. The historical
+Phase 3E1 v1 bundle (`data/readiness/grid/864991f7-d060-4669-beec-11e0d42b7e68/`,
+suite checksum `dd38ac8a…`) and Phase 3E1.1 v2 bundle
+(`data/readiness/grid/d788284d-a795-4125-984c-9146261e271a/`, suite checksum
+`df944410…`) remain preserved and parse as historical but are rejected as
 current readiness evidence.
 
 ### Replay

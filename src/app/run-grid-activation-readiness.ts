@@ -60,6 +60,7 @@ async function main(): Promise<void> {
     console.log(`Evaluation ID: ${outcome.evaluationId}`);
     console.log(`Suite ID: ${outcome.suiteId}`);
     console.log(`Action evidence model: ${outcome.actionEvidenceModel}`);
+    console.log(`Provenance model: ${outcome.provenanceModel}`);
     console.log(
       `Counts: ${outcome.seedCount} seeds / ${outcome.scenarioCount} scenarios / ${outcome.assignmentCount} assignments / ${outcome.runCount} runs`,
     );

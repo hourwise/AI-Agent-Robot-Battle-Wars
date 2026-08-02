@@ -12,6 +12,7 @@ import {
   gridActivationReadinessSuiteChecksum,
   GRID_ACTIVATION_READINESS_SUITE_ID,
   GRID_READINESS_ACTION_EVIDENCE_MODEL,
+  GRID_READINESS_PROVENANCE_MODEL,
 } from "../../src/readiness/run-plan.js";
 import {
   executeGridActivationReadinessSuite,
@@ -21,13 +22,13 @@ import {
 import { serializeGridActivationReadinessEnvelope } from "../../src/readiness/envelopes.schema.js";
 import {
   computeGridActivationReadinessMetrics,
-  wrapGridActivationReadinessMetricsV2,
+  wrapGridActivationReadinessMetricsV3,
   type GridActivationReadinessMetrics,
 } from "../../src/readiness/metrics.js";
 import { evaluateGridActivationReadinessGates } from "../../src/readiness/gates.js";
 import {
   buildGridActivationReadinessDecision,
-  type GridActivationReadinessDecisionV2,
+  type GridActivationReadinessDecisionV3,
 } from "../../src/readiness/decision.js";
 import { buildGridActivationReadinessReport } from "../../src/readiness/report.js";
 import {
@@ -44,7 +45,7 @@ import {
   GRID_READINESS_METRICS_ARTIFACT,
   GRID_READINESS_DECISION_ARTIFACT,
   GRID_READINESS_REPORT_ARTIFACT,
-  type GridActivationReadinessManifestV2,
+  type GridActivationReadinessManifestV3,
 } from "../../src/readiness/readiness-bundle.js";
 import { sha256Hex } from "../../src/canary/grid-canary-digest.js";
 
@@ -125,8 +126,8 @@ export interface ReadinessTestBundle {
   contents: Record<string, string>;
   outcome: GridActivationReadinessSuiteOutcome;
   metrics: GridActivationReadinessMetrics;
-  decision: GridActivationReadinessDecisionV2;
-  manifest: GridActivationReadinessManifestV2;
+  decision: GridActivationReadinessDecisionV3;
+  manifest: GridActivationReadinessManifestV3;
   seedRegistry: ReturnType<typeof readinessTestSeedRegistry>;
   scenarioRegistry: ReturnType<typeof readinessTestScenarioRegistry>;
   runPlan: ReturnType<typeof readinessTestRunPlan>;
@@ -154,7 +155,7 @@ export function buildReadinessTestBundle(): ReadinessTestBundle {
     items: outcome.results.map((r) => r.report),
   };
   const runIndexEnvelope = {
-    schemaVersion: "2" as const,
+    schemaVersion: "3" as const,
     suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
     evaluationId: READINESS_TEST_EVALUATION_ID,
     items: outcome.results.map(toReadinessTestRunIndexEntry),
@@ -172,7 +173,12 @@ export function buildReadinessTestBundle(): ReadinessTestBundle {
       evidence: run.evidence,
     })),
     execution: {
+      totalPlannedRuns: 312,
+      totalCompletedRuns: outcome.results.length,
       deterministicMatches: 312,
+      schemaValidRecords: outcome.results.length,
+      schemaValidReports: outcome.results.length,
+      replayAgreeingMatches: outcome.results.length,
       invalidEventCount: 0,
       mutationFailures: 0,
     },
@@ -185,9 +191,12 @@ export function buildReadinessTestBundle(): ReadinessTestBundle {
       record: run.record,
       report: run.report,
     })),
-    inputsUnmodified: true,
-    artifactIntegrityVerified: true,
-    legacyIsolationVerified: true,
+    operational: {
+      deterministicReexecutionPassed: true,
+      inputsUnmodified: true,
+      artifactIntegrityVerified: true,
+      legacyIsolationVerified: true,
+    },
   });
 
   const decision = buildGridActivationReadinessDecision({
@@ -202,6 +211,7 @@ export function buildReadinessTestBundle(): ReadinessTestBundle {
     evaluationId: READINESS_TEST_EVALUATION_ID,
     suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
     actionEvidenceModel: GRID_READINESS_ACTION_EVIDENCE_MODEL,
+    provenanceModel: GRID_READINESS_PROVENANCE_MODEL,
     createdAt: READINESS_TEST_CREATED_AT,
     seedRegistryId: seedRegistry.registryId,
     seedRegistryChecksum: gridReadinessSeedRegistryChecksum(seedRegistry),
@@ -225,7 +235,7 @@ export function buildReadinessTestBundle(): ReadinessTestBundle {
   const serializedRecords = serializeGridActivationReadinessEnvelope(recordsEnvelope);
   const serializedReports = serializeGridActivationReadinessEnvelope(reportsEnvelope);
   const serializedMetrics = serializeGridActivationReadinessEnvelope(
-    wrapGridActivationReadinessMetricsV2(metrics),
+    wrapGridActivationReadinessMetricsV3(metrics),
   );
   const serializedDecision = serializeGridActivationReadinessEnvelope(decision);
   const serializedReport = report;

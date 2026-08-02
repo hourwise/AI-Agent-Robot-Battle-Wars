@@ -983,32 +983,32 @@ The deterministic suite checksum is `04fe9aeb6cd48dbe`.
 
 The C1 diagnosis used only immutable C1 `attack_hit` facts from the fixed development suite. The hard-fixture distributions were:
 
-| Fixture | Successful hits; armour | Raw damage distribution | Component-impact distribution | C1 qualification cross-tab |
-| --- | --- | --- | --- | --- |
-| Guarded Bulwark | 1,255; armour 60 | 16:74, 17:152, 18:187, 19:154, 20:182, 21:149, 22:152, 23:163, 24:88, 25:2 | 4:74, 5:152, 6:187, 7:154, 8:182, 9:149, 10:152, 11:163, 12:88, 13:2 | critical-qualified 164; high-impact 2; non-critical 0; both 2 |
-| Unguarded Bulwark | 1,074; armour 60 | 16:72, 17:147, 18:179, 19:142, 20:171, 21:144, 22:148, 23:155, 24:84, 25:2 | 4:72, 5:147, 6:179, 7:142, 8:171, 9:144, 10:148, 11:155, 12:84, 13:2 | critical-qualified 147; high-impact 2; non-critical 0; both 2 |
-| Glass Cannon | 355; armour 5 | 12:18, 13:28, 14:21, 15:25, 16:31, 17:53, 18:44, 19:26, 20:26, 21:27, 22:43, 23:26, 24:21, 25:2 | 11:18, 12:28, 13:21, 14:25, 15:31, 16:53, 17:44, 18:26, 19:26, 20:27, 21:43, 22:26, 23:21, 24:2 | critical-qualified 264; high-impact 320; non-critical 81; both 239 |
+| Fixture           | Successful hits; armour | Raw damage distribution                                                                         | Component-impact distribution                                                                   | C1 qualification cross-tab                                         |
+| ----------------- | ----------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Guarded Bulwark   | 1,255; armour 60        | 16:74, 17:152, 18:187, 19:154, 20:182, 21:149, 22:152, 23:163, 24:88, 25:2                      | 4:74, 5:152, 6:187, 7:154, 8:182, 9:149, 10:152, 11:163, 12:88, 13:2                            | critical-qualified 164; high-impact 2; non-critical 0; both 2      |
+| Unguarded Bulwark | 1,074; armour 60        | 16:72, 17:147, 18:179, 19:142, 20:171, 21:144, 22:148, 23:155, 24:84, 25:2                      | 4:72, 5:147, 6:179, 7:142, 8:171, 9:144, 10:148, 11:155, 12:84, 13:2                            | critical-qualified 147; high-impact 2; non-critical 0; both 2      |
+| Glass Cannon      | 355; armour 5           | 12:18, 13:28, 14:21, 15:25, 16:31, 17:53, 18:44, 19:26, 20:26, 21:27, 22:43, 23:26, 24:21, 25:2 | 11:18, 12:28, 13:21, 14:25, 15:31, 16:53, 17:44, 18:26, 19:26, 20:27, 21:43, 22:26, 23:21, 24:2 | critical-qualified 264; high-impact 320; non-critical 81; both 239 |
 
 C1 qualification per match was 0–5, median 2, mean 2.05 for guarded Bulwark; 0–5, median 2, mean 1.84 for unguarded Bulwark; and at least one in every Glass Cannon match, with mean 4.31 and median 4. Glass Cannon's 100% terminal incidence was therefore caused by repeated moderate qualifications over short aggressive matches, not by every hit qualifying: 345/355 hits qualified, including 81 non-critical qualifications.
 
 Three analytical C2 sets were compared without rerunning altered gameplay:
 
-| Candidate | Factor / critical / high | Guarded q; 1+/2+/3+; mean | Unguarded q; 1+/2+/3+; mean | Glass q; 1+/2+/3+; mean |
-| --- | --- | --- | --- | --- |
-| C2-A | 0.20 / 12 / 14 | 59; 43/13/2; 0.74 | 54; 43/11/0; 0.68 | 333; 80/80/73; 4.16 |
-| C2-B selected | 0.20 / 13 / 15 | 2; 2/0/0; 0.03 | 2; 2/0/0; 0.03 | 312; 80/80/72; 3.90 |
-| C2-C | 0.20 / 12 / 15 | 59; 43/13/2; 0.74 | 54; 43/11/0; 0.68 | 328; 80/80/73; 4.10 |
+| Candidate     | Factor / critical / high | Guarded q; 1+/2+/3+; mean | Unguarded q; 1+/2+/3+; mean | Glass q; 1+/2+/3+; mean |
+| ------------- | ------------------------ | ------------------------- | --------------------------- | ----------------------- |
+| C2-A          | 0.20 / 12 / 14           | 59; 43/13/2; 0.74         | 54; 43/11/0; 0.68           | 333; 80/80/73; 4.16     |
+| C2-B selected | 0.20 / 13 / 15           | 2; 2/0/0; 0.03            | 2; 2/0/0; 0.03              | 312; 80/80/72; 3.90     |
+| C2-C          | 0.20 / 12 / 15           | 59; 43/13/2; 0.74         | 54; 43/11/0; 0.68           | 328; 80/80/73; 4.10     |
 
 An armour factor of 0.30 with the C1 thresholds was rejected analytically because both Bulwark fixtures fell to zero qualifying hits. Global threshold tuning remains understandable and viable for a bounded experiment, but no analytical set guarantees the Glass Cannon terminal gate; C2-B was selected because it gives the largest bounded reduction while retaining positive qualification in every hard fixture.
 
 Candidate C2 is implemented as `component-impact-c2` with `0.20 / 0 / 13 / 15`. The fixed development suite result is:
 
-| Fixture | Hits | Qualifying; rate | Damaged / disabled / resisted | Terminal incidence | First-round terminal | Ending damaged | Outcome checksum |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| Guarded Bulwark | 1,303 | 2; 0.2% | 0 / 0 / 2 | 0.0% | 0.0% | 0.0% | `8d102dba45ac9eab` |
-| Unguarded Bulwark | 1,244 | 2; 0.2% | 2 / 0 / 0 | 0.0% | 0.0% | 2.5% | `6bc03ef696d68955` |
-| Glass Cannon | 391 | 333; 85.2% | 214 / 119 / 0 | 97.5% | 0.0% | 76.3% | `dc9194c55baebc4f` |
-| Bulwark vs Glass diagnostic | 924 | 519; 56.2% | 285 / 233 / 1 | diagnostic | 0.0% | 31.9% | `4a36189adcfda57f` |
+| Fixture                     |  Hits | Qualifying; rate | Damaged / disabled / resisted | Terminal incidence | First-round terminal | Ending damaged | Outcome checksum   |
+| --------------------------- | ----: | ---------------: | ----------------------------: | -----------------: | -------------------: | -------------: | ------------------ |
+| Guarded Bulwark             | 1,303 |          2; 0.2% |                     0 / 0 / 2 |               0.0% |                 0.0% |           0.0% | `8d102dba45ac9eab` |
+| Unguarded Bulwark           | 1,244 |          2; 0.2% |                     2 / 0 / 0 |               0.0% |                 0.0% |           2.5% | `6bc03ef696d68955` |
+| Glass Cannon                |   391 |       333; 85.2% |                 214 / 119 / 0 |              97.5% |                 0.0% |          76.3% | `dc9194c55baebc4f` |
+| Bulwark vs Glass diagnostic |   924 |       519; 56.2% |                 285 / 233 / 1 |         diagnostic |                 0.0% |          31.9% | `4a36189adcfda57f` |
 
 Suite checksum: `7c734547c93214f5`. Failing lifecycle gates are guarded-Bulwark healthy-to-damaged progression and Glass Cannon terminal-disable incidence. All factual, lifecycle legality, guard, first-round, dominance, and historical compatibility gates pass. Decision: **B. Candidate C2 improves Glass Cannon but still fails one or more lifecycle gates.** No C3 or automatic retuning is authorised; held-out confirmation remains prohibited.
 
@@ -1208,10 +1208,10 @@ Qualification configuration is now independent of fixture configuration.
 `src/simulator/component-qualification-registry.ts` is the sole authoritative
 source for registered candidate constants. It contains two immutable entries:
 
-| ID | Model | Factor / minimum / critical / high | Config checksum |
-| --- | --- | --- | --- |
-| `component-impact-c1` | `linear-component-impact` | `0.20 / 0 / 11 / 13` | `2a40a56f97062ca3` |
-| `component-impact-c2` | `linear-component-impact` | `0.20 / 0 / 13 / 15` | `13548462df34a183` |
+| ID                    | Model                     | Factor / minimum / critical / high | Config checksum    |
+| --------------------- | ------------------------- | ---------------------------------- | ------------------ |
+| `component-impact-c1` | `linear-component-impact` | `0.20 / 0 / 11 / 13`               | `2a40a56f97062ca3` |
+| `component-impact-c2` | `linear-component-impact` | `0.20 / 0 / 13 / 15`               | `13548462df34a183` |
 
 C2 remains the explicit default. Unknown IDs fail before fighter state, events,
 or RNG consumption. Returned entries and the registry list are frozen. The
@@ -1247,12 +1247,12 @@ qualification metadata.
 The same manifest now runs both C1 and C2. Existing fixture gameplay is exactly
 reproduced: the four historical outcome checksums remain unchanged.
 
-| Fixture | Historical C1 outcome | Registry C1 outcome | Historical C2 outcome | Registry C2 outcome |
-| --- | --- | --- | --- | --- |
-| Guarded Bulwark | `6d5ccc01ddc76064` | same | `8d102dba45ac9eab` | same |
-| Unguarded Bulwark | `8b182f2598cad6d6` | same | `6bc03ef696d68955` | same |
-| Glass Cannon | `07154dc578aa035f` | same | `dc9194c55baebc4f` | same |
-| Bulwark vs Glass | `af4a1c74f7dce919` | same | `4a36189adcfda57f` | same |
+| Fixture           | Historical C1 outcome | Registry C1 outcome | Historical C2 outcome | Registry C2 outcome |
+| ----------------- | --------------------- | ------------------- | --------------------- | ------------------- |
+| Guarded Bulwark   | `6d5ccc01ddc76064`    | same                | `8d102dba45ac9eab`    | same                |
+| Unguarded Bulwark | `8b182f2598cad6d6`    | same                | `6bc03ef696d68955`    | same                |
+| Glass Cannon      | `07154dc578aa035f`    | same                | `dc9194c55baebc4f`    | same                |
+| Bulwark vs Glass  | `af4a1c74f7dce919`    | same                | `4a36189adcfda57f`    | same                |
 
 The historical suite checksums remain `04fe9aeb6cd48dbe` for C1 and
 `7c734547c93214f5` for C2. They map to revised architecture/suite checksums
@@ -1266,11 +1266,11 @@ fixtures.
 
 Three benchmark-only designs were compared:
 
-| Candidate | Build and armour | Policy | Decision |
-| --- | --- | --- | --- |
-| L1 | light/wheels/ram/none; `20/10/10/5/5` | rush/close, aggression 50, front then left, retreat 30, heat 75, defend | Selected: familiar equipment, real protection, and non-pathological engagement. |
-| L2 | L1 plus traction boost | same | Rejected: the catalogue utility has no specific current defensive runtime behavior, so it adds a target without the advertised control. |
-| L3 | existing light/wheels/grappler/none; `5/5/5/5/5` pattern | flank/close, aggression 70 | Rejected: armour remains near Glass Cannon and weapon/targeting changes confound the armour comparison. |
+| Candidate | Build and armour                                         | Policy                                                                  | Decision                                                                                                                                |
+| --------- | -------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| L1        | light/wheels/ram/none; `20/10/10/5/5`                    | rush/close, aggression 50, front then left, retreat 30, heat 75, defend | Selected: familiar equipment, real protection, and non-pathological engagement.                                                         |
+| L2        | L1 plus traction boost                                   | same                                                                    | Rejected: the catalogue utility has no specific current defensive runtime behavior, so it adds a target without the advertised control. |
+| L3        | existing light/wheels/grappler/none; `5/5/5/5/5` pattern | flank/close, aggression 70                                              | Rejected: armour remains near Glass Cannon and weapon/targeting changes confound the armour comparison.                                 |
 
 Selected competitor `representative-light` (“Light Vanguard”) costs 42, has
 60 integrity and 50 total armour, and uses only catalogue v1 items. No utility
@@ -1301,19 +1301,19 @@ invariants remain hard.
 Only the development partition was executed. Struck armour was 20 on every
 successful hit in both candidates.
 
-| Fact | C1 | C2 |
-| --- | --- | --- |
-| Hits | 362 | 402 |
-| Raw damage distribution | `12:11, 13:17, 14:23, 15:16, 16:34, 17:46, 18:44, 19:31, 20:30, 21:23, 22:28, 23:34, 24:22, 25:3` | `12:10, 13:18, 14:23, 15:17, 16:41, 17:42, 18:53, 19:36, 20:39, 21:28, 22:33, 23:36, 24:23, 25:3` |
-| Impact distribution | `8:11, 9:17, 10:23, 11:16, 12:34, 13:46, 14:44, 15:31, 16:30, 17:23, 18:28, 19:34, 20:22, 21:3` | `8:10, 9:18, 10:23, 11:17, 12:41, 13:42, 14:53, 15:36, 16:39, 17:28, 18:33, 19:36, 20:23, 21:3` |
-| Qualifying; rate | 292; 80.7% | 271; 67.4% |
-| Matches with 1+/2+/3+ | 80/79/67 | 80/79/65 |
-| Damaged / disabled | 188 / 104 | 176 / 95 |
-| Damaged M/W/U | 111/77/0 | 106/70/0 |
-| Disabled M/W/U | 61/43/0 | 57/38/0 |
-| Terminal / first-round terminal | 92.5% / 0% | 87.5% / 0% |
-| Average / maximum rounds | 12.86 / 20 | 13.96 / 20 |
-| Outcome / report checksum | `80500d22a280e588` / `9fc3aa64da8be76f` | `44520ac0dfddb326` / `3c2f98ed3acf2c44` |
+| Fact                            | C1                                                                                                | C2                                                                                                |
+| ------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Hits                            | 362                                                                                               | 402                                                                                               |
+| Raw damage distribution         | `12:11, 13:17, 14:23, 15:16, 16:34, 17:46, 18:44, 19:31, 20:30, 21:23, 22:28, 23:34, 24:22, 25:3` | `12:10, 13:18, 14:23, 15:17, 16:41, 17:42, 18:53, 19:36, 20:39, 21:28, 22:33, 23:36, 24:23, 25:3` |
+| Impact distribution             | `8:11, 9:17, 10:23, 11:16, 12:34, 13:46, 14:44, 15:31, 16:30, 17:23, 18:28, 19:34, 20:22, 21:3`   | `8:10, 9:18, 10:23, 11:17, 12:41, 13:42, 14:53, 15:36, 16:39, 17:28, 18:33, 19:36, 20:23, 21:3`   |
+| Qualifying; rate                | 292; 80.7%                                                                                        | 271; 67.4%                                                                                        |
+| Matches with 1+/2+/3+           | 80/79/67                                                                                          | 80/79/65                                                                                          |
+| Damaged / disabled              | 188 / 104                                                                                         | 176 / 95                                                                                          |
+| Damaged M/W/U                   | 111/77/0                                                                                          | 106/70/0                                                                                          |
+| Disabled M/W/U                  | 61/43/0                                                                                           | 57/38/0                                                                                           |
+| Terminal / first-round terminal | 92.5% / 0%                                                                                        | 87.5% / 0%                                                                                        |
+| Average / maximum rounds        | 12.86 / 20                                                                                        | 13.96 / 20                                                                                        |
+| Outcome / report checksum       | `80500d22a280e588` / `9fc3aa64da8be76f`                                                           | `44520ac0dfddb326` / `3c2f98ed3acf2c44`                                                           |
 
 The fixture is suitable: it engages reliably, has meaningful progression,
 differentiates C1 from C2, avoids first-round terminal volatility, and is less
@@ -1326,12 +1326,12 @@ historical global-threshold candidate is accepted by the new fixture.
 
 Select Option A, fixed struck-zone armour bands with band-specific thresholds:
 
-| Band | Struck-zone armour |
-| --- | --- |
-| `exposed` | 0-9 inclusive |
-| `light` | 10-24 inclusive |
-| `protected` | 25-49 inclusive |
-| `heavy` | 50 and above |
+| Band        | Struck-zone armour |
+| ----------- | ------------------ |
+| `exposed`   | 0-9 inclusive      |
+| `light`     | 10-24 inclusive    |
+| `protected` | 25-49 inclusive    |
+| `heavy`     | 50 and above       |
 
 The authoritative input is the armour value at the resolved hit zone. Chassis,
 fixture ID, competitor name, total armour, and build identity have no effect.
@@ -1348,12 +1348,12 @@ progression. The thresholds remain monotonic within each band.
 
 Evidence-bounded ranges for the next candidate-selection task are:
 
-| Band | Critical range | High-impact range | Evidence boundary |
-| --- | ---: | ---: | --- |
-| `exposed` | 15-17 | 18-20 | Glass impact 11-24 remains diagnostic; thresholds must materially exceed C2. |
-| `light` | 14-15 | 16-18 | Armour-20 C2 at 13/15 still yields 67.4% qualification and 87.5% terminal incidence. |
-| `protected` | 12-14 | 14-16 | Interpolation only; no acceptance claim until a future representative protected fixture exists. |
-| `heavy` | 11-12 | 13-14 | Armour-60 C1 progresses at 11/13; C2 collapses guarded progression at 13/15. |
+| Band        | Critical range | High-impact range | Evidence boundary                                                                               |
+| ----------- | -------------: | ----------------: | ----------------------------------------------------------------------------------------------- |
+| `exposed`   |          15-17 |             18-20 | Glass impact 11-24 remains diagnostic; thresholds must materially exceed C2.                    |
+| `light`     |          14-15 |             16-18 | Armour-20 C2 at 13/15 still yields 67.4% qualification and 87.5% terminal incidence.            |
+| `protected` |          12-14 |             14-16 | Interpolation only; no acceptance claim until a future representative protected fixture exists. |
+| `heavy`     |          11-12 |             13-14 | Armour-60 C1 progresses at 11/13; C2 collapses guarded progression at 13/15.                    |
 
 These are search bounds, not Candidate C3 constants. A future task must compare
 a small declared set across all five fixtures and may conclude that the
@@ -1394,12 +1394,12 @@ and C2 remains the runtime default.
 
 AB2 is immutable and uses only struck-zone armour for band selection:
 
-| Band | Armour | Critical / high threshold |
-| --- | --- | ---: |
-| exposed | 0-9 | 17 / 20 |
-| light | 10-24 | 15 / 18 |
-| protected | 25-49 | 13 / 15 |
-| heavy | 50+ | 11 / 13 |
+| Band      | Armour | Critical / high threshold |
+| --------- | ------ | ------------------------: |
+| exposed   | 0-9    |                   17 / 20 |
+| light     | 10-24  |                   15 / 18 |
+| protected | 25-49  |                   13 / 15 |
+| heavy     | 50+    |                   11 / 13 |
 
 Impact remains `max(0, round(rawDamage - armourAtHitZone * 0.20))`.
 Qualification precedes component selection, critical reason precedence is
@@ -1418,13 +1418,13 @@ Identity: simulator `0.2.0`, ruleset `0.2.0`, catalogue `1`, seed bank
 `prototype-0.2-baseline-v1`, 80 development seeds, 480 simulations, fixture
 checksum `ffc11deb47e6049f`, suite checksum `951cdbe01132b06c`.
 
-| Fixture | Hits / qualifying | Critical / high | Damaged / disabled | Terminal / first-round terminal | Outcomes D/I/J/draw |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| guarded Bulwark | 1255 / 164 (13.1%) | 164 / 2 | 81 / 19 | 22.5% / 0.0% | 0 / 4 / 76 / 15 |
-| unguarded Bulwark | 1074 / 147 (13.7%) | 147 / 2 | 111 / 36 | 42.5% / 0.0% | 0 / 21 / 59 / 10 |
-| representative light | 509 / 207 (40.7%) | 167 / 118 | 151 / 56 | 58.8% / 0.0% | 5 / 26 / 49 / 0 |
-| Glass Cannon diagnostic-extreme | 462 / 238 (51.5%) | 202 / 141 | 170 / 68 | 71.3% / 0.0% | 57 / 19 / 4 / 0 |
-| Bulwark vs Glass diagnostic | 1101 / 418 (38.0%) | 364 / 225 | 268 / 123 | 69.4% / 0.0% | 113 / 40 / 7 / 0 |
+| Fixture                         |  Hits / qualifying | Critical / high | Damaged / disabled | Terminal / first-round terminal | Outcomes D/I/J/draw |
+| ------------------------------- | -----------------: | --------------: | -----------------: | ------------------------------: | ------------------: |
+| guarded Bulwark                 | 1255 / 164 (13.1%) |         164 / 2 |            81 / 19 |                    22.5% / 0.0% |     0 / 4 / 76 / 15 |
+| unguarded Bulwark               | 1074 / 147 (13.7%) |         147 / 2 |           111 / 36 |                    42.5% / 0.0% |    0 / 21 / 59 / 10 |
+| representative light            |  509 / 207 (40.7%) |       167 / 118 |           151 / 56 |                    58.8% / 0.0% |     5 / 26 / 49 / 0 |
+| Glass Cannon diagnostic-extreme |  462 / 238 (51.5%) |       202 / 141 |           170 / 68 |                    71.3% / 0.0% |     57 / 19 / 4 / 0 |
+| Bulwark vs Glass diagnostic     | 1101 / 418 (38.0%) |       364 / 225 |          268 / 123 |                    69.4% / 0.0% |    113 / 40 / 7 / 0 |
 
 Band facts were heavy-only for both Bulwark mirrors (1255/164 and 1074/147),
 light-only for representative light (509/207), and exposed-only for Glass
@@ -1459,13 +1459,13 @@ The run used the unchanged candidate `component-impact-ab2` with checksum
 ruleset, and catalogue versions remained `0.2.0`, `0.2.0`, and `1`. Held-out
 suite checksum: `4ea2fe4423a0de8c`.
 
-| Fixture | Hits / qualifying | Damaged / disabled | Terminal / first-round terminal | Resisted | Outcome D/I/J/draw |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| guarded Bulwark | 311 / 39 (12.5%) | 18 / 3 | 15.0% / 0.0% | 18 | 0 / 0 / 20 / 3 |
-| unguarded Bulwark | 283 / 38 (13.4%) | 32 / 6 | 30.0% / 0.0% | 0 | 0 / 4 / 16 / 0 |
-| representative light | 118 / 59 (50.0%) | 40 / 19 | **85.0% / 0.0%** | 0 | 2 / 10 / 8 / 0 |
-| Glass Cannon diagnostic-extreme | 101 / 56 (55.4%) | 38 / 18 | 80.0% / 0.0% | 0 | 11 / 8 / 1 / 0 |
-| Bulwark vs Glass diagnostic | 268 / 98 (36.6%) | 62 / 32 | 75.0% / 0.0% | 4 | 27 / 13 / 0 / 0 |
+| Fixture                         | Hits / qualifying | Damaged / disabled | Terminal / first-round terminal | Resisted | Outcome D/I/J/draw |
+| ------------------------------- | ----------------: | -----------------: | ------------------------------: | -------: | -----------------: |
+| guarded Bulwark                 |  311 / 39 (12.5%) |             18 / 3 |                    15.0% / 0.0% |       18 |     0 / 0 / 20 / 3 |
+| unguarded Bulwark               |  283 / 38 (13.4%) |             32 / 6 |                    30.0% / 0.0% |        0 |     0 / 4 / 16 / 0 |
+| representative light            |  118 / 59 (50.0%) |            40 / 19 |                **85.0% / 0.0%** |        0 |     2 / 10 / 8 / 0 |
+| Glass Cannon diagnostic-extreme |  101 / 56 (55.4%) |            38 / 18 |                    80.0% / 0.0% |        0 |     11 / 8 / 1 / 0 |
+| Bulwark vs Glass diagnostic     |  268 / 98 (36.6%) |            62 / 32 |                    75.0% / 0.0% |        4 |    27 / 13 / 0 / 0 |
 
 All factual-completeness, lifecycle-legality, qualification-before-selection,
 guard, mobility-semantics, guarded-resistance, unguarded-resistance,

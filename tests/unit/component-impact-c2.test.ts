@@ -78,7 +78,10 @@ describe("Candidate AB2 armour-band component impact", () => {
     [50, "heavy", 11, 13],
     [60, "heavy", 11, 13],
   ] as const)("selects %s band at armour %i", (armour, bandId, critical, high) => {
-    const result = calculateComponentImpact({ rawDamage: 30, armourAtHitZone: armour }, ab2);
+    const result = calculateComponentImpact(
+      { rawDamage: 30, armourAtHitZone: armour },
+      ab2,
+    );
     expect(result.bandId).toBe(bandId);
     expect(result.criticalThreshold).toBe(critical);
     expect(result.highImpactThreshold).toBe(high);
@@ -96,9 +99,10 @@ describe("Candidate AB2 armour-band component impact", () => {
     ["protected", 13, 15],
     ["heavy", 11, 13],
   ] as const)("applies critical/high boundaries for %s", (bandId, critical, high) => {
-    const band = ab2.model === "armour-band-component-impact"
-      ? ab2.bands.find((candidate) => candidate.id === bandId)
-      : undefined;
+    const band =
+      ab2.model === "armour-band-component-impact"
+        ? ab2.bands.find((candidate) => candidate.id === bandId)
+        : undefined;
     expect(band).toBeDefined();
     expect(checkComponentQualification(true, critical - 1, ab2, band)).toMatchObject({
       qualifies: false,
@@ -120,7 +124,13 @@ describe("Candidate AB2 armour-band component impact", () => {
   });
 
   it("clamps zero impact and verifies a rounding boundary", () => {
-    expect(calculateComponentImpact({ rawDamage: 1, armourAtHitZone: 60 }, ab2).componentImpact).toBe(0);
-    expect(calculateComponentImpact({ rawDamage: 10, armourAtHitZone: 24 }, ab2).componentImpact).toBe(5);
+    expect(
+      calculateComponentImpact({ rawDamage: 1, armourAtHitZone: 60 }, ab2)
+        .componentImpact,
+    ).toBe(0);
+    expect(
+      calculateComponentImpact({ rawDamage: 10, armourAtHitZone: 24 }, ab2)
+        .componentImpact,
+    ).toBe(5);
   });
 });

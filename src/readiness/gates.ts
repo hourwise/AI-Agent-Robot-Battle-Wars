@@ -4,7 +4,8 @@ import type { MatchRecordV3 } from "../schemas/match-record.schema.js";
 import type { FactualMatchReportV2 } from "../schemas/factual-report.schema.js";
 
 /**
- * Frozen grid activation-readiness gates (Milestone 0.2C Phase 3E1 / 3E1.1).
+ * Frozen grid activation-readiness gates (Milestone 0.2C Phase 3E1 /
+ * 3E1.1 / 3E1.2).
  *
  * Gate outcomes: `pass`, `fail`, `inconclusive`.
  *
@@ -18,9 +19,12 @@ import type { FactualMatchReportV2 } from "../schemas/factual-report.schema.js";
  *
  * Persisted-record evidence: H01/H03/H04/H05/H06/H08 use the recomputed
  * metrics and the persisted records/reports. Explicit operational
- * attestations (manifest v2 evidence): H02 (deterministic re-execution),
- * H07 (inputs unmodified), H09 (full bundle read-back and artifact
- * integrity), H10 (legacy-isolation regression).
+ * attestations (Phase 3E1.2): H02 uses `deterministicReexecutionPassed`,
+ * H07 uses `inputsUnmodified`, H09 uses artifact-integrity verification and
+ * H10 uses the legacy-isolation regression. H02 and H07 are bound directly
+ * to the manifest attestations, never encoded indirectly through metrics;
+ * H06 derives from record inspection (authoritative invalid-event count 0);
+ * H05 derives from the complete report/final-state agreement count.
  *
  * These thresholds are frozen gross-pathology thresholds and must not be
  * adjusted after seeing results.
@@ -51,15 +55,30 @@ export interface GridActivationReadinessRecordReportPair {
   readonly report: FactualMatchReportV2;
 }
 
-export interface EvaluateGridActivationReadinessGatesInput {
-  metrics: GridActivationReadinessMetrics;
-  /** 312 record/report pairs (live outcome or persisted envelopes). */
-  results: readonly GridActivationReadinessRecordReportPair[];
+/**
+ * Explicit operational attestations (Phase 3E1.2, Phase 7/12). H02 uses the
+ * manifest `deterministicReexecutionPassed` attestation directly, H07 uses
+ * the manifest `inputsUnmodified` attestation directly, H09 uses the
+ * artifact-integrity verification, and H10 uses the legacy-isolation
+ * regression. These are never encoded indirectly through the persisted
+ * metrics.
+ */
+export interface GridActivationReadinessOperationalEvidence {
+  /** manifest.evidence.deterministicReexecutionPassed (H02). */
+  deterministicReexecutionPassed: boolean;
+  /** manifest.evidence.inputsUnmodified (H07). */
   inputsUnmodified: boolean;
   /** H09 input: in-memory schema/checksum/digest/cross-agreement validation. */
   artifactIntegrityVerified: boolean;
   /** H10 input: legacy commands, schemas, constants and canaries unchanged. */
   legacyIsolationVerified: boolean;
+}
+
+export interface EvaluateGridActivationReadinessGatesInput {
+  metrics: GridActivationReadinessMetrics;
+  /** 312 record/report pairs (live outcome or persisted envelopes). */
+  results: readonly GridActivationReadinessRecordReportPair[];
+  operational: GridActivationReadinessOperationalEvidence;
 }
 
 const ALL_NINE_ZONES = [
@@ -101,7 +120,7 @@ function gate(
 export function evaluateGridActivationReadinessGates(
   input: EvaluateGridActivationReadinessGatesInput,
 ): GridActivationReadinessGateResults {
-  const { metrics, results, inputsUnmodified } = input;
+  const { metrics, results, operational } = input;
   const gates: ReadinessGateResult[] = [];
 
   // ── Hard correctness gates (pass/fail) ───────────────────────────────────
@@ -121,16 +140,18 @@ export function evaluateGridActivationReadinessGates(
     ),
   );
 
-  const h02Determinism =
-    metrics.execution.deterministicMatches === GRID_ACTIVATION_READINESS_RUN_COUNT;
+  // H02 uses the manifest operational attestation directly (Phase 7).
+  const h02Determinism = operational.deterministicReexecutionPassed;
   gates.push(
     gate(
       "H02",
       "hard-correctness",
       h02Determinism ? "pass" : "fail",
-      "every repeated run is byte-identical under fixed identities",
-      `${metrics.execution.deterministicMatches} deterministic`,
-      "Repeat suite matched the primary suite byte-for-byte (operational attestation: deterministicReexecutionPassed)",
+      "deterministic re-execution attestation must pass (byte-identical under fixed identities)",
+      h02Determinism
+        ? "deterministicReexecutionPassed"
+        : "deterministicReexecutionPassed=false",
+      "Operational attestation: manifest.evidence.deterministicReexecutionPassed",
       h02Determinism ? null : "repeat execution was not byte-identical",
     ),
   );
@@ -179,7 +200,9 @@ export function evaluateGridActivationReadinessGates(
     if (pair.record.matchId !== pair.report.matchId) bindingViolations += 1;
   }
   const h04Persistence =
-    schemaViolations === 0 && bindingViolations === 0 && input.artifactIntegrityVerified;
+    schemaViolations === 0 &&
+    bindingViolations === 0 &&
+    operational.artifactIntegrityVerified;
   gates.push(
     gate(
       "H04",
@@ -199,35 +222,41 @@ export function evaluateGridActivationReadinessGates(
       "H05",
       "hard-correctness",
       h05Replay ? "pass" : "fail",
-      "every report agrees with replay reconstruction and final authoritative round facts",
+      "every report agrees with the complete final-state reconstruction from the authoritative record event stream",
       `${metrics.execution.replayAgreeingMatches} agreeing`,
-      "Replay, report and final round_ended facts agree for every match",
-      h05Replay ? null : "a replay/report/final-round disagreement was found",
+      "Complete report/final-state agreement for every record/report pair",
+      h05Replay ? null : "a record/report final-state disagreement was found",
     ),
   );
 
+  // H06 derives from record inspection (Phase 6): every one of the 312
+  // records must pass the authoritative record-evidence inspector, after
+  // which the authoritative invalid-event count is exactly zero. The
+  // recomputed metrics carry that authoritative value; the persisted metrics
+  // must agree exactly (enforced by the bundle validator).
   const h06Events = metrics.execution.invalidEventCount === 0;
   gates.push(
     gate(
       "H06",
       "hard-correctness",
       h06Events ? "pass" : "fail",
-      "no malformed action, zone, subject, facing, condition or impossible schema fact is accepted",
+      "every persisted record passes the authoritative record-evidence inspector; invalid-event count is exactly zero",
       `${metrics.execution.invalidEventCount} invalid events`,
-      "All movement actions, subjects, zones, facings, conditions and schema facts are canonical",
+      "Record inspection: all 312 records passed the record-evidence inspector",
       h06Events ? null : "an invalid event fact was accepted",
     ),
   );
 
-  const h07Immutability = inputsUnmodified && metrics.execution.mutationFailures === 0;
+  // H07 uses the manifest input-immutability attestation directly (Phase 7).
+  const h07Immutability = operational.inputsUnmodified;
   gates.push(
     gate(
       "H07",
       "hard-correctness",
       h07Immutability ? "pass" : "fail",
-      "no scenario, build, policy, registry or run-plan input mutates",
-      inputsUnmodified ? "unmodified" : "mutated",
-      "Every supplied registry, plan and fighter value remained unmodified",
+      "input-immutability attestation must pass (no scenario, build, policy, registry or run-plan input mutates)",
+      h07Immutability ? "inputsUnmodified" : "inputsUnmodified=false",
+      "Operational attestation: manifest.evidence.inputsUnmodified",
       h07Immutability ? null : "a supplied input was mutated",
     ),
   );
@@ -246,7 +275,7 @@ export function evaluateGridActivationReadinessGates(
     ),
   );
 
-  const h09Artifacts = input.artifactIntegrityVerified;
+  const h09Artifacts = operational.artifactIntegrityVerified;
   gates.push(
     gate(
       "H09",
@@ -259,7 +288,7 @@ export function evaluateGridActivationReadinessGates(
     ),
   );
 
-  const h10Legacy = input.legacyIsolationVerified;
+  const h10Legacy = operational.legacyIsolationVerified;
   gates.push(
     gate(
       "H10",

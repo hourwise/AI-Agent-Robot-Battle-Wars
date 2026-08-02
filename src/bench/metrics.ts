@@ -143,36 +143,81 @@ export function computeMetrics(
   const totalAttacks = results.reduce((s, r) => s + r.attacksAttempted, 0);
   const totalHits = results.reduce((s, r) => s + r.attacksHit, 0);
   const totalQualifyingHits = results.reduce((s, r) => s + r.qualifyingHits, 0);
-  const totalCriticalQualifiedHits = results.reduce((s, r) => s + r.criticalQualifiedHits, 0);
-  const totalHighImpactQualifiedHits = results.reduce((s, r) => s + r.highImpactQualifiedHits, 0);
-  const totalHitsSatisfyingBothConditions = results.reduce((s, r) => s + r.hitsSatisfyingBothConditions, 0);
-  const totalNonQualifyingSuccessfulHits = results.reduce((s, r) => s + r.nonQualifyingSuccessfulHits, 0);
+  const totalCriticalQualifiedHits = results.reduce(
+    (s, r) => s + r.criticalQualifiedHits,
+    0,
+  );
+  const totalHighImpactQualifiedHits = results.reduce(
+    (s, r) => s + r.highImpactQualifiedHits,
+    0,
+  );
+  const totalHitsSatisfyingBothConditions = results.reduce(
+    (s, r) => s + r.hitsSatisfyingBothConditions,
+    0,
+  );
+  const totalNonQualifyingSuccessfulHits = results.reduce(
+    (s, r) => s + r.nonQualifyingSuccessfulHits,
+    0,
+  );
 
   // v2: component transition metrics
-  const totalDamagedTransitions = results.reduce((s, r) => s + (r.componentDamagedTransitions ?? 0), 0);
-  const totalDisabledTransitions = results.reduce((s, r) => s + (r.componentDisabledTransitions ?? 0), 0);
-  const totalResistedTransitions = results.reduce((s, r) => s + (r.componentResistedTransitions ?? 0), 0);
+  const totalDamagedTransitions = results.reduce(
+    (s, r) => s + (r.componentDamagedTransitions ?? 0),
+    0,
+  );
+  const totalDisabledTransitions = results.reduce(
+    (s, r) => s + (r.componentDisabledTransitions ?? 0),
+    0,
+  );
+  const totalResistedTransitions = results.reduce(
+    (s, r) => s + (r.componentResistedTransitions ?? 0),
+    0,
+  );
   const totalGuardsSpent = results.reduce((s, r) => s + (r.guardsSpent ?? 0), 0);
   const totalGuardsLost = results.reduce((s, r) => s + (r.guardsLost ?? 0), 0);
 
   const anyTransition = results.filter(
-    (r) => (r.componentDamagedTransitions ?? 0) +
-           (r.componentDisabledTransitions ?? 0) +
-           (r.componentResistedTransitions ?? 0) > 0,
+    (r) =>
+      (r.componentDamagedTransitions ?? 0) +
+        (r.componentDisabledTransitions ?? 0) +
+        (r.componentResistedTransitions ?? 0) >
+      0,
   ).length;
 
   const anyDamagedComp = results.filter(
     (r) =>
-      r.fighterA.mobilityDamaged || r.fighterA.weaponDamaged || r.fighterA.utilityDamaged ||
-      r.fighterB.mobilityDamaged || r.fighterB.weaponDamaged || r.fighterB.utilityDamaged,
+      r.fighterA.mobilityDamaged ||
+      r.fighterA.weaponDamaged ||
+      r.fighterA.utilityDamaged ||
+      r.fighterB.mobilityDamaged ||
+      r.fighterB.weaponDamaged ||
+      r.fighterB.utilityDamaged,
   ).length;
 
-  const mobilityDamagedTransitions = results.reduce((s, r) => s + (r.mobilityDamagedCount ?? 0), 0);
-  const weaponDamagedTransitions = results.reduce((s, r) => s + (r.weaponDamagedCount ?? 0), 0);
-  const utilityDamagedTransitions = results.reduce((s, r) => s + (r.utilityDamagedCount ?? 0), 0);
-  const mobilityDisabledTransitions = results.reduce((s, r) => s + (r.mobilityDisabledCount ?? 0), 0);
-  const weaponDisabledTransitions = results.reduce((s, r) => s + (r.weaponDisabledCount ?? 0), 0);
-  const utilityDisabledTransitions = results.reduce((s, r) => s + (r.utilityDisabledCount ?? 0), 0);
+  const mobilityDamagedTransitions = results.reduce(
+    (s, r) => s + (r.mobilityDamagedCount ?? 0),
+    0,
+  );
+  const weaponDamagedTransitions = results.reduce(
+    (s, r) => s + (r.weaponDamagedCount ?? 0),
+    0,
+  );
+  const utilityDamagedTransitions = results.reduce(
+    (s, r) => s + (r.utilityDamagedCount ?? 0),
+    0,
+  );
+  const mobilityDisabledTransitions = results.reduce(
+    (s, r) => s + (r.mobilityDisabledCount ?? 0),
+    0,
+  );
+  const weaponDisabledTransitions = results.reduce(
+    (s, r) => s + (r.weaponDisabledCount ?? 0),
+    0,
+  );
+  const utilityDisabledTransitions = results.reduce(
+    (s, r) => s + (r.utilityDisabledCount ?? 0),
+    0,
+  );
 
   return {
     seedCount,
@@ -206,9 +251,12 @@ export function computeMetrics(
     totalHitsSatisfyingBothConditions,
     totalNonQualifyingSuccessfulHits,
     qualificationRate: totalHits > 0 ? totalQualifyingHits / totalHits : 0,
-    matchesWithAtLeastOneQualifyingHit: results.filter((r) => r.qualifyingHits >= 1).length,
-    matchesWithAtLeastTwoQualifyingHits: results.filter((r) => r.qualifyingHits >= 2).length,
-    matchesWithAtLeastThreeQualifyingHits: results.filter((r) => r.qualifyingHits >= 3).length,
+    matchesWithAtLeastOneQualifyingHit: results.filter((r) => r.qualifyingHits >= 1)
+      .length,
+    matchesWithAtLeastTwoQualifyingHits: results.filter((r) => r.qualifyingHits >= 2)
+      .length,
+    matchesWithAtLeastThreeQualifyingHits: results.filter((r) => r.qualifyingHits >= 3)
+      .length,
     totalDamagedTransitions,
     totalDisabledTransitions,
     totalResistedTransitions,

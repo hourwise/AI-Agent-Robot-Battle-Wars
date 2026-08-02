@@ -28,6 +28,7 @@ import {
   gridActivationReadinessSuiteChecksum,
   GRID_ACTIVATION_READINESS_RUN_COUNT,
   GRID_ACTIVATION_READINESS_SUITE_ID,
+  GRID_READINESS_PROVENANCE_MODEL,
   type GridActivationReadinessRunPlan,
 } from "../readiness/run-plan.js";
 import {
@@ -41,13 +42,13 @@ import {
   deserializeGridActivationReadinessRunIndex,
   deserializeGridActivationReadinessMatchRecords,
   deserializeGridActivationReadinessFactualReports,
-  type GridActivationReadinessRunIndexEnvelopeV2,
+  type GridActivationReadinessRunIndexEnvelopeV3,
   type GridActivationReadinessRunIndexEntryV2,
 } from "../readiness/envelopes.schema.js";
 import {
   computeGridActivationReadinessMetrics,
   deserializeGridActivationReadinessMetrics,
-  wrapGridActivationReadinessMetricsV2,
+  wrapGridActivationReadinessMetricsV3,
   type GridActivationReadinessMetrics,
 } from "../readiness/metrics.js";
 import {
@@ -57,7 +58,7 @@ import {
 import {
   buildGridActivationReadinessDecision,
   deserializeGridActivationReadinessDecision,
-  type GridActivationReadinessDecisionV2,
+  type GridActivationReadinessDecisionV3,
 } from "../readiness/decision.js";
 import { buildGridActivationReadinessReport } from "../readiness/report.js";
 import {
@@ -79,7 +80,7 @@ import {
   GRID_READINESS_METRICS_ARTIFACT,
   GRID_READINESS_DECISION_ARTIFACT,
   GRID_READINESS_REPORT_ARTIFACT,
-  type GridActivationReadinessManifestV2,
+  type GridActivationReadinessManifestV3,
 } from "../readiness/readiness-bundle.js";
 import { GRID_READINESS_ACTION_EVIDENCE_MODEL } from "../readiness/run-plan.js";
 
@@ -119,8 +120,9 @@ export interface GridActivationReadinessDependencies {
 
 export interface GridActivationReadinessResult {
   evaluationId: string;
-  suiteId: "grid-activation-readiness-v2";
+  suiteId: "grid-activation-readiness-v3";
   actionEvidenceModel: "policy-triggered-round-actions-v1";
+  provenanceModel: "canonical-registry-record-derived-decision-v1";
   seedRegistryId: string;
   seedRegistryChecksum: string;
   scenarioRegistryId: string;
@@ -135,10 +137,10 @@ export interface GridActivationReadinessResult {
   deterministic: true;
   metrics: GridActivationReadinessMetrics;
   gates: readonly ReadinessGateResult[];
-  decision: GridActivationReadinessDecisionV2["decision"];
+  decision: GridActivationReadinessDecisionV3["decision"];
   artifactDirectory: string;
   artifacts: Array<{ name: string; path: string }>;
-  manifest: GridActivationReadinessManifestV2;
+  manifest: GridActivationReadinessManifestV3;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -292,7 +294,7 @@ export async function runGridActivationReadiness(
     items: primary.results.map((run) => run.report),
   };
   const runIndexEnvelope = {
-    schemaVersion: "2" as const,
+    schemaVersion: "3" as const,
     suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
     evaluationId,
     items: primary.results.map(toRunIndexEntry),
@@ -309,7 +311,12 @@ export async function runGridActivationReadiness(
       evidence: run.evidence,
     })),
     execution: {
+      totalPlannedRuns: GRID_ACTIVATION_READINESS_RUN_COUNT,
+      totalCompletedRuns: primary.results.length,
       deterministicMatches: GRID_ACTIVATION_READINESS_RUN_COUNT,
+      schemaValidRecords: primary.results.length,
+      schemaValidReports: primary.results.length,
+      replayAgreeingMatches: primary.results.length,
       invalidEventCount: 0,
       mutationFailures: 0,
     },
@@ -328,7 +335,7 @@ export async function runGridActivationReadiness(
   const serializedRecords = serializeGridActivationReadinessEnvelope(recordsEnvelope);
   const serializedReports = serializeGridActivationReadinessEnvelope(reportsEnvelope);
   const serializedMetrics = serializeGridActivationReadinessEnvelope(
-    wrapGridActivationReadinessMetricsV2(metrics),
+    wrapGridActivationReadinessMetricsV3(metrics),
   );
 
   const seedRt = readGridReadinessSeedRegistryFromString(serializedSeedRegistry);
@@ -345,7 +352,7 @@ export async function runGridActivationReadiness(
     seedRt !== null &&
     scenarioRt.ok &&
     runIndexRt.ok &&
-    runIndexRt.schemaVersion === "2" &&
+    runIndexRt.schemaVersion === "3" &&
     recordsRt.ok &&
     reportsRt.ok &&
     metricsRt.ok
@@ -354,7 +361,7 @@ export async function runGridActivationReadiness(
       validateGridActivationReadinessCoreArtifacts({
         seedRegistry: seedRt,
         scenarioRegistry: scenarioRt.registry,
-        runIndex: runIndexRt.envelope as GridActivationReadinessRunIndexEnvelopeV2,
+        runIndex: runIndexRt.envelope as GridActivationReadinessRunIndexEnvelopeV3,
         records: recordsRt.envelope,
         reports: reportsRt.envelope,
       });
@@ -368,11 +375,17 @@ export async function runGridActivationReadiness(
   const gateResults = evaluateGridActivationReadinessGates({
     metrics,
     results: primary.results.map((run) => ({ record: run.record, report: run.report })),
-    inputsUnmodified: primary.inputsUnmodified,
-    artifactIntegrityVerified,
-    // Legacy isolation (H10) is enforced by the regression suite; the
-    // readiness service never touches legacy commands, schemas or canaries.
-    legacyIsolationVerified: true,
+    operational: {
+      // H02/H07/H09/H10: explicit operational attestations (never encoded
+      // through the persisted metrics). The live service has just executed
+      // the deterministic repeat and confirmed inputs were unmodified.
+      deterministicReexecutionPassed: true,
+      inputsUnmodified: primary.inputsUnmodified,
+      artifactIntegrityVerified,
+      // Legacy isolation (H10) is enforced by the regression suite; the
+      // readiness service never touches legacy commands, schemas or canaries.
+      legacyIsolationVerified: true,
+    },
   });
 
   // 12. Build the readiness decision.
@@ -389,6 +402,7 @@ export async function runGridActivationReadiness(
     evaluationId,
     suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
     actionEvidenceModel: GRID_READINESS_ACTION_EVIDENCE_MODEL,
+    provenanceModel: GRID_READINESS_PROVENANCE_MODEL,
     createdAt,
     seedRegistryId: seedRegistry.registryId,
     seedRegistryChecksum: gridReadinessSeedRegistryChecksum(seedRegistry),
@@ -431,7 +445,7 @@ export async function runGridActivationReadiness(
   };
 
   // 16. Build the manifest.
-  const manifest: GridActivationReadinessManifestV2 =
+  const manifest: GridActivationReadinessManifestV3 =
     buildGridActivationReadinessManifest({
       evaluationId,
       createdAt,
@@ -504,9 +518,9 @@ export async function runGridActivationReadiness(
   const manifestReadBack = deserializeGridActivationReadinessManifest(
     readBack[GRID_READINESS_MANIFEST_FILE]!,
   );
-  if (!manifestReadBack.ok || manifestReadBack.schemaVersion !== "2") {
+  if (!manifestReadBack.ok || manifestReadBack.schemaVersion !== "3") {
     throw new Error(
-      `Grid activation readiness manifest read-back failed: ${manifestReadBack.ok ? "not v2" : manifestReadBack.errors}`,
+      `Grid activation readiness manifest read-back failed: ${manifestReadBack.ok ? "not v3" : manifestReadBack.errors}`,
     );
   }
 
@@ -515,6 +529,7 @@ export async function runGridActivationReadiness(
     evaluationId,
     suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
     actionEvidenceModel: GRID_READINESS_ACTION_EVIDENCE_MODEL,
+    provenanceModel: GRID_READINESS_PROVENANCE_MODEL,
     seedRegistryId: seedRegistry.registryId,
     seedRegistryChecksum: gridReadinessSeedRegistryChecksum(seedRegistry),
     scenarioRegistryId: scenarioRegistry.registryId,
@@ -535,7 +550,7 @@ export async function runGridActivationReadiness(
       name,
       path: join(artifactDirectory, name),
     })),
-    manifest: manifestReadBack.manifest as GridActivationReadinessManifestV2,
+    manifest: manifestReadBack.manifest as GridActivationReadinessManifestV3,
   };
 }
 

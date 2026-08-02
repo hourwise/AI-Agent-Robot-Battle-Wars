@@ -36,10 +36,34 @@ describe("component qualification registry", () => {
       armourFactor: 0.2,
       minimumImpact: 0,
       bands: [
-        { id: "exposed", minArmourInclusive: 0, maxArmourInclusive: 9, criticalThreshold: 17, highImpactThreshold: 20 },
-        { id: "light", minArmourInclusive: 10, maxArmourInclusive: 24, criticalThreshold: 15, highImpactThreshold: 18 },
-        { id: "protected", minArmourInclusive: 25, maxArmourInclusive: 49, criticalThreshold: 13, highImpactThreshold: 15 },
-        { id: "heavy", minArmourInclusive: 50, maxArmourInclusive: null, criticalThreshold: 11, highImpactThreshold: 13 },
+        {
+          id: "exposed",
+          minArmourInclusive: 0,
+          maxArmourInclusive: 9,
+          criticalThreshold: 17,
+          highImpactThreshold: 20,
+        },
+        {
+          id: "light",
+          minArmourInclusive: 10,
+          maxArmourInclusive: 24,
+          criticalThreshold: 15,
+          highImpactThreshold: 18,
+        },
+        {
+          id: "protected",
+          minArmourInclusive: 25,
+          maxArmourInclusive: 49,
+          criticalThreshold: 13,
+          highImpactThreshold: 15,
+        },
+        {
+          id: "heavy",
+          minArmourInclusive: 50,
+          maxArmourInclusive: null,
+          criticalThreshold: 11,
+          highImpactThreshold: 13,
+        },
       ],
     });
   });
@@ -87,9 +111,11 @@ describe("component qualification registry", () => {
     expect(getComponentQualificationConfigChecksum(c1)).not.toBe(
       getComponentQualificationConfigChecksum(c2),
     );
-    expect(getComponentQualificationConfigChecksum(getComponentQualificationConfig("component-impact-ab2"))).toBe(
-      "6b9f70450d3f10b8",
-    );
+    expect(
+      getComponentQualificationConfigChecksum(
+        getComponentQualificationConfig("component-impact-ab2"),
+      ),
+    ).toBe("6b9f70450d3f10b8");
   });
 
   it.each([

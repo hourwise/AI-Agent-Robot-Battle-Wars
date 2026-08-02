@@ -16,19 +16,22 @@ import { SeededRandom } from "../../src/simulator/seeded-random.js";
 import type { ComponentStates } from "../../src/simulator/types.js";
 
 // Helper: create a minimal ComponentStates for testing
-function makeComps(overrides?: Partial<{
-  mobilityState: "healthy" | "damaged" | "disabled";
-  weaponState: "healthy" | "damaged" | "disabled";
-  utilityState: "healthy" | "damaged" | "disabled";
-  utilityInstalled: boolean;
-  utilityId: string;
-}>): ComponentStates {
+function makeComps(
+  overrides?: Partial<{
+    mobilityState: "healthy" | "damaged" | "disabled";
+    weaponState: "healthy" | "damaged" | "disabled";
+    utilityState: "healthy" | "damaged" | "disabled";
+    utilityInstalled: boolean;
+    utilityId: string;
+  }>,
+): ComponentStates {
   const utilityId = overrides?.utilityId ?? "cooling";
   const comps = createInitialComponentStates(utilityId);
   if (overrides?.mobilityState) comps.mobility.state = overrides.mobilityState;
   if (overrides?.weaponState) comps.weapon.state = overrides.weaponState;
   if (overrides?.utilityState) comps.utility.state = overrides.utilityState;
-  if (overrides?.utilityInstalled !== undefined) comps.utility.installed = overrides.utilityInstalled;
+  if (overrides?.utilityInstalled !== undefined)
+    comps.utility.installed = overrides.utilityInstalled;
   return comps;
 }
 

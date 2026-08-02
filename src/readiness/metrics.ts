@@ -4,14 +4,19 @@ import type {
   RelativeBearing,
 } from "../simulator/arena-grid.js";
 import type { CombatAction, MovementAction, VictoryMethod } from "../simulator/types.js";
-import { GRID_ACTIVATION_READINESS_RUN_COUNT, GRID_ACTIVATION_READINESS_SUITE_ID } from "./run-plan.js";
 import {
+  GRID_ACTIVATION_READINESS_RUN_COUNT,
+  GRID_ACTIVATION_READINESS_SUITE_ID,
+  GRID_ACTIVATION_READINESS_SUITE_ID_V2,
+} from "./run-plan.js";
+import {
+  assertGridReadinessRecordReportFinalAgreement,
   inspectGridReadinessRecordEvidence,
   type GridActivationReadinessRunEvidence,
 } from "./record-evidence.js";
 import type { GridReadinessCompetitor } from "./scenario-registry.js";
 import type {
-  GridActivationReadinessRunIndexEnvelopeV2,
+  GridActivationReadinessRunIndexEnvelopeV3,
   GridActivationReadinessMatchRecordsEnvelope,
   GridActivationReadinessFactualReportsEnvelope,
 } from "./envelopes.schema.js";
@@ -125,11 +130,17 @@ export interface GridActivationReadinessMetrics {
 export interface GridActivationReadinessMetricsInput {
   /** 312 canonical run sources (live outcome or persisted run index). */
   runs: readonly GridActivationReadinessMetricRunSource[];
-  execution: {
-    deterministicMatches: number;
-    invalidEventCount: number;
-    mutationFailures: number;
-  };
+  /**
+   * Authoritative execution metrics (Phase 3E1.2, Phase 9). These are the
+   * value being verified, never copied from a persisted metrics artifact:
+   * totalPlannedRuns from the canonical plan, totalCompletedRuns / schema
+   * counts from the parsed and bound records, replayAgreeingMatches from the
+   * complete report/final-state agreement check, invalidEventCount is zero
+   * after every record passes the authoritative inspector, and
+   * deterministicMatches / mutationFailures come from the explicit
+   * operational attestations.
+   */
+  execution: GridActivationReadinessExecutionMetrics;
   timing: {
     totalElapsedMs: number;
     perMatchMs: readonly number[];
@@ -270,7 +281,8 @@ export function computeGridActivationReadinessMetrics(
       translatedActionCounts[action] += evidence.translatedActionCounts[action] ?? 0;
     }
     for (const action of ["attack", "defend", "idle"] as const) {
-      selectedCombatActionCounts[action] += evidence.selectedCombatActionCounts[action] ?? 0;
+      selectedCombatActionCounts[action] +=
+        evidence.selectedCombatActionCounts[action] ?? 0;
     }
     stationaryHoldCount += evidence.stationaryHoldCount;
     for (const zone of GRID_ZONES) zoneVisits[zone] += evidence.zoneVisits[zone] ?? 0;
@@ -358,12 +370,12 @@ export function computeGridActivationReadinessMetrics(
 
   const metrics: GridActivationReadinessMetrics = {
     execution: {
-      totalPlannedRuns: GRID_ACTIVATION_READINESS_RUN_COUNT,
-      totalCompletedRuns: results.length,
+      totalPlannedRuns: execution.totalPlannedRuns,
+      totalCompletedRuns: execution.totalCompletedRuns,
       deterministicMatches: execution.deterministicMatches,
-      schemaValidRecords: results.length,
-      schemaValidReports: results.length,
-      replayAgreeingMatches: results.length,
+      schemaValidRecords: execution.schemaValidRecords,
+      schemaValidReports: execution.schemaValidReports,
+      replayAgreeingMatches: execution.replayAgreeingMatches,
       invalidEventCount: execution.invalidEventCount,
       mutationFailures: execution.mutationFailures,
     },
@@ -514,14 +526,36 @@ const metricsTimingSchema = z.object({
 });
 
 /**
- * Authoritative metrics v2 artifact schema. Used to validate `metrics.json`
- * on read-back and as the input for exact metrics recomputation. Timing is
- * present but informational only.
+ * Authoritative metrics v3 artifact schema. Used to validate `metrics.json`
+ * on read-back and as the reference for exact metrics recomputation. Timing
+ * is present but informational only; the non-timing execution fields are
+ * record-derived and operational-attestation values, never copied from this
+ * artifact.
  */
+export const gridActivationReadinessMetricsV3Schema = z
+  .object({
+    schemaVersion: z.literal("3"),
+    suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID),
+    execution: metricsExecutionSchema,
+    movement: metricsMovementSchema,
+    combat: metricsCombatV2Schema,
+    results: metricsResultsSchema,
+    slotOrder: metricsSlotOrderSchema,
+    timing: metricsTimingSchema,
+    attacklessRate: z.number().min(0).max(1),
+    roundCapRate: z.number().min(0).max(1),
+  })
+  .strict();
+
+export type GridActivationReadinessMetricsV3Artifact = z.infer<
+  typeof gridActivationReadinessMetricsV3Schema
+>;
+
+/** Historical metrics v2 artifact schema (suite v2, selected combat counts). */
 export const gridActivationReadinessMetricsV2Schema = z
   .object({
     schemaVersion: z.literal("2"),
-    suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID),
+    suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID_V2),
     execution: metricsExecutionSchema,
     movement: metricsMovementSchema,
     combat: metricsCombatV2Schema,
@@ -559,52 +593,53 @@ export type GridActivationReadinessMetricsV1Artifact = z.infer<
   typeof gridActivationReadinessMetricsV1Schema
 >;
 
-/** Current (v2) metrics artifact type. */
-export type GridActivationReadinessMetricsArtifact = GridActivationReadinessMetricsV2Artifact;
+/** Current (v3) metrics artifact type. */
+export type GridActivationReadinessMetricsArtifact =
+  GridActivationReadinessMetricsV3Artifact;
 
 /**
- * Wraps reduced metrics with the v2 artifact identity (schemaVersion + suiteId)
+ * Wraps reduced metrics with the v3 artifact identity (schemaVersion + suiteId)
  * for the persisted `metrics.json` artifact.
  */
-export function wrapGridActivationReadinessMetricsV2(
+export function wrapGridActivationReadinessMetricsV3(
   metrics: GridActivationReadinessMetrics,
-): GridActivationReadinessMetricsV2Artifact {
+): GridActivationReadinessMetricsV3Artifact {
   return {
-    schemaVersion: "2",
+    schemaVersion: "3",
     suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
     ...metrics,
-  } as GridActivationReadinessMetricsV2Artifact;
+  } as GridActivationReadinessMetricsV3Artifact;
 }
 
 /**
- * Strips the v2 artifact identity wrapper, yielding the plain reduced metrics
+ * Strips the v3 artifact identity wrapper, yielding the plain reduced metrics
  * shape used by gates and the report renderer.
  */
-export function stripGridActivationReadinessMetricsV2(
-  artifact: GridActivationReadinessMetricsV2Artifact,
+export function stripGridActivationReadinessMetricsV3(
+  artifact: GridActivationReadinessMetricsV3Artifact,
 ): GridActivationReadinessMetrics {
   const { schemaVersion: _schemaVersion, suiteId: _suiteId, ...rest } = artifact;
   return rest as GridActivationReadinessMetrics;
 }
 
-export function deserializeGridActivationReadinessMetrics(
-  json: string,
-):
+export function deserializeGridActivationReadinessMetrics(json: string):
   | {
       ok: true;
       metrics: GridActivationReadinessMetricsArtifact;
-      schemaVersion: "1" | "2";
+      schemaVersion: "1" | "2" | "3";
     }
   | { ok: false; errors: string } {
   try {
     const data = JSON.parse(json) as unknown;
+    const v3 = gridActivationReadinessMetricsV3Schema.safeParse(data);
+    if (v3.success) return { ok: true, metrics: v3.data, schemaVersion: "3" };
     const v2 = gridActivationReadinessMetricsV2Schema.safeParse(data);
-    if (v2.success) return { ok: true, metrics: v2.data, schemaVersion: "2" };
+    if (v2.success) return { ok: true, metrics: v2.data as never, schemaVersion: "2" };
     const v1 = gridActivationReadinessMetricsV1Schema.safeParse(data);
     if (v1.success) return { ok: true, metrics: v1.data as never, schemaVersion: "1" };
     return {
       ok: false,
-      errors: `metrics matched neither v2 (${v2.error.message}) nor v1 (${v1.error.message})`,
+      errors: `metrics matched neither v3 (${v3.error.message}) nor v2 (${v2.error.message}) nor v1 (${v1.error.message})`,
     };
   } catch (e) {
     return { ok: false, errors: e instanceof SyntaxError ? e.message : String(e) };
@@ -612,19 +647,40 @@ export function deserializeGridActivationReadinessMetrics(
 }
 
 /**
- * Recomputes every non-timing metric from the persisted artifacts (Phase 8).
+ * Explicit operational attestations (Phase 3E1.2, Phase 7/9). These are the
+ * only execution facts that cannot be reconstructed from the persisted
+ * records: `deterministicMatches` follows the manifest
+ * `deterministicReexecutionPassed` attestation (312 when true) and
+ * `mutationFailures` follows the manifest `inputsUnmodified` attestation (0
+ * when true).
+ */
+export interface GridActivationReadinessOperationalAttestations {
+  readonly deterministicMatches: number;
+  readonly mutationFailures: number;
+}
+
+/**
+ * Recomputes every non-timing metric from the persisted artifacts (Phase 9).
  * Per-run evidence is derived from the persisted match records through the
- * shared record-evidence inspector; execution attestation values and timing
- * are supplied from the persisted metrics artifact. Timing is informational
- * only and is validated independently.
+ * shared record-evidence inspector (any inspector failure invalidates the
+ * bundle, so the authoritative invalid-event count is exactly zero);
+ * `replayAgreeingMatches` is the number of record/report pairs passing the
+ * complete report/final-state agreement check; schema-valid counts are the
+ * parsed envelope counts; `totalPlannedRuns` is the canonical 312. Only the
+ * explicit operational attestations (deterministic re-execution, input
+ * immutability) and timing (informational, passed through from the persisted
+ * artifact) are supplied from outside the records. The persisted metrics
+ * artifact is the value being verified, never the source of truth for its
+ * non-timing execution fields.
  */
 export function recomputeGridActivationReadinessMetricsFromArtifacts(input: {
-  runIndex: GridActivationReadinessRunIndexEnvelopeV2;
+  runIndex: GridActivationReadinessRunIndexEnvelopeV3;
   records: GridActivationReadinessMatchRecordsEnvelope;
   reports: GridActivationReadinessFactualReportsEnvelope;
-  persistedMetrics: GridActivationReadinessMetricsV2Artifact;
+  operationalAttestations: GridActivationReadinessOperationalAttestations;
+  persistedTiming: GridActivationReadinessTimingMetrics;
 }): GridActivationReadinessMetrics {
-  const { runIndex, records, reports, persistedMetrics } = input;
+  const { runIndex, records, reports, operationalAttestations, persistedTiming } = input;
   if (
     runIndex.items.length !== GRID_ACTIVATION_READINESS_RUN_COUNT ||
     records.items.length !== GRID_ACTIVATION_READINESS_RUN_COUNT ||
@@ -650,25 +706,48 @@ export function recomputeGridActivationReadinessMetricsFromArtifacts(input: {
       seed: entry.seed,
       fighterACompetitor: entry.fighterACompetitor,
       roleSwapped: entry.roleSwapped,
+      // Throws on any malformed/chronologically invalid/duplicate/impossible
+      // event fact: any inspector failure invalidates the bundle.
       evidence: inspectGridReadinessRecordEvidence(record),
     };
   });
+  // Complete report/final-state agreement (Phase 8): count the record/report
+  // pairs that pass the complete agreement check. Non-agreeing pairs count as
+  // non-replay-agreeing; they never validate a publishable bundle.
+  let replayAgreeingMatches = 0;
+  for (let index = 0; index < records.items.length; index++) {
+    try {
+      assertGridReadinessRecordReportFinalAgreement(
+        records.items[index]!,
+        reports.items[index]!,
+      );
+      replayAgreeingMatches += 1;
+    } catch {
+      // Non-agreeing pair: counted, not re-thrown here (metrics recompute
+      // completes so the bundle validator can report the disagreement).
+    }
+  }
   const computed = computeGridActivationReadinessMetrics({
     runs,
     execution: {
-      deterministicMatches: persistedMetrics.execution.deterministicMatches,
-      invalidEventCount: persistedMetrics.execution.invalidEventCount,
-      mutationFailures: persistedMetrics.execution.mutationFailures,
+      totalPlannedRuns: GRID_ACTIVATION_READINESS_RUN_COUNT,
+      totalCompletedRuns: records.items.length,
+      deterministicMatches: operationalAttestations.deterministicMatches,
+      schemaValidRecords: records.items.length,
+      schemaValidReports: reports.items.length,
+      replayAgreeingMatches,
+      invalidEventCount: 0,
+      mutationFailures: operationalAttestations.mutationFailures,
     },
     // Per-run timing samples are not persisted; timing aggregates are
     // supplied from the persisted metrics artifact and passed through.
     timing: {
-      totalElapsedMs: persistedMetrics.timing.totalElapsedMs,
+      totalElapsedMs: persistedTiming.totalElapsedMs,
       perMatchMs: [],
     },
   });
   return {
     ...computed,
-    timing: { ...persistedMetrics.timing },
+    timing: { ...persistedTiming },
   };
 }

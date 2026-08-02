@@ -5,11 +5,15 @@ import { actionPolicySchema } from "../schemas/policy.schema.js";
 import {
   loadGridReadinessSeedRegistry,
   gridReadinessSeedRegistryChecksum,
+  assertCanonicalGridReadinessSeedRegistry,
+  GRID_READINESS_CANONICAL_SEED_REGISTRY_CHECKSUM,
   type GridReadinessSeedRegistry,
 } from "./seed-registry.js";
 import {
   deepFreezeReadinessValue,
   gridReadinessScenarioRegistryChecksum,
+  assertCanonicalGridReadinessScenarioRegistry,
+  GRID_READINESS_CANONICAL_SCENARIO_REGISTRY_CHECKSUM,
   type GridReadinessScenarioRegistry,
 } from "./scenario-registry.js";
 import {
@@ -18,27 +22,29 @@ import {
   GRID_ACTIVATION_READINESS_RUN_COUNT,
   GRID_ACTIVATION_READINESS_SUITE_ID,
   GRID_ACTIVATION_READINESS_SUITE_ID_V1,
+  GRID_ACTIVATION_READINESS_SUITE_ID_V2,
   GRID_READINESS_ACTION_EVIDENCE_MODEL,
+  GRID_READINESS_PROVENANCE_MODEL,
 } from "./run-plan.js";
 import {
   deserializeGridActivationReadinessRunIndex,
   deserializeGridActivationReadinessMatchRecords,
   deserializeGridActivationReadinessFactualReports,
-  type GridActivationReadinessRunIndexEnvelopeV2,
+  type GridActivationReadinessRunIndexEnvelopeV3,
   type GridActivationReadinessMatchRecordsEnvelope,
   type GridActivationReadinessFactualReportsEnvelope,
 } from "./envelopes.schema.js";
 import {
   deserializeGridActivationReadinessMetrics,
   recomputeGridActivationReadinessMetricsFromArtifacts,
-  stripGridActivationReadinessMetricsV2,
+  stripGridActivationReadinessMetricsV3,
   type GridActivationReadinessMetrics,
-  type GridActivationReadinessMetricsV2Artifact,
+  type GridActivationReadinessMetricsV3Artifact,
 } from "./metrics.js";
 import {
   deserializeGridActivationReadinessDecision,
   GRID_ACTIVATION_READINESS_DISCLAIMER,
-  type GridActivationReadinessDecisionV2,
+  type GridActivationReadinessDecisionV3,
 } from "./decision.js";
 import {
   inspectGridReadinessRecordEvidence,
@@ -48,6 +54,7 @@ import {
 import {
   evaluateGridActivationReadinessGates,
   type GridActivationReadinessGateResults,
+  type GridActivationReadinessOperationalEvidence,
 } from "./gates.js";
 import { deriveGridActivationReadinessDecision } from "./decision.js";
 import { buildGridActivationReadinessReport } from "./report.js";
@@ -223,9 +230,7 @@ export function deserializeGridActivationReadinessScenarioRegistry(
         ),
       ),
       assignments: Object.freeze(
-        artifact.assignments.map((assignment) =>
-          deepFreezeReadinessValue(assignment),
-        ),
+        artifact.assignments.map((assignment) => deepFreezeReadinessValue(assignment)),
       ),
     });
     return { ok: true, registry };
@@ -248,12 +253,57 @@ const manifestArtifactsSchema = z.object({
   report: z.literal(GRID_READINESS_REPORT_ARTIFACT),
 });
 
-/** Current manifest v2 schema (suite v2, action-evidence model). */
+/** Current manifest v3 schema (suite v3, action-evidence + provenance models). */
+export const gridActivationReadinessManifestV3Schema = z
+  .object({
+    schemaVersion: z.literal("3"),
+    evaluationKind: z.literal("grid-activation-readiness"),
+    suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID),
+    actionEvidenceModel: z.literal(GRID_READINESS_ACTION_EVIDENCE_MODEL),
+    provenanceModel: z.literal(GRID_READINESS_PROVENANCE_MODEL),
+    evaluationId: z.string().uuid(),
+    createdAt: z.string().min(1),
+    simulatorVersion: z.literal("0.3.0"),
+    positioningModel: z.literal("grid-3x3-v1"),
+    rulesetVersion: z.literal("0.2.0"),
+    catalogueVersion: z.literal("1"),
+    seedCount: z.literal(24),
+    scenarioCount: z.literal(7),
+    assignmentCount: z.literal(13),
+    runCount: z.literal(GRID_ACTIVATION_READINESS_RUN_COUNT),
+    seedRegistryId: z.literal("grid-readiness-development-v1"),
+    seedRegistryChecksum: z.literal(
+      "54acf0151360f59d429fd7b2a84f48b48f4a791e522cf58bc381b927d62b78a0",
+    ),
+    scenarioRegistryId: z.literal("grid-readiness-scenarios-v1"),
+    scenarioRegistryChecksum: z.literal(
+      "b07270171f6e38efac2d1992f051d7bd881e323c00cee92b9caa9490ddb85b67",
+    ),
+    suiteChecksum: z.string().regex(/^[a-f0-9]{64}$/),
+    decisionChecksum: z.string().regex(/^[a-f0-9]{64}$/),
+    reportChecksum: z.string().regex(/^[a-f0-9]{64}$/),
+    decision: z.enum(["ready_for_opt_in_beta_review", "inconclusive", "not_ready"]),
+    artifacts: manifestArtifactsSchema,
+    digests: z.record(z.string(), z.string().regex(/^[a-f0-9]{64}$/)),
+    evidence: z.object({
+      deterministicReexecutionPassed: z.literal(true),
+      inputsUnmodified: z.literal(true),
+      fullBundleReadBackPassed: z.literal(true),
+      legacyIsolationRegressionPassed: z.literal(true),
+    }),
+  })
+  .strict();
+
+export type GridActivationReadinessManifestV3 = z.infer<
+  typeof gridActivationReadinessManifestV3Schema
+>;
+
+/** Historical manifest v2 schema, retained for historical parsers only. */
 export const gridActivationReadinessManifestV2Schema = z
   .object({
     schemaVersion: z.literal("2"),
     evaluationKind: z.literal("grid-activation-readiness"),
-    suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID),
+    suiteId: z.literal(GRID_ACTIVATION_READINESS_SUITE_ID_V2),
     actionEvidenceModel: z.literal(GRID_READINESS_ACTION_EVIDENCE_MODEL),
     evaluationId: z.string().uuid(),
     createdAt: z.string().min(1),
@@ -326,8 +376,8 @@ export type GridActivationReadinessManifestV1 = z.infer<
   typeof gridActivationReadinessManifestV1Schema
 >;
 
-/** Current manifest artifact type (v2). */
-export type GridActivationReadinessManifestV2Artifact = GridActivationReadinessManifestV2;
+/** Current manifest artifact type (v3). */
+export type GridActivationReadinessManifestV3Artifact = GridActivationReadinessManifestV3;
 
 export class GridActivationReadinessBundleError extends Error {
   constructor(message: string) {
@@ -342,7 +392,7 @@ export interface BuildGridActivationReadinessManifestInput {
   seedRegistry: GridReadinessSeedRegistry;
   scenarioRegistry: GridReadinessScenarioRegistry;
   suiteChecksum: string;
-  decision: GridActivationReadinessDecisionV2;
+  decision: GridActivationReadinessDecisionV3;
   /** SHA-256 digest of every non-manifest artifact, keyed by artifact name. */
   digests: Record<string, string>;
   decisionChecksum: string;
@@ -351,12 +401,13 @@ export interface BuildGridActivationReadinessManifestInput {
 
 export function buildGridActivationReadinessManifest(
   input: BuildGridActivationReadinessManifestInput,
-): GridActivationReadinessManifestV2 {
-  const manifest: GridActivationReadinessManifestV2 = {
-    schemaVersion: "2",
+): GridActivationReadinessManifestV3 {
+  const manifest: GridActivationReadinessManifestV3 = {
+    schemaVersion: "3",
     evaluationKind: "grid-activation-readiness",
     suiteId: GRID_ACTIVATION_READINESS_SUITE_ID,
     actionEvidenceModel: GRID_READINESS_ACTION_EVIDENCE_MODEL,
+    provenanceModel: GRID_READINESS_PROVENANCE_MODEL,
     evaluationId: input.evaluationId,
     createdAt: input.createdAt,
     simulatorVersion: "0.3.0",
@@ -368,11 +419,11 @@ export function buildGridActivationReadinessManifest(
     assignmentCount: input.scenarioRegistry.assignments.length as 13,
     runCount: GRID_ACTIVATION_READINESS_RUN_COUNT,
     seedRegistryId: input.seedRegistry.registryId,
-    seedRegistryChecksum: gridReadinessSeedRegistryChecksum(input.seedRegistry),
+    seedRegistryChecksum:
+      GRID_READINESS_CANONICAL_SEED_REGISTRY_CHECKSUM as GridActivationReadinessManifestV3["seedRegistryChecksum"],
     scenarioRegistryId: input.scenarioRegistry.registryId,
-    scenarioRegistryChecksum: gridReadinessScenarioRegistryChecksum(
-      input.scenarioRegistry,
-    ),
+    scenarioRegistryChecksum:
+      GRID_READINESS_CANONICAL_SCENARIO_REGISTRY_CHECKSUM as GridActivationReadinessManifestV3["scenarioRegistryChecksum"],
     suiteChecksum: input.suiteChecksum,
     decisionChecksum: input.decisionChecksum,
     reportChecksum: input.reportChecksum,
@@ -399,43 +450,49 @@ export function buildGridActivationReadinessManifest(
   const parsed = deserializeGridActivationReadinessManifest(
     serializeGridActivationReadinessManifest(manifest),
   );
-  if (!parsed.ok || parsed.schemaVersion !== "2") {
+  if (!parsed.ok || parsed.schemaVersion !== "3") {
     throw new GridActivationReadinessBundleError(
-      `Grid activation readiness manifest failed its authoritative v2 schema: ${parsed.ok ? "not v2" : parsed.errors}`,
+      `Grid activation readiness manifest failed its authoritative v3 schema: ${parsed.ok ? "not v3" : parsed.errors}`,
     );
   }
-  return parsed.manifest as GridActivationReadinessManifestV2;
+  return parsed.manifest as GridActivationReadinessManifestV3;
 }
 
 export function serializeGridActivationReadinessManifest(
-  manifest: GridActivationReadinessManifestV2 | GridActivationReadinessManifestV1,
+  manifest:
+    | GridActivationReadinessManifestV3
+    | GridActivationReadinessManifestV2
+    | GridActivationReadinessManifestV1,
 ): string {
   return JSON.stringify(manifest, null, 2);
 }
 
 /**
- * Version-aware manifest deserializer. Reads both the current v2 contract and
- * the historical v1 contract. Only v2 is accepted as current
+ * Version-aware manifest deserializer. Reads the current v3 contract and the
+ * historical v2 and v1 contracts. Only v3 is accepted as current
  * activation-readiness evidence.
  */
-export function deserializeGridActivationReadinessManifest(
-  json: string,
-):
+export function deserializeGridActivationReadinessManifest(json: string):
   | {
       ok: true;
-      manifest: GridActivationReadinessManifestV2 | GridActivationReadinessManifestV1;
-      schemaVersion: "1" | "2";
+      manifest:
+        | GridActivationReadinessManifestV3
+        | GridActivationReadinessManifestV2
+        | GridActivationReadinessManifestV1;
+      schemaVersion: "1" | "2" | "3";
     }
   | { ok: false; errors: string } {
   try {
     const data = JSON.parse(json) as unknown;
+    const v3 = gridActivationReadinessManifestV3Schema.safeParse(data);
+    if (v3.success) return { ok: true, manifest: v3.data, schemaVersion: "3" };
     const v2 = gridActivationReadinessManifestV2Schema.safeParse(data);
     if (v2.success) return { ok: true, manifest: v2.data, schemaVersion: "2" };
     const v1 = gridActivationReadinessManifestV1Schema.safeParse(data);
     if (v1.success) return { ok: true, manifest: v1.data, schemaVersion: "1" };
     return {
       ok: false,
-      errors: `manifest matched neither v2 (${v2.error.message}) nor v1 (${v1.error.message})`,
+      errors: `manifest matched neither v3 (${v3.error.message}) nor v2 (${v2.error.message}) nor v1 (${v1.error.message})`,
     };
   } catch (e) {
     return { ok: false, errors: e instanceof SyntaxError ? e.message : String(e) };
@@ -490,26 +547,28 @@ function buildProposalMatches(recordBuild: unknown, expectedProposal: unknown): 
 export interface GridActivationReadinessCoreArtifactsInput {
   seedRegistry: GridReadinessSeedRegistry;
   scenarioRegistry: GridReadinessScenarioRegistry;
-  runIndex: GridActivationReadinessRunIndexEnvelopeV2;
+  runIndex: GridActivationReadinessRunIndexEnvelopeV3;
   records: GridActivationReadinessMatchRecordsEnvelope;
   reports: GridActivationReadinessFactualReportsEnvelope;
 }
 
-/** Compares recomputed evidence with a persisted v2 run-index entry. */
+/** Compares recomputed evidence with a persisted v3 run-index entry. */
 function evidenceMatchesRunIndexEntry(
   evidence: GridActivationReadinessRunEvidence,
-  entry: GridActivationReadinessRunIndexEnvelopeV2["items"][number],
+  entry: GridActivationReadinessRunIndexEnvelopeV3["items"][number],
 ): boolean {
   return (
     sameJson(evidence.actionCounts, entry.actionCounts) &&
     sameJson(evidence.selectedMovementActionCounts, entry.selectedMovementActionCounts) &&
     sameJson(evidence.selectedCombatActionCounts, entry.selectedCombatActionCounts) &&
     sameJson(evidence.translatedActionCounts, entry.translatedActionCounts) &&
-    evidence.stationaryHoldCount ===
-      (entry.actionCounts.hold ?? 0) &&
+    evidence.stationaryHoldCount === (entry.actionCounts.hold ?? 0) &&
     sameJson(evidence.zoneVisits, entry.zoneVisits) &&
     sameJson(evidence.bearingCounts, entry.bearingCounts) &&
-    sameJson(evidence.exposedPlanarArmourZoneCounts, entry.exposedPlanarArmourZoneCounts) &&
+    sameJson(
+      evidence.exposedPlanarArmourZoneCounts,
+      entry.exposedPlanarArmourZoneCounts,
+    ) &&
     sameJson(evidence.eventTypeCounts, entry.eventTypeCounts) &&
     evidence.maximumConsecutiveNoProgressRounds ===
       entry.maximumConsecutiveNoProgressRounds
@@ -530,6 +589,27 @@ export function validateGridActivationReadinessCoreArtifacts(
 ): void {
   const failures: string[] = [];
   const { seedRegistry, scenarioRegistry, runIndex, records, reports } = input;
+
+  // Phase 3E1.2 (Phase 2/3): the persisted registries must be the exact
+  // frozen canonical registries, not merely self-consistent alternates.
+  try {
+    assertCanonicalGridReadinessSeedRegistry(seedRegistry);
+  } catch (e) {
+    failures.push(
+      `persisted seed registry is not the canonical registry: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
+  }
+  try {
+    assertCanonicalGridReadinessScenarioRegistry(scenarioRegistry);
+  } catch (e) {
+    failures.push(
+      `persisted scenario registry is not the canonical registry: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
+  }
 
   check(
     failures,
@@ -778,21 +858,27 @@ export function validateGridActivationReadinessBundle(
     failures.push(`invalid decision: ${decisionParsed.errors}`);
   }
 
-  // Current v2 evidence only: historical v1 artifacts parse but are rejected
-  // as current activation-readiness evidence.
-  if (manifestParsed.ok && manifestParsed.schemaVersion !== "2") {
-    failures.push("manifest is historical v1; only v2 is current readiness evidence");
-  }
-  if (runIndexParsed && runIndexParsed.ok && runIndexParsed.schemaVersion !== "2") {
+  // Current v3 evidence only: historical v1 and v2 artifacts parse but are
+  // rejected as current activation-readiness evidence.
+  if (manifestParsed.ok && manifestParsed.schemaVersion !== "3") {
     failures.push(
-      "run-index is historical v1; only v2 selected-action evidence is current",
+      `manifest is historical v${manifestParsed.schemaVersion}; only v3 is current readiness evidence`,
     );
   }
-  if (metricsParsed && metricsParsed.ok && metricsParsed.schemaVersion !== "2") {
-    failures.push("metrics is historical v1; only v2 is current readiness evidence");
+  if (runIndexParsed && runIndexParsed.ok && runIndexParsed.schemaVersion !== "3") {
+    failures.push(
+      `run-index is historical v${runIndexParsed.schemaVersion}; only v3 selected-action evidence is current`,
+    );
   }
-  if (decisionParsed && decisionParsed.ok && decisionParsed.schemaVersion !== "2") {
-    failures.push("decision is historical v1; only v2 is current readiness evidence");
+  if (metricsParsed && metricsParsed.ok && metricsParsed.schemaVersion !== "3") {
+    failures.push(
+      `metrics is historical v${metricsParsed.schemaVersion}; only v3 is current readiness evidence`,
+    );
+  }
+  if (decisionParsed && decisionParsed.ok && decisionParsed.schemaVersion !== "3") {
+    failures.push(
+      `decision is historical v${decisionParsed.schemaVersion}; only v3 is current readiness evidence`,
+    );
   }
 
   if (failures.length > 0) {
@@ -802,20 +888,20 @@ export function validateGridActivationReadinessBundle(
   }
 
   const manifest = manifestParsed.ok
-    ? (manifestParsed.manifest as GridActivationReadinessManifestV2)
+    ? (manifestParsed.manifest as GridActivationReadinessManifestV3)
     : null;
   const seedRegistry = seedParsed;
   const scenarioRegistry =
     scenarioParsed && scenarioParsed.ok ? scenarioParsed.registry : null;
   const runIndex =
     runIndexParsed && runIndexParsed.ok
-      ? (runIndexParsed.envelope as GridActivationReadinessRunIndexEnvelopeV2)
+      ? (runIndexParsed.envelope as GridActivationReadinessRunIndexEnvelopeV3)
       : null;
   const records = recordsParsed && recordsParsed.ok ? recordsParsed.envelope : null;
   const reports = reportsParsed && reportsParsed.ok ? reportsParsed.envelope : null;
   const metrics =
     metricsParsed && metricsParsed.ok
-      ? (metricsParsed.metrics as GridActivationReadinessMetricsV2Artifact)
+      ? (metricsParsed.metrics as GridActivationReadinessMetricsV3Artifact)
       : null;
   const decision = decisionParsed && decisionParsed.ok ? decisionParsed.decision : null;
 
@@ -830,7 +916,7 @@ export function validateGridActivationReadinessBundle(
     decision === null
   ) {
     throw new GridActivationReadinessBundleError(
-      "Grid activation readiness bundle validation failed: one or more artifacts did not parse as current v2",
+      "Grid activation readiness bundle validation failed: one or more artifacts did not parse as current v3",
     );
   }
 
@@ -897,15 +983,33 @@ export function validateGridActivationReadinessBundle(
   }
 
   // Chain: persisted records → recomputed metrics must equal persisted
-  // metrics (timing is supplied as informational input and validated
+  // metrics (Phase 9: the non-timing execution fields are derived
+  // authoritatively from the records and the explicit operational
+  // attestations; timing is supplied as informational input and validated
   // independently).
+  const operationalEvidence: GridActivationReadinessOperationalEvidence = {
+    deterministicReexecutionPassed: manifest.evidence.deterministicReexecutionPassed,
+    inputsUnmodified: manifest.evidence.inputsUnmodified,
+    artifactIntegrityVerified: true,
+    legacyIsolationVerified: manifest.evidence.legacyIsolationRegressionPassed,
+  };
   let recomputedMetrics: GridActivationReadinessMetrics | null = null;
   try {
     recomputedMetrics = recomputeGridActivationReadinessMetricsFromArtifacts({
       runIndex,
       records,
       reports,
-      persistedMetrics: metrics,
+      operationalAttestations: {
+        // Phase 7: deterministicMatches follows the manifest
+        // deterministicReexecutionPassed attestation (312 when true).
+        deterministicMatches: operationalEvidence.deterministicReexecutionPassed
+          ? GRID_ACTIVATION_READINESS_RUN_COUNT
+          : 0,
+        // Phase 7: mutationFailures follows the manifest inputsUnmodified
+        // attestation (0 when true).
+        mutationFailures: operationalEvidence.inputsUnmodified ? 0 : -1,
+      },
+      persistedTiming: metrics.timing,
     });
   } catch (e) {
     failures.push(
@@ -915,15 +1019,17 @@ export function validateGridActivationReadinessBundle(
     );
   }
   if (recomputedMetrics !== null) {
-    // The persisted artifact carries the v2 schemaVersion/suiteId identity
+    // The persisted artifact carries the v3 schemaVersion/suiteId identity
     // wrapper; the recomputation returns the plain reduced shape, so compare
     // against the stripped persisted metrics.
-    if (!sameJson(recomputedMetrics, stripGridActivationReadinessMetricsV2(metrics))) {
+    if (!sameJson(recomputedMetrics, stripGridActivationReadinessMetricsV3(metrics))) {
       failures.push(
         "persisted metrics do not match the metrics recomputed from the persisted records and reports",
       );
     }
-    // Timing constraints: finite, non-negative, internally coherent.
+    // Timing validation (Phase 10): all four values finite and non-negative;
+    // mean ≈ totalElapsedMs / 312 within a documented tolerance; p95 >=
+    // median. The mean is NOT required to lie between the median and p95.
     const timing = metrics.timing;
     if (
       !Number.isFinite(timing.totalElapsedMs) ||
@@ -937,10 +1043,17 @@ export function validateGridActivationReadinessBundle(
     ) {
       failures.push("metrics timing values must be finite and non-negative");
     }
-    if (
-      !(timing.meanMsPerMatch >= timing.medianMsPerMatch && timing.meanMsPerMatch <= timing.p95MsPerMatch)
-    ) {
-      failures.push("metrics timing values are not internally coherent");
+    // Documented numeric tolerance: mean must approximate totalElapsedMs / 312
+    // within a relative tolerance of 0.05 plus a small absolute floor.
+    const expectedMean = timing.totalElapsedMs / GRID_ACTIVATION_READINESS_RUN_COUNT;
+    const meanTolerance = Math.max(expectedMean, 1) * 0.05 + Number.EPSILON;
+    if (Math.abs(timing.meanMsPerMatch - expectedMean) > meanTolerance) {
+      failures.push(
+        `metrics timing meanMsPerMatch ${timing.meanMsPerMatch} does not approximate totalElapsedMs / 312 (${expectedMean.toFixed(4)})`,
+      );
+    }
+    if (timing.p95MsPerMatch < timing.medianMsPerMatch) {
+      failures.push("metrics timing p95MsPerMatch must be at least medianMsPerMatch");
     }
   }
 
@@ -959,9 +1072,7 @@ export function validateGridActivationReadinessBundle(
         record,
         report: reports.items[index]!,
       })),
-      inputsUnmodified: manifest.evidence.inputsUnmodified,
-      artifactIntegrityVerified: true,
-      legacyIsolationVerified: manifest.evidence.legacyIsolationRegressionPassed,
+      operational: operationalEvidence,
     });
   if (!sameJson(recomputedGates.gates, decision.gates)) {
     failures.push(
@@ -975,7 +1086,9 @@ export function validateGridActivationReadinessBundle(
     recomputedGates.anyInconclusive !==
     decision.gates.some((g) => g.outcome === "inconclusive")
   ) {
-    failures.push("persisted decision gate inconclusive-summary does not match recomputation");
+    failures.push(
+      "persisted decision gate inconclusive-summary does not match recomputation",
+    );
   }
 
   // Chain: recomputed classification must equal persisted and manifest.
@@ -1000,6 +1113,7 @@ export function validateGridActivationReadinessBundle(
     evaluationId: manifest.evaluationId,
     suiteId: manifest.suiteId,
     actionEvidenceModel: manifest.actionEvidenceModel,
+    provenanceModel: manifest.provenanceModel,
     createdAt: manifest.createdAt,
     seedRegistryId: seedRegistry.registryId,
     seedRegistryChecksum: gridReadinessSeedRegistryChecksum(seedRegistry),

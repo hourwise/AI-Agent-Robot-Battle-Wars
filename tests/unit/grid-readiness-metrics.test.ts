@@ -126,7 +126,16 @@ function compute(
       roleSwapped: run.roleSwapped,
       evidence: run.evidence,
     })),
-    execution: { deterministicMatches: 312, invalidEventCount: 0, mutationFailures: 0 },
+    execution: {
+      totalPlannedRuns: 312,
+      totalCompletedRuns: results.length,
+      deterministicMatches: 312,
+      schemaValidRecords: results.length,
+      schemaValidReports: results.length,
+      replayAgreeingMatches: results.length,
+      invalidEventCount: 0,
+      mutationFailures: 0,
+    },
     timing: { totalElapsedMs: 1200, perMatchMs },
   });
 }
