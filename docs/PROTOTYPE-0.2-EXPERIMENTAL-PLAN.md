@@ -79,9 +79,13 @@ proving the full grid pipeline operationally) is implemented by the
 artifact verification hardening — canonical flank bearings, truthful strict
 rear reporting, manifest v2 with SHA-256 digests, complete artifact read-back
 and cross-validation, and output-root isolation) is implemented by the
-`agent/0.2c-grid-match-canary-hardening` task. The authoritative runtime
-migration, grid adaptive-series execution and live grid match production remain
-future, separately authorised phases.
+`agent/0.2c-grid-match-canary-hardening` task; Phase 3D2A.2 (immutable and
+exclusive canary publication — exact canonical root enforcement, `lstat`-based
+collision detection, exclusive temporary-directory creation, invocation-owned
+cleanup, and exact seven-file temporary/final inventories) is implemented by
+the `agent/0.2c-grid-canary-publication-hardening` task. The authoritative
+runtime migration, grid adaptive-series execution and live grid match
+production remain future, separately authorised phases.
 
 **Milestone 0.2C progress (2026-08-01):**
 
@@ -206,6 +210,27 @@ future, separately authorised phases.
   to normal storage. The CLI prints truthful flank fields. No simulator, policy
   or combat semantics changed; no grid series or default activation occurred;
   no balance conclusion was made.
+- Phase 3D2A.2 — immutable and exclusive canary publication: **complete**. The
+  service-level output root inside repository `data` must resolve to exactly
+  `data/canary/grid-match`; descendants (published canary directories, custom
+  paths and `.tmp-*` locations) are rejected as service roots. `CanaryFileSystem`
+  now exposes `lstat` and `readdir`; collision preflights use `lstat` so empty
+  directories, regular files, symbolic links and broken symbolic links all
+  count as existing entries. The canary ID is generated and validated and the
+  final/temporary publication paths are preflighted before the match executes.
+  The temporary directory is created exclusively with non-recursive `mkdir`
+  (raced-in entries fail with `EEXIST` and are never cleaned), and cleanup
+  applies only to invocation-owned paths (`tmpCreatedByThisInvocation`,
+  `finalPublishedByThisInvocation`). Before rename and after rename both
+  directories must contain exactly the seven canonical regular files (sorted
+  names matching manifest v2, no extra/missing entries, no directories, no
+  symbolic links). Races are handled defensively: an exclusive-mkdir `EEXIST`
+  fails closed without touching the raced-in path, and a post-preflight final
+  entry that breaks the rename is preserved while only the invocation-owned
+  temporary directory is removed. Manifest-v2 evidence (`right`, strict rear
+  `false`), the six SHA-256 digests, all-seven-file read-back, byte/schema/
+  cross-agreement validation and final revalidation are unchanged. No grid
+  series or default activation occurred; no balance conclusion was made.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

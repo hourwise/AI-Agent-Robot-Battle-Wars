@@ -293,12 +293,13 @@ path produces them, and the default application path, schema v2 persistence,
 and the frozen constants (`SIMULATOR_VERSION`/`RULESET_VERSION` `0.2.0`,
 catalogue `1`) are unchanged.
 
-### Isolated deterministic grid match canary (Milestone 0.2C Phase 3D2A / 3D2A.1)
+### Isolated deterministic grid match canary (Milestone 0.2C Phase 3D2A / 3D2A.1 / 3D2A.2)
 
 The first executable application-level grid path: a separate, local-only,
 deterministic single-match canary that proves the complete grid pipeline
 operationally without changing either existing default application command.
-Phase 3D2A.1 hardened its evidence and artifact verification.
+Phase 3D2A.1 hardened its evidence and artifact verification; Phase 3D2A.2
+hardened publication immutability and exclusivity.
 
 - `src/canary/grid-canary-scenario.ts` — the frozen built-in no-combat flank
   scenario `grid-canary-flank-v1` (Fighter A `opening: flank`, rear targets,
@@ -350,21 +351,27 @@ true`, `bundleCrossAgreementPassed: true` and a SHA-256 digest block for
   deserialization may read both, but current bundle validation requires v2.
 - `src/app/grid-canary-output-root.ts` — `assertCanaryOutputRootIsolation` is
   a pure guard rejecting `data/matches`, `data/series` and descendants, the
-  repository `data` root and any non-canary in-repo root (canonical
-  `data/canary/grid-match` only); external temporary roots remain allowed.
-  Handles path traversal and Windows case-insensitive comparisons; runs before
-  any directory is created or any match is executed.
+  repository `data` root and every non-canary in-repo root; inside repository
+  `data` the service-level output root must resolve to **exactly**
+  `data/canary/grid-match` (descendants — published canary directories, custom
+  paths and `.tmp-*` locations — are rejected as service roots). External
+  temporary roots remain allowed. Handles path traversal and Windows
+  case-insensitive comparisons; runs before UUID creation, any directory
+  creation or any match execution.
 - `src/app/grid-match-canary.ts` — `runGridMatchCanary(request, dependencies)`
-  is the application service: output-root guard → validate seed → create
-  scenario → direct `runGridMatch` → evidence inspection → `matchResultToRecord`
-  (v3) → `buildGridFactualReport` (v2) → bind to the persisted UUID → validate
-  record and report → render text/3×3 ASCII replay → review prompt →
-  deterministic fallback review → serialization round trips → digest
-  computation → manifest v2 → atomic bundle publication with full read-back →
-  structured result. Injectable dependencies: UUID creation, current time,
-  filesystem bundle writer (no alternate simulator). Never calls `runMatch`,
-  `runSeries`, an `ArenaAgent`, a provider or benchmark code, and never accepts
-  imported records or user-supplied event streams.
+  is the application service: output-root guard → validate seed → generate and
+  validate the canary UUID → preflight the final/temporary publication paths
+  via `lstat` → create scenario → direct `runGridMatch` → evidence inspection →
+  `matchResultToRecord` (v3) → `buildGridFactualReport` (v2) → bind to the
+  persisted UUID → validate record and report → render text/3×3 ASCII replay →
+  review prompt → deterministic fallback review → serialization round trips →
+  digest computation → manifest v2 → exclusive atomic bundle publication with
+  exact inventories and full read-back → structured result. Injectable
+  dependencies: UUID creation, current time, filesystem bundle writer (which
+  exposes `mkdir`, `writeFile`, `readFile`, `readdir`, `lstat`, `rename` and
+  `rm`; no alternate simulator). Never calls `runMatch`, `runSeries`, an
+  `ArenaAgent`, a provider or benchmark code, and never accepts imported
+  records or user-supplied event streams.
 - `src/app/grid-canary-cli-args.ts` — pure, side-effect-free argument parser
   requiring `--seed <non-negative integer>` and rejecting missing, negative,
   non-integer or duplicate seeds, unknown arguments, `--ai`, `--review`,
@@ -380,20 +387,26 @@ rear exposure observed`), the artifact directory and the statement that
 - `src/replay/ascii/ascii-replay-renderer.ts` — additionally exports
   `toAsciiReplayInput` so the canary reconstructs final state through the
   canonical replay reconstruction without duplicating the adapter.
-- **Atomic bundle publication** (`data/canary/grid-match/<canaryId>/`):
-  `manifest.json`, `match.json`, `factual-report.json`, `text-replay.txt`,
-  `ascii-replay.txt`, `review-prompt.txt`, `fallback-review.json`. Built in a
-  sibling `.tmp-<canaryId>` directory, `manifest.json` written last, then every
-  file is read back and byte-compared with the written strings, the four JSON
-  artifacts are deserialized and validated, the manifest must be v2, the pure
-  bundle cross-agreement validator (including every digest) must pass, and only
-  then is the completed directory atomically renamed. The complete final
-  bundle is reread and reverified at the published path (on final-path failure
-  the final directory is removed recursively and the original error is
-  preserved). Existing canary directories are never overwritten; on any failure
-  no final directory exists and the temporary directory is removed recursively.
-  Never writes to `data/matches` or normal series storage; `data/canary/` is
-  git-ignored.
+- **Atomic, exclusive and immutable bundle publication**
+  (`data/canary/grid-match/<canaryId>/`): `manifest.json`, `match.json`,
+  `factual-report.json`, `text-replay.txt`, `ascii-replay.txt`,
+  `review-prompt.txt`, `fallback-review.json`. The final and `.tmp-<canaryId>`
+  paths are preflighted with `lstat` (empty directories, files and symbolic
+  links all count as collisions; pre-existing entries are never modified or
+  removed), the temporary directory is created **exclusively** with
+  non-recursive `mkdir` (a raced-in entry fails with `EEXIST` and is never
+  cleaned), `manifest.json` is written last, the temporary directory must
+  contain exactly the seven canonical regular files (no extra/missing entries,
+  no directories, no symlinks), then every file is read back and byte-compared
+  with the written strings, the four JSON artifacts are deserialized and
+  validated, the manifest must be v2, and the pure bundle cross-agreement
+  validator (including every digest) must pass. Only then is the completed
+  directory atomically renamed, after which the same exact inventory and full
+  verification run at the final path. Cleanup applies only to invocation-owned
+  paths (`tmpCreatedByThisInvocation`, `finalPublishedByThisInvocation`); the
+  original operational or verification error is preserved if cleanup also
+  fails. Never writes to `data/matches` or normal series storage;
+  `data/canary/` is git-ignored.
 
 The canary is not a benchmark and produces no balance conclusion; it is a
 correctness and operational pipeline check. No grid adaptive-series runner,

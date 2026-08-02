@@ -11,10 +11,49 @@ import {
 
 const CANONICAL = getCanaryCanonicalOutputRoot();
 
-describe("grid canary output-root isolation (Phase 3D2A.1)", () => {
+describe("grid canary output-root isolation (Phase 3D2A.1 / 3D2A.2)", () => {
   it("accepts the canonical default root", () => {
     expect(() => assertCanaryOutputRootIsolation(CANONICAL)).not.toThrow();
     expect(() => assertCanaryOutputRootIsolation(resolve(CANONICAL))).not.toThrow();
+  });
+
+  it("accepts the canonical root with normalized equivalent syntax", () => {
+    const normalized = resolve(
+      process.cwd(),
+      "data",
+      "canary",
+      ".",
+      "grid-match",
+      "..",
+      "grid-match",
+    );
+    expect(resolve(normalized)).toBe(CANONICAL);
+    expect(() => assertCanaryOutputRootIsolation(normalized)).not.toThrow();
+  });
+
+  it("rejects a canonical child as a service root", () => {
+    for (const child of [
+      "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      "custom",
+      "nested/run",
+    ]) {
+      expect(() =>
+        assertCanaryOutputRootIsolation(resolve(CANONICAL, ...child.split("/"))),
+      ).toThrow(/must be exactly/);
+    }
+  });
+
+  it("rejects an existing canary-directory path as an output root", () => {
+    const existing = resolve(CANONICAL, "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee");
+    expect(() => assertCanaryOutputRootIsolation(existing)).toThrow(/must be exactly/);
+  });
+
+  it("rejects a .tmp-* path under the canonical root", () => {
+    expect(() =>
+      assertCanaryOutputRootIsolation(
+        resolve(CANONICAL, ".tmp-aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"),
+      ),
+    ).toThrow(/must be exactly/);
   });
 
   it("rejects the exact data/matches root", () => {

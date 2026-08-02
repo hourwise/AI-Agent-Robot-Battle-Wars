@@ -1096,6 +1096,111 @@ reporting hardening complete; Phase 3D2A isolated grid match canary
 **not performed**; Milestone 0.2C **not complete** pending a separately
 authorised activation-readiness decision.
 
+### 9.13 Phase 3D2A.2 — immutable and exclusive canary publication (2026-08-02)
+
+Phase 3D2A.2 closes three remaining filesystem-publication gaps found in the
+Phase 3D2A.1 review before a grid adaptive-series canary is added. No canary
+evidence, simulator behaviour or artifact contents changed.
+
+**Exact canonical output root.** `assertCanaryOutputRootIsolation` now accepts
+a service-level `outputRoot` inside the repository `data` tree only when it
+resolves to exactly `data/canary/grid-match`. Descendants such as
+`data/canary/grid-match/<canaryId>`, `data/canary/grid-match/custom` and
+`data/canary/grid-match/.tmp-<id>` are publication destinations or internal
+temporary locations, not valid service roots, and are rejected (so a published
+bundle directory can never be reused as a service root). Normalized equivalent
+syntax is accepted after `resolve`; traversal forms resolving to any rejected
+path and Windows case-insensitive comparisons continue to be handled. External
+temporary roots outside the repository remain allowed for tests.
+
+**Extended injectable filesystem.** `CanaryFileSystem` now exposes
+`lstat(path)` (returning `isFile()`, `isDirectory()` and `isSymbolicLink()`)
+and `readdir(path)`. Publication logic never bypasses the injectable filesystem
+with direct filesystem calls.
+
+**Preflight of identity and paths.** The service generates and validates the
+`canaryId` (a UUID) and derives `finalDir = outputRoot/<canaryId>` and
+`tmpDir = outputRoot/.tmp-<canaryId>` before executing the match. Both paths
+are preflighted with `lstat` and must not exist as any filesystem entry
+(directory, empty directory, regular file, symbolic link, broken symbolic link
+or other); the failure identifies the final or temporary path. The output-root
+guard runs before UUID creation, directory creation or match execution, and
+the publication-path collision preflight runs before match execution.
+Pre-existing final or temporary entries are never modified or removed.
+
+**Exclusive temporary creation.** After the parent output root exists, the
+temporary directory is created with non-recursive `mkdir(tmpDir,
+{ recursive: false })`, so an entry that races in between preflight and
+creation fails with `EEXIST`. The service explicitly tracks
+`tmpCreatedByThisInvocation` and `finalPublishedByThisInvocation`; cleanup
+removes the temporary directory only when this invocation created it and the
+final directory only when this invocation published it and final verification
+subsequently failed. Pre-existing paths are never removed, and the original
+operational or verification error is preserved if cleanup also fails.
+
+**Exact bundle inventories.** Before rename, `readdir(tmpDir)` must contain
+exactly the seven canonical entries (`manifest.json`, `match.json`,
+`factual-report.json`, `text-replay.txt`, `ascii-replay.txt`,
+`review-prompt.txt`, `fallback-review.json`), names sorted and matching
+manifest v2 exactly, with no missing artifact, no additional file or
+directory, no nested data and no symbolic link; every artifact must be a
+regular file. The same exact inventory and regular-file checks run at
+`finalDir` after the atomic rename, before the complete existing byte, schema,
+digest and cross-agreement verification. A stale or injected eighth entry
+fails publication; an injected extra final file during final verification
+fails and the final directory is removed because this invocation published it.
+
+**Race handling.** If preflight reports no temporary entry and exclusive
+`mkdir(tmpDir)` returns `EEXIST`, the service fails closed, does not remove the
+raced-in temporary path, does not create a final directory and never writes
+into the raced-in path. If a final entry appears after preflight and causes the
+rename to fail, that final entry is preserved and only the invocation-owned
+temporary directory is removed.
+
+**Preserved guarantees.** Manifest v2 remains the only current passing
+manifest; the actual observed bearing remains `right` with strict rear
+exposure `false` for the frozen scenario; the six SHA-256 artifact digests,
+the all-seven-file read-back, byte-for-byte comparison, JSON schema
+validation, bundle cross-agreement and final-path revalidation are all
+preserved without weakening. Current artifact schemas and text output were
+not changed.
+
+### 9.14 Phase 3D2A.2 status
+
+- Service roots inside repository data must equal the canonical root exactly:
+  complete.
+- Published bundle directories cannot be reused as service roots: complete.
+- Final and temporary collisions detected through `lstat` (empty directories,
+  files and symbolic links all count): complete.
+- Preflight of canary identity and publication paths before match execution:
+  complete.
+- Exclusive temporary-directory creation; pre-existing temporary paths never
+  reused or cleaned: complete.
+- Cleanup applies only to invocation-owned paths: complete.
+- Temporary and final directories require exactly seven regular files:
+  complete.
+- Race simulations (exclusive-mkdir EEXIST, post-preflight final entry)
+  handled defensively: complete.
+- Manifest-v2 evidence and digest semantics unchanged; all verification
+  guarantees preserved: confirmed.
+- Full suite, typecheck, lint and CRLF formatting pass; no benchmark partition
+  ran; seeds and fixtures unchanged; held-out and `all` remain sealed;
+  C1/C2/AB2 checksums and qualification constants unchanged with C2 default;
+  simulator/ruleset constants `0.2.0 / 0.2.0`; catalogue `1`; normal match and
+  series commands remain legacy; no grid-series runner; no provider or external
+  API call; no default activation: confirmed.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; Phase 3C lateral/flank integration complete;
+Phase 3D1 reporting/series compatibility foundation complete; Phase 3D1.1
+reporting hardening complete; Phase 3D2A isolated grid match canary
+**implemented**; Phase 3D2A.1 evidence and artifact verification **complete**;
+Phase 3D2A.2 immutable publication hardening **complete**; grid canary series
+**not implemented**; default grid activation **not performed**; Milestone 0.2C
+**not complete** pending a separately authorised activation-readiness
+decision.
+
 ## 10. Still out of scope
 
 - **Authoritative migration**: the live simulator remains `0.2.0` legacy;
@@ -1116,12 +1221,17 @@ authorised activation-readiness decision.
   v2 is the only current passing manifest, exposure is reported through
   canonical flank bearings, every artifact carries a SHA-256 digest and is
   reread and cross-validated, protected normal storage roots are rejected, and
-  pre-hardening manifest-v1 artifacts are superseded. A grid adaptive-series
+  pre-hardening manifest-v1 artifacts are superseded. Phase 3D2A.2 hardened
+  publication immutability: the service root inside repository data must equal
+  the canonical root exactly, final and temporary collisions are detected via
+  `lstat`, temporary directories are created exclusively, cleanup applies only
+  to invocation-owned paths, and both temporary and final directories must
+  contain exactly seven regular files. A grid adaptive-series
   runner is still not implemented and produces no series-v2 record from any
   application path.
 - **Live activation** of grid match production in the application/CLI/series.
 - **Balance conclusions**: no grid-vs-legacy balance claims are made from
-  Phase 3A through Phase 3D2A.1.
+  Phase 3A through Phase 3D2A.2.
 - Opponent suite and adaptation evaluation (0.2D/0.2E).
 
 ### 6.5 State reconstruction

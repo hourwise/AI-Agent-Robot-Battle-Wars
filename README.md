@@ -20,7 +20,7 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
 - Provider-neutral agent interface
 - Usage and cost tracking
 - Atomic JSON persistence for matches and series
-- 3×3 arena foundation (Milestone 0.2C Phases 1–3D2A.1) — pure
+- 3×3 arena foundation (Milestone 0.2C Phases 1–3D2A.2) — pure
   `src/simulator/arena-grid.ts` geometry, grid match schema v3, version-aware
   replay dispatch, a 3×3 ASCII renderer, and an **opt-in** deterministic grid
   combat runtime (`runGridMatch`, identity `0.3.0` / `grid-3x3-v1`, persists
@@ -59,7 +59,12 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
   rear — strict rear exposure is reported truthfully as `no`), manifest v2 is
   the only current passing manifest and carries SHA-256 digests for every
   artifact, every artifact is reread and cross-validated, and protected normal
-  storage roots are rejected. The live
+  storage roots are rejected. Phase 3D2A.2 hardened publication: the service
+  root inside repository data must equal the canonical root exactly, final and
+  temporary collisions (including empty directories and symlinks) are detected
+  via `lstat`, temporary directories are created exclusively, cleanup applies
+  only to invocation-owned paths, and bundles must contain exactly seven
+  regular files. The live
   five-zone simulator is unchanged: the normal application still uses
   `runMatch` (legacy `0.2.0`) and emits schema v2, and `runGridMatch` is not
   wired into CLI, series or application commands.
@@ -138,8 +143,10 @@ It consumes only a direct `runGridMatch` result, never accepts imported
 records, is not a benchmark, uses no AI provider and never modifies the normal
 `match` or `series` commands or their storage. It reports truthful flank
 evidence (for the frozen scenario: `Observed flank bearings: right`, `Strict
-rear exposure observed: no`) and rejects output roots that resolve inside
-`data/matches` or `data/series`.
+rear exposure observed: no`), rejects output roots that resolve inside
+`data/matches` or `data/series`, requires the in-repo output root to be exactly
+`data/canary/grid-match`, and never reuses or cleans a pre-existing final or
+temporary path.
 
 ### Replay
 

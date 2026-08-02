@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { runGridMatch } from "../simulator/grid-runtime.js";
 import { RULESET_VERSION } from "../simulator/constants.js";
@@ -58,7 +58,7 @@ import type { FighterStateSummaryV2 } from "../schemas/factual-report.schema.js"
 
 /**
  * Isolated deterministic grid match canary service (Milestone 0.2C Phase
- * 3D2A).
+ * 3D2A / 3D2A.1 / 3D2A.2).
  *
  * A deliberately isolated, deterministic, local-only single-match canary that
  * proves the complete grid pipeline works operationally:
@@ -95,10 +95,18 @@ export const GRID_CANARY_ARTIFACT_NAMES = {
 } as const;
 
 /** Minimal injectable filesystem for the atomic bundle writer. */
+export interface CanaryFsEntry {
+  isFile(): boolean;
+  isDirectory(): boolean;
+  isSymbolicLink(): boolean;
+}
+
 export interface CanaryFileSystem {
   mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;
   writeFile(path: string, data: string, encoding?: "utf-8"): Promise<void>;
   readFile(path: string, encoding: "utf-8"): Promise<string>;
+  readdir(path: string): Promise<string[]>;
+  lstat(path: string): Promise<CanaryFsEntry>;
   rename(from: string, to: string): Promise<void>;
   rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
 }
@@ -109,9 +117,22 @@ const defaultCanaryFs: CanaryFileSystem = {
   },
   writeFile: (path, data, encoding) => writeFile(path, data, encoding),
   readFile: (path, encoding) => readFile(path, encoding),
+  readdir: (path) => readdir(path),
+  lstat: (path) => lstat(path),
   rename: (from, to) => rename(from, to),
   rm: (path, options) => rm(path, options),
 };
+
+/** Exact seven-entry bundle inventory (regular files only, no symlinks). */
+export const GRID_CANARY_BUNDLE_ENTRIES: readonly string[] = Object.freeze([
+  GRID_CANARY_MANIFEST_FILE,
+  GRID_CANARY_ARTIFACT_NAMES.match,
+  GRID_CANARY_ARTIFACT_NAMES.factualReport,
+  GRID_CANARY_ARTIFACT_NAMES.textReplay,
+  GRID_CANARY_ARTIFACT_NAMES.asciiReplay,
+  GRID_CANARY_ARTIFACT_NAMES.reviewPrompt,
+  GRID_CANARY_ARTIFACT_NAMES.fallbackReview,
+]);
 
 export interface GridMatchCanaryRequest {
   seed: number;
@@ -143,6 +164,66 @@ export interface GridMatchCanaryResult {
 
 function isCode(e: unknown, code: string): boolean {
   return e instanceof Error && "code" in e && (e as { code?: string }).code === code;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+/**
+ * Describes a filesystem entry at `path` via `lstat` (so symbolic links and
+ * broken symbolic links count as existing entries), or `null` when the path
+ * does not exist. `lstat` is used, never `stat`, so collisions are detected
+ * for the entry itself without following links.
+ */
+async function entryKind(
+  fs: CanaryFileSystem,
+  path: string,
+): Promise<"directory" | "file" | "symbolic link" | "other" | null> {
+  try {
+    const entry = await fs.lstat(path);
+    if (entry.isSymbolicLink()) return "symbolic link";
+    if (entry.isDirectory()) return "directory";
+    if (entry.isFile()) return "file";
+    return "other";
+  } catch (e) {
+    if (isCode(e, "ENOENT")) return null;
+    throw e;
+  }
+}
+
+/**
+ * Requires `dir` to contain exactly the seven canonical bundle entries, all
+ * regular files, and nothing else (no missing artifact, no additional file,
+ * no additional directory, no nested data, no symbolic link). Names are
+ * sorted before comparison and must agree exactly with manifest v2.
+ */
+async function assertExactBundleInventory(
+  fs: CanaryFileSystem,
+  dir: string,
+): Promise<void> {
+  const names = (await fs.readdir(dir)).sort();
+  const expected = [...GRID_CANARY_BUNDLE_ENTRIES].sort();
+  if (names.length !== expected.length || names.some((n, i) => n !== expected[i])) {
+    throw new Error(
+      `Grid canary bundle inventory mismatch in ${dir}: expected exactly ${expected.join(", ")}; found ${names.length === 0 ? "nothing" : names.join(", ")}`,
+    );
+  }
+  for (const name of names) {
+    const entry = await fs.lstat(join(dir, name));
+    if (entry.isSymbolicLink()) {
+      throw new Error(
+        `Grid canary bundle artifact ${name} must be a regular file, not a symbolic link`,
+      );
+    }
+    if (!entry.isFile()) {
+      throw new Error(
+        `Grid canary bundle artifact ${name} must be a regular file, not a directory`,
+      );
+    }
+  }
 }
 
 /**
@@ -302,6 +383,9 @@ async function verifyCanaryBundleAtPath(
   artifacts: readonly BundleArtifact[],
   serializedManifest: string,
 ): Promise<VerifiedBundle> {
+  // Exact seven-entry inventory (regular files only, no symlinks) first.
+  await assertExactBundleInventory(fs, dir);
+
   const contents: Record<string, string> = {};
   for (const name of [
     GRID_CANARY_ARTIFACT_NAMES.match,
@@ -384,21 +468,33 @@ async function verifyCanaryBundleAtPath(
 }
 
 /**
- * Atomic and isolated artifact bundle publication (Phase 3D2A.1).
+ * Atomic, exclusive and immutable artifact bundle publication (Phase 3D2A.2).
  *
- * The complete bundle is constructed in a sibling temporary directory
- * `.tmp-<canaryId>`, `manifest.json` is written last, then every one of the
- * seven files is read back: the six non-manifest artifacts must match the
- * written strings byte-for-byte, all four JSON artifacts are deserialized and
- * validated, the manifest must be schema v2, the pure bundle cross-agreement
- * validator (identity, result, review, text contracts and every SHA-256
- * digest) must pass, and only then is the completed temporary directory
- * atomically renamed to `<canaryId>`. After the rename the complete final
- * bundle is reread and reverified; if final-path verification fails the final
- * directory is removed recursively and the original verification error is
- * preserved. On any failure no final canary directory exists, the temporary
- * directory is removed recursively and the original error is preserved. An
- * existing final canary directory is never overwritten.
+ * The final path `outputRoot/<canaryId>` and the temporary path
+ * `outputRoot/.tmp-<canaryId>` are preflighted with `lstat` and must not exist
+ * as any filesystem entry (directory, empty directory, regular file, symbolic
+ * link, broken symbolic link or other). The complete bundle is then
+ * constructed in the sibling temporary directory, which is created
+ * **exclusively** with non-recursive `mkdir` (so a raced-in entry fails with
+ * `EEXIST` and is never modified or removed). `manifest.json` is written last,
+ * the temporary directory must contain exactly the seven canonical regular
+ * files (exact inventory, no symlinks, no extra entries), then every one of
+ * the seven files is read back: all seven strings must match the written
+ * strings byte-for-byte, all four JSON artifacts are deserialized and
+ * validated, the manifest must be schema v2, and the pure bundle
+ * cross-agreement validator (identity, result, review, text contracts and
+ * every SHA-256 digest) must pass. Only then is the completed temporary
+ * directory atomically renamed to `<canaryId>`. After the rename the final
+ * directory must also contain exactly the seven regular files and the complete
+ * final bundle is reread and reverified; if any final-path check fails the
+ * final directory is removed only because this invocation published it.
+ *
+ * Cleanup applies only to invocation-owned paths: the temporary directory is
+ * removed only when this invocation successfully created it, and the final
+ * directory is removed only when this invocation successfully published it and
+ * final verification subsequently failed. Paths that existed before this
+ * invocation are never reused, modified or removed, and the original
+ * operational or verification error is preserved if cleanup also fails.
  */
 async function publishCanaryBundle(
   fs: CanaryFileSystem,
@@ -409,23 +505,33 @@ async function publishCanaryBundle(
 ): Promise<string> {
   const finalDir = join(outputRoot, canaryId);
   const tmpDir = join(outputRoot, `.tmp-${canaryId}`);
+  const serializedManifest = serializeGridMatchCanaryManifest(manifest);
 
-  // Never overwrite an existing canary directory.
-  try {
-    await fs.readFile(join(finalDir, GRID_CANARY_MANIFEST_FILE), "utf-8");
-    throw new Error(`Canary directory already exists: ${finalDir}`);
-  } catch (e) {
-    if (isCode(e, "ENOENT")) {
-      // final directory does not exist — safe to publish.
-    } else {
-      throw e;
-    }
+  // lstat-based preflight: neither path may exist as any filesystem entry.
+  const finalCollision = await entryKind(fs, finalDir);
+  if (finalCollision !== null) {
+    throw new Error(
+      `Grid canary final path already exists (${finalCollision}) and must not be modified or removed: ${finalDir}`,
+    );
   }
+  const tmpCollision = await entryKind(fs, tmpDir);
+  if (tmpCollision !== null) {
+    throw new Error(
+      `Grid canary temporary path already exists (${tmpCollision}) and must not be reused or removed: ${tmpDir}`,
+    );
+  }
+
+  // Invocation ownership tracking.
+  let tmpCreatedByThisInvocation = false;
+  let finalPublishedByThisInvocation = false;
 
   await fs.mkdir(outputRoot, { recursive: true });
 
   try {
-    await fs.mkdir(tmpDir, { recursive: true });
+    // Create the temporary directory exclusively (non-recursive), so a raced
+    // entry between preflight and creation fails with EEXIST.
+    await fs.mkdir(tmpDir, { recursive: false });
+    tmpCreatedByThisInvocation = true;
 
     for (const artifact of artifacts) {
       await fs.writeFile(join(tmpDir, artifact.name), artifact.content, "utf-8");
@@ -433,43 +539,36 @@ async function publishCanaryBundle(
     // manifest.json is written last.
     await fs.writeFile(
       join(tmpDir, GRID_CANARY_MANIFEST_FILE),
-      serializeGridMatchCanaryManifest(manifest),
+      serializedManifest,
       "utf-8",
     );
 
-    // Verify the complete temporary bundle before publishing.
-    await verifyCanaryBundleAtPath(
-      fs,
-      tmpDir,
-      artifacts,
-      serializeGridMatchCanaryManifest(manifest),
-    );
+    // Verify the complete temporary bundle (exact inventory + byte, schema,
+    // digest and cross-agreement checks) before publishing.
+    await verifyCanaryBundleAtPath(fs, tmpDir, artifacts, serializedManifest);
 
     // Atomically publish the completed temporary directory.
     await fs.rename(tmpDir, finalDir);
+    finalPublishedByThisInvocation = true;
 
-    // Verify the complete final bundle at the published path. On failure
-    // remove the final directory and preserve the original verification error.
-    try {
-      await verifyCanaryBundleAtPath(
-        fs,
-        finalDir,
-        artifacts,
-        serializeGridMatchCanaryManifest(manifest),
-      );
-    } catch (finalError) {
+    // Verify the exact final bundle at the published path.
+    await verifyCanaryBundleAtPath(fs, finalDir, artifacts, serializedManifest);
+  } catch (e) {
+    // Cleanup applies only to invocation-owned paths, and the original
+    // operational or verification error is preserved if cleanup also fails.
+    if (finalPublishedByThisInvocation) {
       try {
         await fs.rm(finalDir, { recursive: true, force: true });
       } catch {
-        // best-effort removal of the final directory
+        // best-effort removal of the invocation-published final directory
       }
-      throw finalError;
     }
-  } catch (e) {
-    try {
-      await fs.rm(tmpDir, { recursive: true, force: true });
-    } catch {
-      // best-effort cleanup of the temporary directory
+    if (tmpCreatedByThisInvocation) {
+      try {
+        await fs.rm(tmpDir, { recursive: true, force: true });
+      } catch {
+        // best-effort cleanup of the invocation-created temporary directory
+      }
     }
     throw e;
   }
@@ -497,10 +596,31 @@ export async function runGridMatchCanary(
     );
   }
 
-  // 2. Create the frozen canary scenario (fresh values per call).
+  // 2. Generate and validate the canary identity before executing the match.
+  const canaryId = createUuid();
+  if (!isUuid(canaryId)) {
+    throw new Error(`Canary ID must be a valid UUID; received ${String(canaryId)}`);
+  }
+
+  // 3. Publication-path collision preflight: the final and temporary paths
+  // must not exist as any filesystem entry before the match is executed.
+  const preflightFinal = await entryKind(fs, join(request.outputRoot, canaryId));
+  if (preflightFinal !== null) {
+    throw new Error(
+      `Grid canary final path already exists (${preflightFinal}) and must not be modified or removed: ${join(request.outputRoot, canaryId)}`,
+    );
+  }
+  const preflightTmp = await entryKind(fs, join(request.outputRoot, `.tmp-${canaryId}`));
+  if (preflightTmp !== null) {
+    throw new Error(
+      `Grid canary temporary path already exists (${preflightTmp}) and must not be reused or removed: ${join(request.outputRoot, `.tmp-${canaryId}`)}`,
+    );
+  }
+
+  // 4. Create the frozen canary scenario (fresh values per call).
   const scenario = createGridCanaryScenario();
 
-  // 3. Execute runGridMatch directly.
+  // 5. Execute runGridMatch directly.
   const matchConfig: MatchConfig = {
     seed: request.seed,
     fighterA: scenario.fighterA,
@@ -510,24 +630,24 @@ export async function runGridMatchCanary(
   };
   const result = runGridMatch(matchConfig);
 
-  // 4. Validate direct result identity and scenario invariants (fail closed).
+  // 6. Validate direct result identity and scenario invariants (fail closed).
   const evidence = inspectGridCanaryEvidence(result);
 
   // Determinism: re-execute the same seed and scenario and compare.
   verifyGridCanaryDeterminism(matchConfig, result);
 
-  // 5. Convert the result to a persisted match record.
+  // 7. Convert the result to a persisted match record.
   const converted = matchResultToRecord(result, []);
   if (!isV3Record(converted)) {
     throw new Error("Grid canary match record must be schema v3");
   }
   const record: MatchRecordV3 = converted;
 
-  // 7. Build the factual-report v2 and bind it to the persisted match UUID.
+  // 8. Build the factual-report v2 and bind it to the persisted match UUID.
   const unboundReport = buildGridFactualReport(result);
   const report = bindGridFactualReportToMatchRecord(unboundReport, record);
 
-  // 9-10. Validate the match record and the factual report.
+  // 9. Validate the match record and the factual report.
   const recordValidation = validateMatchRecord(record);
   if (!recordValidation.ok) {
     throw new Error(
@@ -541,10 +661,10 @@ export async function runGridMatchCanary(
     );
   }
 
-  // 16. Reconstruct final state through replay and compare with the report.
+  // 10. Reconstruct final state through replay and compare with the report.
   assertGridCanaryFinalAgreement(result, report);
 
-  // 11-14. Render text replay, ASCII replay, review prompt and fallback review.
+  // 11. Render text replay, ASCII replay, review prompt and fallback review.
   const textReplay = renderTextReplay(result);
   const asciiReplay = renderAsciiReplay(
     result,
@@ -554,7 +674,7 @@ export async function runGridMatchCanary(
   const reviewPrompt = buildReviewUserPrompt(report);
   const fallbackReview = buildDeterministicFallbackReview(report);
 
-  // 15. Serialize/deserialize round trips for record and report.
+  // 12. Serialize/deserialize round trips for record and report.
   const serializedRecord = serializeMatchRecord(record);
   const recordRoundTrip = deserializeMatchRecord(serializedRecord);
   if (!recordRoundTrip.ok || !isV3Record(recordRoundTrip.record)) {
@@ -575,9 +695,8 @@ export async function runGridMatchCanary(
   }
   const serializedReview = serializeMatchReview(fallbackReview);
 
-  // 17. Build the manifest only after all checks and all six artifact contents
-  // and digests exist.
-  const canaryId = createUuid();
+  // 13. Build the manifest only after all checks and all six artifact contents
+  // and digests exist. The canary ID was generated and preflighted earlier.
   const manifest = buildCanaryManifest({
     canaryId,
     createdAt: now().toISOString(),
@@ -596,7 +715,7 @@ export async function runGridMatchCanary(
     },
   });
 
-  // 18-19. Persist one atomic canary bundle and validate the completed bundle.
+  // 14. Persist one atomic canary bundle and validate the completed bundle.
   const artifactDirectory = await publishCanaryBundle(
     fs,
     request.outputRoot,
@@ -615,7 +734,7 @@ export async function runGridMatchCanary(
     manifest,
   );
 
-  // 20. Return a structured success result.
+  // 15. Return a structured success result.
   return {
     canaryId,
     scenarioVersion: GRID_CANARY_SCENARIO_VERSION,
