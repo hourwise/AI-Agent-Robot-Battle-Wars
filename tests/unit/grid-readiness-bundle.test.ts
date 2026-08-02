@@ -43,6 +43,9 @@ import { deriveGridActivationReadinessDecision } from "../../src/readiness/decis
 import { sha256Hex } from "../../src/canary/grid-canary-digest.js";
 import { assertValidBundleDeclaration } from "../../src/canary/immutable-canary-bundle.js";
 import { GRID_ACTIVATION_READINESS_RUN_COUNT } from "../../src/readiness/run-plan.js";
+import { recomputeGridActivationReadinessRunChecksums } from "../../src/readiness/record-evidence.js";
+import type { MatchRecordV3 } from "../../src/schemas/match-record.schema.js";
+import type { FactualMatchReportV2 } from "../../src/schemas/factual-report.schema.js";
 
 const FROZEN_V1_SUITE_CHECKSUM =
   "dd38ac8a5d2e35007b4b6890418b21aca8f621f3e165fa7d158d2f179672ae5a";
@@ -268,9 +271,10 @@ function corruptReportIdentity(
 /**
  * Phase 3E1.3: builds a FULLY coherent false bundle. One schema-valid factual
  * report's final state is corrupted, and then EVERY downstream artifact is
- * coherently rewritten to match the false state: the report artifact and its
- * run-index checksum, the persisted metrics (replayAgreeingMatches = 311 so
- * H05 fails), the recomputed gates (H05 fail), the decision (not_ready), the
+ * coherently rewritten to match the false state: the report artifact and the
+ * COMPLETE run-index checksum set (all five report-derived checksums,
+ * Phase 3E1.3.1), the persisted metrics (replayAgreeingMatches = 311 so H05
+ * fails), the recomputed gates (H05 fail), the decision (not_ready), the
  * regenerated report.txt, and every manifest digest/checksum plus the manifest
  * classification (not_ready). The resulting bundle is internally consistent
  * in every artifact except for the single record/report final-state
@@ -296,13 +300,34 @@ function corruptReportFinalStateCoherently(
   mutate(reports.items[0]!.finalStates);
   corrupted[GRID_READINESS_FACTUAL_REPORTS_ARTIFACT] = JSON.stringify(reports, null, 2);
 
-  // 2. Update the run-index report checksum.
-  const runIndex = JSON.parse(corrupted[GRID_READINESS_RUN_INDEX_ARTIFACT]!) as {
-    items: Array<{ reportChecksum: string }>;
+  // 2. Recompute the COMPLETE report-derived run checksum set through the
+  // shared production helper from the authoritative match record and the
+  // mutated report, and assign all five run-index checksums. The record, text
+  // replay and ASCII replay values are unchanged (the record was not altered),
+  // but all five are explicitly assigned so a future derived checksum can
+  // never be silently left stale. The review-prompt checksum changes because
+  // the canonical review prompt embeds the factual report's final states.
+  const records = JSON.parse(corrupted[GRID_READINESS_MATCH_RECORDS_ARTIFACT]!) as {
+    items: Array<MatchRecordV3>;
   };
-  runIndex.items[0]!.reportChecksum = sha256Hex(
-    JSON.stringify(reports.items[0], null, 2),
+  const runIndex = JSON.parse(corrupted[GRID_READINESS_RUN_INDEX_ARTIFACT]!) as {
+    items: Array<{
+      recordChecksum: string;
+      reportChecksum: string;
+      textReplayChecksum: string;
+      asciiReplayChecksum: string;
+      reviewPromptChecksum: string;
+    }>;
+  };
+  const recomputedRunChecksums = recomputeGridActivationReadinessRunChecksums(
+    records.items[0]!,
+    reports.items[0] as unknown as FactualMatchReportV2,
   );
+  runIndex.items[0]!.recordChecksum = recomputedRunChecksums.recordChecksum;
+  runIndex.items[0]!.reportChecksum = recomputedRunChecksums.reportChecksum;
+  runIndex.items[0]!.textReplayChecksum = recomputedRunChecksums.textReplayChecksum;
+  runIndex.items[0]!.asciiReplayChecksum = recomputedRunChecksums.asciiReplayChecksum;
+  runIndex.items[0]!.reviewPromptChecksum = recomputedRunChecksums.reviewPromptChecksum;
   corrupted[GRID_READINESS_RUN_INDEX_ARTIFACT] = JSON.stringify(runIndex, null, 2);
 
   // 3. Persist the disagreement as replayAgreeingMatches = 311 (H05 fails).
@@ -402,6 +427,181 @@ function corruptReportFinalStateCoherently(
   manifest.reportChecksum = sha256Hex(regeneratedReport);
   corrupted[GRID_READINESS_MANIFEST_FILE] = JSON.stringify(manifest, null, 2);
   return corrupted;
+}
+
+/**
+ * Phase 3E1.3.1: proves that a fully coherent false bundle has NO stale
+ * downstream artifact. Verifies the complete run-index checksum set against
+ * the canonical production recomputation, artifact/manifest integrity
+ * (digests, decision/report checksums, not_ready classification), the
+ * metrics/gates/decision chain (replayAgreeingMatches 311, H05 fail, every
+ * other gate unchanged, persisted gates equal the deliberately recomputed
+ * false gates, not_ready classification) and byte-exact report.txt
+ * regeneration. The only remaining contradiction is the authoritative
+ * record/report final-state disagreement.
+ */
+function assertCoherentFalseBundle(
+  bundle: ReadinessTestBundle,
+  corrupted: Record<string, string>,
+): void {
+  // 1. Run-index checksums for the corrupted pair equal the canonical
+  // recomputation of every report-derived value through the shared helper.
+  const records = JSON.parse(corrupted[GRID_READINESS_MATCH_RECORDS_ARTIFACT]!) as {
+    items: Array<MatchRecordV3>;
+  };
+  const reports = JSON.parse(corrupted[GRID_READINESS_FACTUAL_REPORTS_ARTIFACT]!) as {
+    items: Array<FactualMatchReportV2>;
+  };
+  const runIndex = JSON.parse(corrupted[GRID_READINESS_RUN_INDEX_ARTIFACT]!) as {
+    items: Array<{
+      recordChecksum: string;
+      reportChecksum: string;
+      textReplayChecksum: string;
+      asciiReplayChecksum: string;
+      reviewPromptChecksum: string;
+    }>;
+  };
+  const recomputed = recomputeGridActivationReadinessRunChecksums(
+    records.items[0]!,
+    reports.items[0]!,
+  );
+  expect(runIndex.items[0]!.recordChecksum).toBe(recomputed.recordChecksum);
+  expect(runIndex.items[0]!.reportChecksum).toBe(recomputed.reportChecksum);
+  expect(runIndex.items[0]!.textReplayChecksum).toBe(recomputed.textReplayChecksum);
+  expect(runIndex.items[0]!.asciiReplayChecksum).toBe(recomputed.asciiReplayChecksum);
+  expect(runIndex.items[0]!.reviewPromptChecksum).toBe(recomputed.reviewPromptChecksum);
+
+  // 2. Artifact and manifest integrity: every changed artifact digest equals
+  // the manifest digest; the decision/report checksums and the not_ready
+  // classification are coherent.
+  const manifest = JSON.parse(corrupted[GRID_READINESS_MANIFEST_FILE]!) as {
+    decision: string;
+    digests: Record<string, string>;
+    decisionChecksum: string;
+    reportChecksum: string;
+  };
+  for (const name of [
+    GRID_READINESS_FACTUAL_REPORTS_ARTIFACT,
+    GRID_READINESS_RUN_INDEX_ARTIFACT,
+    GRID_READINESS_METRICS_ARTIFACT,
+    GRID_READINESS_DECISION_ARTIFACT,
+    GRID_READINESS_REPORT_ARTIFACT,
+  ]) {
+    expect(manifest.digests[name]).toBe(sha256Hex(corrupted[name]!));
+  }
+  expect(manifest.decisionChecksum).toBe(
+    sha256Hex(corrupted[GRID_READINESS_DECISION_ARTIFACT]!),
+  );
+  expect(manifest.reportChecksum).toBe(
+    sha256Hex(corrupted[GRID_READINESS_REPORT_ARTIFACT]!),
+  );
+  expect(manifest.decision).toBe("not_ready");
+
+  // 3. Metrics, gates and decision: replayAgreeingMatches is 311, H05 fails
+  // exactly, every other previously passing gate is unchanged, the persisted
+  // decision gates equal the deliberately recomputed false gates, and the
+  // derived classification is not_ready.
+  const metrics = JSON.parse(corrupted[GRID_READINESS_METRICS_ARTIFACT]!) as {
+    execution: { replayAgreeingMatches: number };
+  };
+  expect(metrics.execution.replayAgreeingMatches).toBe(
+    GRID_ACTIVATION_READINESS_RUN_COUNT - 1,
+  );
+  const recomputedGates = evaluateGridActivationReadinessGates({
+    metrics: metrics as unknown as GridActivationReadinessMetrics,
+    results: [],
+    operational: {
+      deterministicReexecutionPassed: true,
+      inputsUnmodified: true,
+      artifactIntegrityVerified: true,
+      legacyIsolationVerified: true,
+    },
+  });
+  for (const originalGate of bundle.decision.gates) {
+    const falseGate = recomputedGates.gates.find((g) => g.gateId === originalGate.gateId);
+    expect(falseGate).toBeDefined();
+    if (originalGate.gateId === "H05") {
+      expect(falseGate!.outcome).toBe("fail");
+    } else {
+      expect(falseGate!.outcome).toBe(originalGate.outcome);
+    }
+  }
+  expect(
+    deriveGridActivationReadinessDecision({
+      anyFail: recomputedGates.anyFail,
+      anyInconclusive: recomputedGates.anyInconclusive,
+    }),
+  ).toBe("not_ready");
+  const decision = JSON.parse(corrupted[GRID_READINESS_DECISION_ARTIFACT]!) as {
+    decision: string;
+    gates: Array<{ gateId: string; outcome: string }>;
+  };
+  expect(decision.decision).toBe("not_ready");
+  expect(decision.gates).toEqual(recomputedGates.gates);
+
+  // 4. Human report: regenerating report.txt from the deliberately false
+  // metrics, gates and not_ready decision must reproduce the persisted
+  // artifact byte-for-byte.
+  const manifestSource = JSON.parse(corrupted[GRID_READINESS_MANIFEST_FILE]!) as {
+    suiteId: string;
+    actionEvidenceModel: string;
+    provenanceModel: string;
+    seedRegistryId: string;
+    seedRegistryChecksum: string;
+    scenarioRegistryId: string;
+    scenarioRegistryChecksum: string;
+    suiteChecksum: string;
+    seedCount: number;
+    scenarioCount: number;
+    assignmentCount: number;
+  };
+  const regeneratedReport = buildGridActivationReadinessReport({
+    evaluationId: bundle.decision.evaluationId,
+    suiteId: manifestSource.suiteId,
+    actionEvidenceModel: manifestSource.actionEvidenceModel,
+    provenanceModel: manifestSource.provenanceModel,
+    createdAt: bundle.decision.createdAt,
+    seedRegistryId: manifestSource.seedRegistryId,
+    seedRegistryChecksum: manifestSource.seedRegistryChecksum,
+    scenarioRegistryId: manifestSource.scenarioRegistryId,
+    scenarioRegistryChecksum: manifestSource.scenarioRegistryChecksum,
+    suiteChecksum: manifestSource.suiteChecksum,
+    seedCount: manifestSource.seedCount,
+    scenarioCount: manifestSource.scenarioCount,
+    assignmentCount: manifestSource.assignmentCount,
+    totalSimulations: GRID_ACTIVATION_READINESS_RUN_COUNT,
+    deterministic: true,
+    metrics: metrics as unknown as GridActivationReadinessMetrics,
+    gates: recomputedGates.gates,
+    decision: decision.decision,
+  });
+  expect(corrupted[GRID_READINESS_REPORT_ARTIFACT]).toBe(regeneratedReport);
+}
+
+/**
+ * Phase 3E1.3.1: requires the validator to reject a fully coherent false
+ * bundle SOLELY because of the authoritative record/report final-state
+ * disagreement. The message must contain the agreement failure and must NOT
+ * contain any stale-artifact failure (a forgotten checksum or stale derived
+ * artifact would surface through one of these).
+ */
+function assertRejectedSolelyByFinalStateDisagreement(
+  corrupted: Record<string, string>,
+): void {
+  let error: unknown;
+  try {
+    validateGridActivationReadinessBundle(corrupted);
+  } catch (e) {
+    error = e;
+  }
+  expect(error).toBeInstanceOf(GridActivationReadinessBundleError);
+  const message = error instanceof Error ? error.message : String(error);
+  expect(message).toContain("report/final-state agreement failed");
+  expect(message).not.toContain("recomputed artifact checksums do not match");
+  expect(message).not.toContain("manifest digest mismatch");
+  expect(message).not.toContain("persisted metrics do not match");
+  expect(message).not.toContain("decision gates do not match");
+  expect(message).not.toContain("report.txt does not byte-for-byte match");
 }
 
 describe("grid activation readiness bundle (Phase 3E1)", () => {
@@ -908,54 +1108,51 @@ describe("grid activation readiness bundle (Phase 3E1)", () => {
     const corrupted = corruptReportFinalStateCoherently(bundle, (state) => {
       state.fighterA.integrity += 1;
     });
-    expect(() => validateGridActivationReadinessBundle(corrupted)).toThrow(
-      /report\/final-state agreement failed/,
-    );
+    // The false bundle has no stale downstream artifact: the only remaining
+    // contradiction is the authoritative record/report final-state
+    // disagreement, so the rejection cannot depend on a forgotten checksum.
+    assertCoherentFalseBundle(bundle, corrupted);
+    assertRejectedSolelyByFinalStateDisagreement(corrupted);
   });
 
   it("rejects a fully coherent false bundle (final zone corruption, H05 fail, not_ready)", () => {
     const corrupted = corruptReportFinalStateCoherently(bundle, (state) => {
       state.fighterB.zone = state.fighterB.zone === "center" ? "north" : "center";
     });
-    expect(() => validateGridActivationReadinessBundle(corrupted)).toThrow(
-      /report\/final-state agreement failed/,
-    );
+    assertCoherentFalseBundle(bundle, corrupted);
+    assertRejectedSolelyByFinalStateDisagreement(corrupted);
   });
 
   it("rejects a fully coherent false bundle (final facing corruption, H05 fail, not_ready)", () => {
     const corrupted = corruptReportFinalStateCoherently(bundle, (state) => {
       state.fighterA.facing = state.fighterA.facing === "north" ? "south" : "north";
     });
-    expect(() => validateGridActivationReadinessBundle(corrupted)).toThrow(
-      /report\/final-state agreement failed/,
-    );
+    assertCoherentFalseBundle(bundle, corrupted);
+    assertRejectedSolelyByFinalStateDisagreement(corrupted);
   });
 
   it("rejects a fully coherent false bundle (final conditions corruption, H05 fail, not_ready)", () => {
     const corrupted = corruptReportFinalStateCoherently(bundle, (state) => {
       state.fighterA.conditions = ["overturned"];
     });
-    expect(() => validateGridActivationReadinessBundle(corrupted)).toThrow(
-      /report\/final-state agreement failed/,
-    );
+    assertCoherentFalseBundle(bundle, corrupted);
+    assertRejectedSolelyByFinalStateDisagreement(corrupted);
   });
 
   it("rejects a fully coherent false bundle (disabled-component corruption, H05 fail, not_ready)", () => {
     const corrupted = corruptReportFinalStateCoherently(bundle, (state) => {
       state.fighterB.weaponDisabled = !state.fighterB.weaponDisabled;
     });
-    expect(() => validateGridActivationReadinessBundle(corrupted)).toThrow(
-      /report\/final-state agreement failed/,
-    );
+    assertCoherentFalseBundle(bundle, corrupted);
+    assertRejectedSolelyByFinalStateDisagreement(corrupted);
   });
 
   it("rejects a fully coherent false bundle (damaged-component projection corruption, H05 fail, not_ready)", () => {
     const corrupted = corruptReportFinalStateCoherently(bundle, (state) => {
       state.fighterA.weaponDamaged = !state.fighterA.weaponDamaged;
     });
-    expect(() => validateGridActivationReadinessBundle(corrupted)).toThrow(
-      /report\/final-state agreement failed/,
-    );
+    assertCoherentFalseBundle(bundle, corrupted);
+    assertRejectedSolelyByFinalStateDisagreement(corrupted);
   });
 
   // ── Phase 3E1.2: canonical registry anchoring through the bundle ─────────
