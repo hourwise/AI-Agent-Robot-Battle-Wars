@@ -47,6 +47,7 @@ import {
   type GridActivationReadinessDecisionV3,
 } from "./decision.js";
 import {
+  assertGridReadinessRecordReportFinalAgreement,
   inspectGridReadinessRecordEvidence,
   recomputeGridActivationReadinessRunChecksums,
   type GridActivationReadinessRunEvidence,
@@ -737,6 +738,20 @@ export function validateGridActivationReadinessCoreArtifacts(
         `${label} persisted record failed the record-evidence inspector: ${e instanceof Error ? e.message : String(e)}`,
       );
       continue;
+    }
+    // Phase 3E1.3: complete report/final-state agreement is a bundle-validity
+    // requirement for current v3 evidence. A factual report that disagrees
+    // with its authoritative record is corrupt evidence and invalidates the
+    // bundle, never merely an H05 failure. Include the run number and match ID
+    // in the failure and keep collecting further failures.
+    try {
+      assertGridReadinessRecordReportFinalAgreement(record, report);
+    } catch (e) {
+      check(
+        failures,
+        false,
+        `${label} (matchId ${entry.matchId}) report/final-state agreement failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
     check(
       failures,

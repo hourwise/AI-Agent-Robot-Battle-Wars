@@ -99,6 +99,14 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
   operational attestations, complete report/final-state agreement drives H05,
   timing validation is corrected, and Prettier uses an explicit CRLF contract
   (the historical v1 and v2 bundles remain preserved for archival inspection).
+  Phase 3E1.3 hardened the verifier only (no new official run): report/
+  final-state disagreement is now fatal to current readiness evidence — a
+  bundle whose factual report disagrees with its authoritative record is
+  rejected before any classification is returned, even when every downstream
+  artifact (metrics, gates, decision, report, manifest) has been coherently
+  rewritten to `not_ready`; round 0 permits only `competition_started`; and
+  the official v3 evaluation (`0d8487a8-...`, suite checksum
+  `c3b8a16d...`) remains unchanged and still validates.
   The live
   five-zone simulator is unchanged: the normal application still uses
   `runMatch` (legacy `0.2.0`) and emits schema v2, and `runGridMatch` is not
@@ -263,7 +271,15 @@ attestations (deterministic re-execution, input immutability), enforces
 complete report/final-state agreement for H05, and regenerates the report
 byte-for-byte; any disagreement fails the bundle. The scenario registry is
 deeply frozen (every nested build proposal, armour object and policy) with
-distinct definitions per scenario and no shared references. The historical
+distinct definitions per scenario and no shared references. Since Phase 3E1.3
+a record/report **final-state disagreement is fatal**: the validator rejects
+the bundle before any classification is returned, even when the persisted
+metrics, gates, decision, `report.txt` and manifest have all been coherently
+rewritten to `not_ready` — the bundle fails specifically because the factual
+report disagrees with its authoritative record. Round 0 now permits only the
+`competition_started` event (every nonterminal event must carry a round in
+`1..record.rounds`, the start-event seed must agree with the record seed, and
+the terminal loser must agree with the record result). The historical
 Phase 3E1 v1 bundle (`data/readiness/grid/864991f7-d060-4669-beec-11e0d42b7e68/`,
 suite checksum `dd38ac8a…`) and Phase 3E1.1 v2 bundle
 (`data/readiness/grid/d788284d-a795-4125-984c-9146261e271a/`, suite checksum

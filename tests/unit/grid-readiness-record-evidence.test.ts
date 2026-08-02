@@ -266,7 +266,7 @@ describe("grid readiness record evidence (Phase 3E1.1)", () => {
     s.events.push(s.roundEnded(1, "south", "north"));
     s.events.push(s.ended(1));
     expect(() => inspectGridReadinessRecordEvidence(makeRecord(s.events, 1))).toThrow(
-      /round ordering must be monotonic|invalid round/,
+      /round ordering must be monotonic|outside the completed competition rounds|invalid round/,
     );
   });
 
@@ -310,7 +310,7 @@ describe("grid readiness record evidence (Phase 3E1.1)", () => {
     s.events.push(s.roundEnded(1, "south", "north"));
     s.events.push(s.ended(1));
     expect(() => inspectGridReadinessRecordEvidence(makeRecord(s.events, 1))).toThrow(
-      /has no selected policy movement|appears before the round's round_started|begins before round/,
+      /outside the completed competition rounds|has no selected policy movement|appears before the round's round_started|begins before round/,
     );
   });
 
@@ -547,7 +547,7 @@ describe("grid readiness event chronology (Phase 3E1.2)", () => {
     s.events.push(s.roundStarted(3));
     s.events.push(s.ended(1));
     expect(() => validateGridReadinessEventChronology(makeRecord(s.events, 1))).toThrow(
-      /beyond competition completion|competition_ended must be the final event/,
+      /outside the completed competition rounds|competition_ended must be the final event/,
     );
   });
 
@@ -644,6 +644,132 @@ describe("grid readiness event chronology (Phase 3E1.2)", () => {
     const record = makeRecord(s.events, 1);
     expect(() => validateGridReadinessEventChronology(record)).toThrow(
       /competition_ended winner does not agree/,
+    );
+  });
+
+  it("rejects a round_started event in round 0 (Phase 3E1.3)", () => {
+    const s = makeStream();
+    s.events.push(s.started());
+    s.events.push(s.roundStarted(0));
+    s.events.push(s.policy(1, "fighter_a", "hold", "idle"));
+    s.events.push(s.policy(1, "fighter_b", "hold", "idle"));
+    s.events.push(s.roundEnded(1, "south", "north"));
+    s.events.push(s.ended(1));
+    expect(() => validateGridReadinessEventChronology(makeRecord(s.events, 1))).toThrow(
+      /round_started has round 0 outside the completed competition rounds/,
+    );
+  });
+
+  it("rejects a round_ended event in round 0 (Phase 3E1.3)", () => {
+    const s = makeStream();
+    s.events.push(s.started());
+    s.events.push(s.roundStarted(1));
+    s.events.push(s.policy(1, "fighter_a", "hold", "idle"));
+    s.events.push(s.policy(1, "fighter_b", "hold", "idle"));
+    s.events.push(s.roundEnded(0, "south", "north"));
+    s.events.push(s.ended(1));
+    expect(() => validateGridReadinessEventChronology(makeRecord(s.events, 1))).toThrow(
+      /round_ended has round 0 outside the completed competition rounds/,
+    );
+  });
+
+  it("rejects an ordinary movement event in round 0 (Phase 3E1.3)", () => {
+    const s = makeStream();
+    s.events.push(s.started());
+    s.events.push(s.roundStarted(1));
+    s.events.push(s.policy(1, "fighter_a", "hold", "idle"));
+    s.events.push(s.policy(1, "fighter_b", "hold", "idle"));
+    s.events.push(s.movement(0, "fighter_a", "south", "north", "north", "advance"));
+    s.events.push(s.roundEnded(1, "south", "north"));
+    s.events.push(s.ended(1));
+    expect(() => validateGridReadinessEventChronology(makeRecord(s.events, 1))).toThrow(
+      /movement_resolved has round 0 outside the completed competition rounds/,
+    );
+  });
+
+  it("rejects a combat event in round 0 (Phase 3E1.3)", () => {
+    const s = makeStream();
+    s.events.push(s.started());
+    s.events.push(s.roundStarted(1));
+    s.events.push(s.policy(1, "fighter_a", "hold", "idle"));
+    s.events.push(s.policy(1, "fighter_b", "hold", "idle"));
+    s.events.push(
+      makeEvent("attack_missed", 0, 5, { weaponId: "ram" }, "fighter_a", "fighter_b"),
+    );
+    s.events.push(s.roundEnded(1, "south", "north"));
+    s.events.push(s.ended(1));
+    expect(() => validateGridReadinessEventChronology(makeRecord(s.events, 1))).toThrow(
+      /attack_missed has round 0 outside the completed competition rounds/,
+    );
+  });
+
+  it("rejects a nonterminal event beyond competition completion (Phase 3E1.3)", () => {
+    const s = makeStream();
+    s.events.push(s.started());
+    s.events.push(s.roundStarted(1));
+    s.events.push(s.policy(1, "fighter_a", "hold", "idle"));
+    s.events.push(s.policy(1, "fighter_b", "hold", "idle"));
+    s.events.push(s.roundEnded(1, "south", "north"));
+    // A policy selection referencing round 2 in a 1-round competition.
+    s.events.push(s.policy(2, "fighter_a", "hold", "idle"));
+    s.events.push(s.ended(1));
+    expect(() => validateGridReadinessEventChronology(makeRecord(s.events, 1))).toThrow(
+      /policy_triggered has round 2 outside the completed competition rounds 1\.\.1/,
+    );
+  });
+
+  it("rejects a start event whose seed disagrees with the record seed (Phase 3E1.3)", () => {
+    const events = [
+      makeEvent("competition_started", 0, 0, { seed: 99 }),
+      makeEvent("round_started", 1, 1, {}),
+      makeEvent(
+        "policy_triggered",
+        1,
+        2,
+        { action: { movement: "hold", combat: "idle" } },
+        "fighter_a",
+      ),
+      makeEvent(
+        "policy_triggered",
+        1,
+        3,
+        { action: { movement: "hold", combat: "idle" } },
+        "fighter_b",
+      ),
+      makeEvent("round_ended", 1, 4, {
+        fighterA: { zone: "south", conditions: [] },
+        fighterB: { zone: "north", conditions: [] },
+      }),
+      makeEvent("competition_ended", 1, 5, {
+        winner: null,
+        loser: null,
+        method: "draw",
+        rounds: 1,
+      }),
+    ];
+    expect(() => validateGridReadinessEventChronology(makeRecord(events, 1))).toThrow(
+      /competition_started seed does not agree with the record seed/,
+    );
+  });
+
+  it("rejects a terminal loser that disagrees with the record result (Phase 3E1.3)", () => {
+    const s = makeStream();
+    s.events.push(s.started());
+    s.events.push(s.roundStarted(1));
+    s.events.push(s.policy(1, "fighter_a", "hold", "idle"));
+    s.events.push(s.policy(1, "fighter_b", "hold", "idle"));
+    s.events.push(s.roundEnded(1, "south", "north"));
+    // Record result is {loser: null}; claim fighter_a lost instead.
+    s.events.push(
+      makeEvent("competition_ended", 1, 6, {
+        winner: null,
+        loser: "fighter_a",
+        method: "draw",
+        rounds: 1,
+      }),
+    );
+    expect(() => validateGridReadinessEventChronology(makeRecord(s.events, 1))).toThrow(
+      /competition_ended loser does not agree with the record result/,
     );
   });
 });

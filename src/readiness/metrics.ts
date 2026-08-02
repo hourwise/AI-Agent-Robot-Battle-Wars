@@ -711,21 +711,18 @@ export function recomputeGridActivationReadinessMetricsFromArtifacts(input: {
       evidence: inspectGridReadinessRecordEvidence(record),
     };
   });
-  // Complete report/final-state agreement (Phase 8): count the record/report
-  // pairs that pass the complete agreement check. Non-agreeing pairs count as
-  // non-replay-agreeing; they never validate a publishable bundle.
+  // Complete report/final-state agreement (Phase 8, hardened Phase 3E1.3):
+  // a record/report pair that disagrees is corrupt evidence. The recompute
+  // throws immediately on the first disagreement — it never silently counts a
+  // non-agreeing pair or downgrades it to an H05 failure. `replayAgreeingMatches`
+  // therefore equals 312 exactly when the records and reports are consistent.
   let replayAgreeingMatches = 0;
   for (let index = 0; index < records.items.length; index++) {
-    try {
-      assertGridReadinessRecordReportFinalAgreement(
-        records.items[index]!,
-        reports.items[index]!,
-      );
-      replayAgreeingMatches += 1;
-    } catch {
-      // Non-agreeing pair: counted, not re-thrown here (metrics recompute
-      // completes so the bundle validator can report the disagreement).
-    }
+    assertGridReadinessRecordReportFinalAgreement(
+      records.items[index]!,
+      reports.items[index]!,
+    );
+    replayAgreeingMatches += 1;
   }
   const computed = computeGridActivationReadinessMetrics({
     runs,

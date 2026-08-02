@@ -465,6 +465,43 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   policy, threshold or simulator semantics changed; no benchmark ran; no seed
   bank was opened; held-out/all remain sealed; no provider call, tuning,
   opt-in beta decision or default activation occurred.
+- Phase 3E1.3 — report disagreement is fatal to current readiness evidence:
+  **complete (verifier-only; no new official run)**. This phase changes no
+  suite identity, no artifact schema version, no seed, scenario, assignment,
+  gate threshold or simulator semantics; the official v3 evaluation
+  (`0d8487a8-939d-4f9a-a16a-544b71eaa869`, suite checksum
+  `c3b8a16d407891d0a92966fb9d6ed20fe5e11776bf545624fb3dbcadb4e2503c`) and its
+  bundle remain exactly as published and still validate under the stronger
+  validator. Report/final-state disagreement is now a bundle-invalidity
+  failure: the core artifact validator runs
+  `assertGridReadinessRecordReportFinalAgreement` for every bound
+  record/report pair and rejects the bundle (with the run number and match ID
+  in the failure) before any classification is returned — a bundle containing
+  a final-state disagreement can never validate, not even under a `not_ready`
+  classification. The authoritative persisted-bundle path never downgrades
+  disagreement: `recomputeGridActivationReadinessMetricsFromArtifacts` throws
+  immediately on the first disagreement instead of silently counting a
+  non-agreeing pair, and H05 (`replayAgreeingMatches === 312`) is retained for
+  live in-memory evaluation, with one shared agreement rule. Regression tests
+  build a fully coherent false bundle (one schema-valid factual-report final
+  state corrupted, then the report artifact and run-index checksum, persisted
+  metrics with `replayAgreeingMatches` = 311 so H05 fails, recomputed gates,
+  a `not_ready` decision, a regenerated `report.txt`, and every manifest
+  digest/checksum plus the manifest classification coherently rewritten) and
+  prove the validator rejects it specifically because the factual report
+  disagrees with its authoritative record — not because a downstream artifact
+  was left stale (fields exercised: integrity, zone, facing, conditions,
+  disabled and damaged component projection); the unmodified official-shape
+  v3 test bundle still validates. Round 0 is now exclusively the
+  `competition_started` event: every nonterminal event must carry an integer
+  round in `1..record.rounds`, the start-event seed must agree with the record
+  seed, and the terminal `competition_ended` loser must agree with the record
+  result; the documented dual sequence-counter validation required by the
+  frozen runtime is preserved. No rerun occurred, no replacement evaluation ID
+  was created, no supplemental grapple scenario or seed was added, no
+  benchmark ran, no seed bank was opened, held-out/all remain sealed, no
+  provider call, tuning, opt-in beta decision or default activation occurred,
+  and Phase 3E2 has not started.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

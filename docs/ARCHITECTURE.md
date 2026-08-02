@@ -686,7 +686,12 @@ permission to activate grid.
   completed round, `competition_ended` last, monotonic rounds, strictly
   increasing unique sequences within each of the frozen runtime's two
   counters) and the ordinary-hold invariants (translated `hold` always zero;
-  an emitted `hold` must be same-cell and same-facing). The live core and the
+  an emitted `hold` must be same-cell and same-facing). Since Phase 3E1.3
+  round 0 is exclusively the `competition_started` event (every nonterminal
+  event must carry an integer round in `1..record.rounds`), the start-event
+  seed must agree with the record seed and the terminal `competition_ended`
+  loser must agree with the record result; the dual sequence-counter
+  validation is preserved. The live core and the
   read-back validator use the same inspector, so live and persisted evidence
   are identical. `verifyGridActivationReadinessDeterminism` requires
   byte-identical re-execution.
@@ -712,7 +717,13 @@ permission to activate grid.
   the execution fields authoritatively (record counts, complete
   report/final-state agreement count, zero invalid events after inspection)
   plus the explicit operational attestations, and never copies non-timing
-  execution fields from the persisted artifact.
+  execution fields from the persisted artifact. Since Phase 3E1.3 the
+  recompute throws immediately on the first record/report final-state
+  disagreement — it never silently counts a non-agreeing pair into
+  `replayAgreeingMatches` and never downgrades a disagreement in the
+  authoritative persisted-bundle path; H05 (`replayAgreeingMatches === 312`)
+  is retained for live in-memory evaluation, and both paths share the single
+  `assertGridReadinessRecordReportFinalAgreement` rule.
 - `src/readiness/gates.ts` — the frozen gates: H01–H10 hard pass/fail,
   C01–C06 coverage pass/inconclusive, S01–S03 and P01–P02 gross-pathology
   pass/inconclusive/fail with frozen thresholds.
@@ -749,9 +760,14 @@ permission to activate grid.
   (with the corrected timing invariants), gates (H02/H07 from the manifest
   attestations, H06 from record inspection, H05 from complete
   report/final-state agreement), the decision and `report.txt` byte-for-byte;
-  any disagreement fails the bundle. Individual replay text is never
-  included. Historical v1 and v2 artifacts parse but are rejected as current
-  readiness evidence.
+  any disagreement fails the bundle. Since Phase 3E1.3 the core validator
+  runs `assertGridReadinessRecordReportFinalAgreement` for every bound
+  record/report pair and treats any final-state disagreement as a fatal core
+  artifact-validation failure (with the run number and match ID), so a bundle
+  containing a disagreement is rejected before any classification is
+  returned — it can never validate under a `not_ready` classification or any
+  other. Individual replay text is never included. Historical v1 and v2
+  artifacts parse but are rejected as current readiness evidence.
 - `src/canary/canary-output-root.ts` — the kind-aware root guard now includes
   `grid-readiness → data/readiness/grid`; the readiness service rejects normal
   match/series storage, both canary roots, every other in-repository data
@@ -830,6 +846,30 @@ hard gates (H01–H10), all slot-order gates (S01–S03), both progress gates
 reposition was observed) was inconclusive. No supplemental grapple scenario
 was added; no tuning occurred; no opt-in activation decision and no default
 activation was performed.
+
+Phase 3E1.3 hardened the verifier only (the v1, v2 and v3 results above are
+preserved; the official v3 evaluation and its bundle are unchanged and still
+validate under the stronger validator). Report/final-state disagreement is
+now fatal to current readiness evidence: the core artifact validator runs
+`assertGridReadinessRecordReportFinalAgreement` for every bound record/report
+pair and rejects the bundle before any classification is returned, and the
+metrics recompute throws immediately on the first disagreement instead of
+silently counting a non-agreeing pair. A fully coherent false bundle (report
+final state corrupted with `replayAgreeingMatches` = 311, H05 fail, a
+`not_ready` decision, a regenerated `report.txt` and every manifest
+digest/checksum plus the manifest classification coherently rewritten) is
+rejected specifically because the factual report disagrees with its
+authoritative record, never because a downstream artifact was left stale.
+Round 0 is exclusively the `competition_started` event (every nonterminal
+event must carry an integer round in `1..record.rounds`), the start-event
+seed must agree with the record seed and the terminal `competition_ended`
+loser must agree with the record result; the documented dual sequence-counter
+validation required by the frozen runtime is preserved. No new official run
+occurred; no replacement evaluation ID was created; no supplemental grapple
+scenario or seed was added; no benchmark ran and no seed bank was opened;
+held-out/all remain sealed; no provider call, tuning, opt-in beta decision or
+default activation occurred; Phase 3E2 has not started and Milestone 0.2C
+remains incomplete.
 
 ### Agent usage tracking
 

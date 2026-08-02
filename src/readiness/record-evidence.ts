@@ -332,14 +332,19 @@ const STRUCTURAL_EVENT_TYPES: ReadonlySet<string> = new Set<string>([
 ]);
 
 /**
- * Complete event chronology validation (Phase 3E1.2, Phase 4). Validates the
- * authoritative chronological structure of a persisted v3 record:
+ * Complete event chronology validation (Phase 3E1.2, Phase 3E1.3 Phase 4).
+ * Validates the authoritative chronological structure of a persisted v3
+ * record:
  *
- *   - exactly one `competition_started`, and it is the first semantic event;
+ *   - exactly one `competition_started`, it is the first semantic event, it
+ *     is in round 0, and its seed agrees with the record seed;
  *   - exactly one `competition_ended`, and it is the final event (no event of
  *     any type appears after it);
  *   - `competition_ended.round === record.rounds` and its terminal winner,
- *     method and rounds agree with the record result;
+ *     loser, method and rounds agree with the record result;
+ *   - round 0 contains only the `competition_started` event — every
+ *     nonterminal event (round_started / policy_triggered / round_ended /
+ *     ordinary / combat) must have an integer round in 1..record.rounds;
  *   - each completed round has exactly one `round_started`, exactly two
  *     `policy_triggered` (one per fighter) and exactly one `round_ended`;
  *   - both policy events occur after that round's `round_started` and before
@@ -413,6 +418,11 @@ export function validateGridReadinessEventChronology(record: MatchRecordV3): voi
       "competition_ended winner does not agree with the record result",
     );
   }
+  if (endedData.loser !== record.result.loser) {
+    throw new GridActivationReadinessEvidenceError(
+      "competition_ended loser does not agree with the record result",
+    );
+  }
   if (endedData.method !== record.result.method) {
     throw new GridActivationReadinessEvidenceError(
       "competition_ended method does not agree with the record result",
@@ -421,6 +431,14 @@ export function validateGridReadinessEventChronology(record: MatchRecordV3): voi
   if (endedData.rounds !== record.rounds) {
     throw new GridActivationReadinessEvidenceError(
       "competition_ended rounds does not agree with the record result",
+    );
+  }
+  // The start event must carry the record's seed (Phase 3E1.3): a record whose
+  // start event disagrees with the authoritative seed is corrupt evidence.
+  const startedData = first.data as { seed?: unknown };
+  if (startedData.seed !== record.seed) {
+    throw new GridActivationReadinessEvidenceError(
+      "competition_started seed does not agree with the record seed",
     );
   }
 
@@ -503,6 +521,16 @@ export function validateGridReadinessEventChronology(record: MatchRecordV3): voi
       );
     }
     const round = event.round;
+    // Phase 3E1.3: every nonterminal event (round_started, policy_triggered,
+    // round_ended, ordinary and combat events) must belong to a completed
+    // competition round. Round 0 is exclusively the competition_started
+    // event, and no nonterminal event may reference a round beyond
+    // competition completion.
+    if (!Number.isInteger(round) || round < 1 || round > record.rounds) {
+      throw new GridActivationReadinessEvidenceError(
+        `${event.type} has round ${String(round)} outside the completed competition rounds 1..${record.rounds}`,
+      );
+    }
     if (round < lastRound) {
       throw new GridActivationReadinessEvidenceError(
         `round ordering must be monotonic; ${event.type} in round ${round} follows round ${lastRound}`,
@@ -611,7 +639,10 @@ export function validateGridReadinessEventChronology(record: MatchRecordV3): voi
       );
     }
   }
-  // No structural round event may appear in a round beyond completion.
+  // No structural round event may appear in a round beyond completion. (The
+  // per-event bounds check above already rejects any nonterminal event with
+  // round outside 1..record.rounds; these map scans are retained as a
+  // defensive second layer over the per-round completion tallies.)
   for (const round of roundStartedCounts.keys()) {
     if (round > record.rounds) {
       throw new GridActivationReadinessEvidenceError(

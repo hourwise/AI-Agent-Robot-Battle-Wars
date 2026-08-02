@@ -1292,6 +1292,70 @@ opt-in beta decision **not performed**; default grid activation **not
 performed**; Milestone 0.2C **not complete** pending a separately authorised
 activation-readiness decision.
 
+## D49: Report disagreement is fatal to current readiness evidence (Phase 3E1.3, 2026-08-02)
+
+Phase 3E1.3 is a verifier-only hardening pass. It changes no suite identity,
+no artifact schema version, no seed, scenario, assignment, gate threshold or
+simulator semantics, and it performs **no new official evaluation**. The
+official v3 evaluation (`0d8487a8-939d-4f9a-a16a-544b71eaa869`, suite
+checksum `c3b8a16d407891d0a92966fb9d6ed20fe5e11776bf545624fb3dbcadb4e2503c`,
+classification `inconclusive`, C04 only) and its bundle remain exactly as
+published and still validate under the stronger validator.
+
+- **Report/final-state disagreement is a bundle-invalidity failure.** The
+  core artifact validator now runs `assertGridReadinessRecordReportFinalAgreement`
+  for every bound record/report pair and treats any disagreement as a core
+  artifact-validation failure (with the run number and match ID in the
+  message). A current v3 bundle is valid only when all 312 pairs pass complete
+  agreement, and a bundle containing a final-state disagreement is rejected
+  before any classification is returned — it can never validate under a
+  `not_ready` classification or any other.
+- **The authoritative persisted-bundle path never downgrades disagreement.**
+  `recomputeGridActivationReadinessMetricsFromArtifacts` throws immediately on
+  the first record/report disagreement instead of silently counting a
+  non-agreeing pair into `replayAgreeingMatches`. H05 (`replayAgreeingMatches
+=== 312`) is retained for live in-memory evaluation; the persisted-bundle
+  path relies on the single shared agreement rule (the same
+  `assertGridReadinessRecordReportFinalAgreement` helper), so there is no
+  duplicated or downgraded disagreement handling.
+- **A fully coherent false bundle is rejected for exactly the disagreement.**
+  Regression tests corrupt one schema-valid factual-report final state and
+  coherently rewrite every downstream artifact to match: the report artifact
+  and its run-index checksum, persisted metrics (`replayAgreeingMatches` =
+  311 so H05 fails), recomputed gates, the decision (`not_ready`), a
+  regenerated `report.txt`, and every manifest digest/checksum plus the
+  manifest classification (`not_ready`). The validator still rejects the
+  bundle specifically because the factual report disagrees with its
+  authoritative record, not because a downstream artifact was left stale.
+  Fields exercised: integrity, zone, facing, conditions, disabled-component
+  projection and damaged-component projection. The unmodified official-shape
+  v3 test bundle still validates (positive regression).
+- **Round 0 is exclusively the `competition_started` event.** The chronology
+  validator requires every nonterminal event (`round_started`,
+  `policy_triggered`, `round_ended`, ordinary and combat events) to carry an
+  integer round in `1..record.rounds`; round 0 round-structure or ordinary
+  events and nonterminal events beyond `record.rounds` are rejected. The
+  `competition_started` seed must agree with the record seed and the terminal
+  `competition_ended` loser must agree with the record result. The documented
+  dual sequence-counter validation required by the frozen runtime is
+  preserved unchanged.
+- **No rerun and no scope expansion.** The official v3 evaluation was not
+  rerun; no replacement evaluation ID was created; no supplemental grapple
+  scenario or seed was added; no benchmark ran and no seed bank was opened;
+  held-out/all remain sealed; C1/C2/AB2 and constants are unchanged; no
+  provider call, tuning, opt-in beta decision or default activation occurred.
+  Phase 3E2 has not started and Milestone 0.2C remains incomplete pending a
+  separately authorised activation-readiness decision.
+
+Status: Phase 3E1 v1 evaluation **historical**; Phase 3E1.1 v2 evaluation
+**historical**; Phase 3E1.2 v3 provenance finalisation **complete**; Phase
+3E1.3 fatal-agreement hardening **complete** (verifier-only, no new official
+run); current readiness classification **`inconclusive`** (C04 only);
+supplemental grapple coverage **not performed**; opt-in beta decision **not
+performed**; default grid activation **not performed**; Phase 3E2 **not
+started**; Milestone 0.2C **not complete** pending a separately authorised
+activation-readiness decision.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.
