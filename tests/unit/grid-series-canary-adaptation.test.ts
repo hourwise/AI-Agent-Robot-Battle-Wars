@@ -17,15 +17,22 @@ const CURRENT: ActionPolicy = {
   fallback: "defend",
 };
 
-function report(overrides: {
+interface ReportOverrides {
   own: number;
   opponent: number;
   winner: string | null;
   method?: string;
   rounds?: number;
   ownMobilityDisabled?: boolean;
+  ownWeaponDisabled?: boolean;
+  ownUtilityDisabled?: boolean;
+  opponentMobilityDisabled?: boolean;
+  opponentWeaponDisabled?: boolean;
+  opponentUtilityDisabled?: boolean;
   ownConditions?: string[];
-}) {
+}
+
+function report(overrides: ReportOverrides) {
   return {
     winner: overrides.winner,
     resultMethod: overrides.method ?? "judges",
@@ -34,58 +41,98 @@ function report(overrides: {
       fighterA: {
         integrity: overrides.own,
         mobilityDisabled: overrides.ownMobilityDisabled ?? false,
+        weaponDisabled: overrides.ownWeaponDisabled ?? false,
+        utilityDisabled: overrides.ownUtilityDisabled ?? false,
         conditions: overrides.ownConditions ?? [],
       },
-      fighterB: { integrity: overrides.opponent },
+      fighterB: {
+        integrity: overrides.opponent,
+        mobilityDisabled: overrides.opponentMobilityDisabled ?? false,
+        weaponDisabled: overrides.opponentWeaponDisabled ?? false,
+        utilityDisabled: overrides.opponentUtilityDisabled ?? false,
+      },
     },
   } as never;
 }
 
-function review(overrides: {
-  own: number;
-  opponent: number;
-  winner: string | null;
-  method?: string;
-  rounds?: number;
-}) {
+/** Canonical disabled-component list: mobility, weapon, utility. */
+function canonicalDisabled(m: boolean, w: boolean, u: boolean): string[] {
+  const result: string[] = [];
+  if (m) result.push("mobility");
+  if (w) result.push("weapon");
+  if (u) result.push("utility");
+  return result;
+}
+
+/** Builds a review whose observed outcome agrees with the report. */
+function reviewFrom(reportValue: ReturnType<typeof report>) {
+  const fighterA = reportValue.finalStates.fighterA as {
+    integrity: number;
+    mobilityDisabled: boolean;
+    weaponDisabled: boolean;
+    utilityDisabled: boolean;
+  };
+  const fighterB = reportValue.finalStates.fighterB as {
+    integrity: number;
+    mobilityDisabled: boolean;
+    weaponDisabled: boolean;
+    utilityDisabled: boolean;
+  };
   return {
     observedOutcome: {
-      winnerId: overrides.winner,
-      method: overrides.method ?? "judges",
-      rounds: overrides.rounds ?? 20,
-      ownFinalIntegrity: overrides.own,
-      opponentFinalIntegrity: overrides.opponent,
+      winnerId: reportValue.winner,
+      method: reportValue.resultMethod,
+      rounds: reportValue.rounds,
+      ownFinalIntegrity: fighterA.integrity,
+      opponentFinalIntegrity: fighterB.integrity,
+      ownDisabledComponents: canonicalDisabled(
+        fighterA.mobilityDisabled,
+        fighterA.weaponDisabled,
+        fighterA.utilityDisabled,
+      ),
+      opponentDisabledComponents: canonicalDisabled(
+        fighterB.mobilityDisabled,
+        fighterB.weaponDisabled,
+        fighterB.utilityDisabled,
+      ),
     },
   } as never;
 }
 
-function input(overrides: {
-  matchNumber: 1 | 2;
-  own: number;
-  opponent: number;
-  winner: string | null;
-  ownMobilityDisabled?: boolean;
-  ownConditions?: string[];
-}): GridSeriesCanaryAdaptationInput {
-  const factualReport = report({
-    own: overrides.own,
-    opponent: overrides.opponent,
-    winner: overrides.winner,
-    ownMobilityDisabled: overrides.ownMobilityDisabled,
-    ownConditions: overrides.ownConditions,
-  });
+function input(
+  overrides: ReportOverrides & { matchNumber: 1 | 2 },
+  fallbackReview?: ReturnType<typeof reviewFrom>,
+): GridSeriesCanaryAdaptationInput {
+  const factualReport = report(overrides);
   return {
     matchNumber: overrides.matchNumber,
     sourceMatchId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     sourceSeed: 3,
     currentPolicy: { ...CURRENT },
     factualReport,
-    fallbackReview: review({
-      own: overrides.own,
-      opponent: overrides.opponent,
-      winner: overrides.winner,
-    }),
+    fallbackReview: fallbackReview ?? reviewFrom(factualReport),
   };
+}
+
+/** Builds a review with explicit disabled-component lists (for agreement failures). */
+function reviewWithDisabled(overrides: {
+  own: number;
+  opponent: number;
+  winner: string | null;
+  ownDisabled?: string[];
+  opponentDisabled?: string[];
+}) {
+  return {
+    observedOutcome: {
+      winnerId: overrides.winner,
+      method: "judges",
+      rounds: 20,
+      ownFinalIntegrity: overrides.own,
+      opponentFinalIntegrity: overrides.opponent,
+      ownDisabledComponents: overrides.ownDisabled ?? [],
+      opponentDisabledComponents: overrides.opponentDisabled ?? [],
+    },
+  } as never;
 }
 
 describe("grid series canary policy adaptation (Phase 3D2B)", () => {
@@ -216,9 +263,9 @@ describe("grid series canary policy adaptation (Phase 3D2B)", () => {
     const bad = input({ matchNumber: 1, own: 90, opponent: 80, winner: "fighter_a" });
     const disagreeing = {
       ...bad,
-      fallbackReview: review({ own: 90, opponent: 80, winner: "fighter_b" }),
+      fallbackReview: reviewFrom(report({ own: 90, opponent: 80, winner: "fighter_b" })),
     };
-    expect(() => adaptGridCanaryPolicy(disagreeing)).toThrow(/does not agree/);
+    expect(() => adaptGridCanaryPolicy(disagreeing)).toThrow(/does not completely agree/);
   });
 
   it("throws for a review method/rounds/integrity disagreement", () => {
@@ -226,29 +273,25 @@ describe("grid series canary policy adaptation (Phase 3D2B)", () => {
     expect(() =>
       adaptGridCanaryPolicy({
         ...bad,
-        fallbackReview: review({
-          own: 90,
-          opponent: 80,
-          winner: "fighter_a",
-          method: "destruction",
-        }),
+        fallbackReview: reviewFrom(
+          report({ own: 90, opponent: 80, winner: "fighter_a", method: "destruction" }),
+        ),
       }),
     ).toThrow(/method/);
     expect(() =>
       adaptGridCanaryPolicy({
         ...bad,
-        fallbackReview: review({
-          own: 90,
-          opponent: 80,
-          winner: "fighter_a",
-          rounds: 19,
-        }),
+        fallbackReview: reviewFrom(
+          report({ own: 90, opponent: 80, winner: "fighter_a", rounds: 19 }),
+        ),
       }),
     ).toThrow(/rounds/);
     expect(() =>
       adaptGridCanaryPolicy({
         ...bad,
-        fallbackReview: review({ own: 60, opponent: 80, winner: "fighter_a" }),
+        fallbackReview: reviewFrom(
+          report({ own: 60, opponent: 80, winner: "fighter_a" }),
+        ),
       }),
     ).toThrow(/integrity/);
   });
@@ -256,7 +299,7 @@ describe("grid series canary policy adaptation (Phase 3D2B)", () => {
   it("rejects adaptation after match 3", () => {
     expect(() =>
       adaptGridCanaryPolicy(
-        input({ matchNumber: 1, own: 90, opponent: 80, winner: "fighter_a" }) as never,
+        input({ matchNumber: 1, own: 90, opponent: 80, winner: "fighter_a" }),
       ),
     ).not.toThrow();
     expect(() =>
@@ -265,5 +308,121 @@ describe("grid series canary policy adaptation (Phase 3D2B)", () => {
         matchNumber: 3,
       }),
     ).toThrow(/only runs after series matches 1 and 2/);
+  });
+});
+
+describe("grid series canary adaptation disabled-component agreement (Phase 3D2B.1)", () => {
+  it("rejects a review missing mobility while the report has mobility disabled", () => {
+    const bad = input({
+      matchNumber: 1,
+      own: 90,
+      opponent: 80,
+      winner: "fighter_a",
+      ownMobilityDisabled: true,
+    });
+    const missing = {
+      ...bad,
+      fallbackReview: reviewWithDisabled({
+        own: 90,
+        opponent: 80,
+        winner: "fighter_a",
+        ownDisabled: [],
+      }),
+    };
+    expect(() => adaptGridCanaryPolicy(missing)).toThrow(/ownDisabledComponents/);
+  });
+
+  it("rejects a review adding a disabled component absent from the report", () => {
+    const bad = input({ matchNumber: 1, own: 90, opponent: 80, winner: "fighter_a" });
+    const extra = {
+      ...bad,
+      fallbackReview: reviewWithDisabled({
+        own: 90,
+        opponent: 80,
+        winner: "fighter_a",
+        ownDisabled: ["weapon"],
+      }),
+    };
+    expect(() => adaptGridCanaryPolicy(extra)).toThrow(/ownDisabledComponents/);
+  });
+
+  it("rejects an opponent disabled-list disagreement", () => {
+    const bad = input({
+      matchNumber: 1,
+      own: 90,
+      opponent: 80,
+      winner: "fighter_a",
+      opponentMobilityDisabled: true,
+    });
+    const wrongOpponent = {
+      ...bad,
+      fallbackReview: reviewWithDisabled({
+        own: 90,
+        opponent: 80,
+        winner: "fighter_a",
+        opponentDisabled: [],
+      }),
+    };
+    expect(() => adaptGridCanaryPolicy(wrongOpponent)).toThrow(
+      /opponentDisabledComponents/,
+    );
+  });
+
+  it("rejects a reordered canonical disabled list", () => {
+    const bad = input({
+      matchNumber: 1,
+      own: 90,
+      opponent: 80,
+      winner: "fighter_a",
+      ownMobilityDisabled: true,
+      ownWeaponDisabled: true,
+    });
+    const reordered = {
+      ...bad,
+      fallbackReview: reviewWithDisabled({
+        own: 90,
+        opponent: 80,
+        winner: "fighter_a",
+        ownDisabled: ["weapon", "mobility"],
+      }),
+    };
+    expect(() => adaptGridCanaryPolicy(reordered)).toThrow(/ownDisabledComponents/);
+  });
+
+  it("rejects a duplicate disabled component in the review", () => {
+    const bad = input({
+      matchNumber: 1,
+      own: 90,
+      opponent: 80,
+      winner: "fighter_a",
+      ownMobilityDisabled: true,
+    });
+    const duplicate = {
+      ...bad,
+      fallbackReview: reviewWithDisabled({
+        own: 90,
+        opponent: 80,
+        winner: "fighter_a",
+        ownDisabled: ["mobility", "mobility"],
+      }),
+    };
+    expect(() => adaptGridCanaryPolicy(duplicate)).toThrow(/ownDisabledComponents/);
+  });
+
+  it("performs no policy decision after an agreement failure", () => {
+    const bad = input({ matchNumber: 1, own: 90, opponent: 80, winner: "fighter_a" });
+    const before = JSON.stringify(bad.currentPolicy);
+    const disagreeing = {
+      ...bad,
+      fallbackReview: reviewWithDisabled({
+        own: 90,
+        opponent: 80,
+        winner: "fighter_a",
+        ownDisabled: ["weapon"],
+      }),
+    };
+    expect(() => adaptGridCanaryPolicy(disagreeing)).toThrow();
+    // The current policy is untouched and no decision was produced.
+    expect(JSON.stringify(bad.currentPolicy)).toBe(before);
   });
 });

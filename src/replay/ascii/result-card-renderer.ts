@@ -8,7 +8,12 @@ import {
   ARENA_WIDTH,
 } from "./ascii-layout.js";
 
-function formatMethod(method: string): string {
+/**
+ * Canonical ASCII result-card method label (Milestone 0.2C Phase 3D2B.1).
+ * Exported so the series canary bundle validator can cross-validate rendered
+ * final-result facts without a second renderer.
+ */
+export function formatMethod(method: string): string {
   switch (method) {
     case "destruction":
       return "Integrity Defeat";

@@ -54,3 +54,46 @@ describe("grid series canary seed plan (Phase 3D2B)", () => {
     ).not.toThrow();
   });
 });
+
+describe("grid series canary seed plan runtime immutability (Phase 3D2B.1)", () => {
+  it("returns a frozen plan object", () => {
+    const plan = createGridSeriesCanarySeedPlan(3);
+    expect(Object.isFrozen(plan)).toBe(true);
+  });
+
+  it("returns a frozen seed tuple", () => {
+    const plan = createGridSeriesCanarySeedPlan(3);
+    expect(Object.isFrozen(plan.seeds)).toBe(true);
+  });
+
+  it("attempted mutation cannot alter any seed", () => {
+    const plan = createGridSeriesCanarySeedPlan(3);
+    const original = [...plan.seeds];
+    try {
+      // @ts-expect-error – intentional mutation attempt against a frozen tuple
+      plan.seeds[0] = 999;
+    } catch {
+      // strict mode throws on frozen-object assignment; either way the value
+      // must remain unchanged.
+    }
+    try {
+      // @ts-expect-error – intentional mutation attempt against a frozen plan
+      plan.baseSeed = 999;
+    } catch {
+      // same as above
+    }
+    expect([...plan.seeds]).toEqual(original);
+    expect(plan.baseSeed).toBe(3);
+  });
+
+  it("separate calls return separate frozen values with no shared storage", () => {
+    const a = createGridSeriesCanarySeedPlan(3);
+    const b = createGridSeriesCanarySeedPlan(3);
+    expect(a).not.toBe(b);
+    expect(a.seeds).not.toBe(b.seeds);
+    expect(Object.isFrozen(a.seeds)).toBe(true);
+    expect(Object.isFrozen(b.seeds)).toBe(true);
+    expect([...a.seeds]).toEqual([3, 4, 5]);
+    expect([...b.seeds]).toEqual([3, 4, 5]);
+  });
+});

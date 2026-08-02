@@ -9,6 +9,24 @@ function getFighterName(fighterId: string | undefined, result: AnyMatchResult): 
   return resolveDisplayName(fighterId, nameA, nameB);
 }
 
+/**
+ * The exact text-replay `competition_ended` line (Milestone 0.2C Phase
+ * 3D2B.1). `nameA`/`nameB` must be the already-sanitised display names of
+ * fighter A and fighter B exactly as the renderer computes them; the line is
+ * shared by the renderer and the series canary bundle validator so rendered
+ * completion facts can be cross-validated byte-for-byte.
+ */
+export function formatCompetitionEndedLine(
+  winner: string | null,
+  method: string,
+  nameA: string,
+  nameB: string,
+): string {
+  if (!winner) return "The match ends in a draw.";
+  const winnerName = resolveDisplayName(winner, nameA, nameB);
+  return `${winnerName} wins by ${method}!`;
+}
+
 function formatZone(zone: string): string {
   return formatZoneName(zone);
 }
@@ -125,9 +143,13 @@ export function describeEvent(event: SimulationEvent, result: AnyMatchResult): s
     case "competition_ended": {
       const winner = event.data.winner as string | null;
       const method = event.data.method as string;
-      if (!winner) return "The match ends in a draw.";
-      const winnerName = getFighterName(winner, result);
-      return `${winnerName} wins by ${method}!`;
+      const nameA = sanitizeTerminalText(
+        result.config.fighterA.build.proposal.machineName,
+      );
+      const nameB = sanitizeTerminalText(
+        result.config.fighterB.build.proposal.machineName,
+      );
+      return formatCompetitionEndedLine(winner, method, nameA, nameB);
     }
 
     default:

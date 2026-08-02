@@ -178,6 +178,16 @@ selectors and provider/API-key arguments, requires the in-repo output root to
 be exactly `data/canary/grid-series`, and never reuses or cleans a pre-existing
 final or temporary path.
 
+The series canary bundle is hardened for provenance and immutability: the seed
+plan is runtime-frozen, persisted manifest and adaptation-trace schemas require
+safe-integer seeds, adaptation requires complete factual-report/fallback-review
+agreement (including canonical disabled-component lists) before deciding,
+series entries are bound to their actual match records, reports, reviews,
+builds and policies, manifest evidence is recomputed from persisted artifacts,
+rendered per-match results and the raw series score are cross-validated, and
+the shared publisher validates its declaration before writing anything —
+keeping the published bundles byte-identical.
+
 ### Replay
 
 ```bash

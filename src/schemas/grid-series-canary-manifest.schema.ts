@@ -17,10 +17,22 @@ export const sha256HexSchema = z
   .string()
   .regex(/^[a-f0-9]{64}$/, "must be a lowercase SHA-256 hex string");
 
+/** A non-negative safe integer seed (Milestone 0.2C Phase 3D2B.1). */
+const safeSeedSchema = z.number().int().nonnegative().safe();
+
+/** The largest base seed whose two derived seeds stay safe integers. */
+const MAX_BASE_SEED = Number.MAX_SAFE_INTEGER - 2;
+
 function validateSeriesCanaryManifestContract(
   manifest: z.infer<typeof GridSeriesCanaryManifestV1Schema>,
   ctx: z.RefinementCtx,
 ): void {
+  if (manifest.baseSeed > MAX_BASE_SEED) {
+    ctx.addIssue({
+      code: "custom",
+      message: `manifest baseSeed ${manifest.baseSeed} must be at most ${MAX_BASE_SEED} so the three sequential seeds stay within the safe-integer range`,
+    });
+  }
   if (manifest.seeds[0] !== manifest.baseSeed) {
     ctx.addIssue({
       code: "custom",
@@ -51,12 +63,8 @@ export const GridSeriesCanaryManifestV1Schema = z
     canaryId: z.string().uuid(),
     seriesId: z.string().uuid(),
     createdAt: z.string().datetime(),
-    baseSeed: z.number().int().nonnegative(),
-    seeds: z.tuple([
-      z.number().int().nonnegative(),
-      z.number().int().nonnegative(),
-      z.number().int().nonnegative(),
-    ]),
+    baseSeed: safeSeedSchema,
+    seeds: z.tuple([safeSeedSchema, safeSeedSchema, safeSeedSchema]),
 
     simulatorVersion: z.literal("0.3.0"),
     positioningModel: z.literal("grid-3x3-v1"),

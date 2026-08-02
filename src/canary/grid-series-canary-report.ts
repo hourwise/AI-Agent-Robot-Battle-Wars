@@ -1,6 +1,19 @@
 import type { SeriesRecordV2 } from "../schemas/series.schema.js";
 
 /**
+ * The exact canonical series-canary score line (Milestone 0.2C Phase 3D2B.1).
+ * Shared by the report renderer and the series canary bundle validator so the
+ * rendered raw score can be cross-validated byte-for-byte against the parsed
+ * series record.
+ */
+export function formatSeriesCanaryScoreLine(
+  score: { aiWins: number; bulwarkWins: number; draws: number },
+  competitorDisplayName: string,
+): string {
+  return `Record: ${competitorDisplayName} ${score.aiWins} — The Bulwark ${score.bulwarkWins} (${score.draws} draw${score.draws !== 1 ? "s" : ""})`;
+}
+
+/**
  * Grid adaptive-series canary report renderer (Milestone 0.2C Phase 3D2B).
  *
  * A self-contained, human-readable, deterministic report for one series canary
@@ -19,9 +32,7 @@ export function buildGridSeriesCanaryReport(series: SeriesRecordV2): string {
   lines.push(
     `Runtime: simulator ${series.simulatorVersion} (${series.positioningModel})`,
   );
-  lines.push(
-    `Record: ${series.competitor.displayName} ${series.score.aiWins} — The Bulwark ${series.score.bulwarkWins} (${series.score.draws} draw${series.score.draws !== 1 ? "s" : ""})`,
-  );
+  lines.push(formatSeriesCanaryScoreLine(series.score, series.competitor.displayName));
   lines.push(`${series.entries.length} matches completed`);
   lines.push(separator);
   lines.push("");

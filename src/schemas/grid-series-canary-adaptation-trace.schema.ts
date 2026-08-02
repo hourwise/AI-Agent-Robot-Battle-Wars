@@ -33,7 +33,7 @@ import { GRID_SERIES_CANARY_ADAPTATION_RULE_VERSION } from "../canary/grid-serie
 const gridSeriesCanaryAdaptationTransitionSchema = z.object({
   sourceMatchNumber: z.union([z.literal(1), z.literal(2)]),
   sourceMatchId: z.string().uuid(),
-  sourceSeed: z.number().int().nonnegative(),
+  sourceSeed: z.number().int().nonnegative().safe(),
   policyBefore: actionPolicySchema,
   policyAfter: actionPolicySchema,
   authoritativeFacts: z.object({
@@ -98,6 +98,24 @@ function validateAdaptationTraceContract(
     ctx.addIssue({
       code: "custom",
       message: "Adaptation trace transition 2 must source series match 2",
+    });
+  }
+  if (trace.baseSeed > Number.MAX_SAFE_INTEGER - 2) {
+    ctx.addIssue({
+      code: "custom",
+      message: `Adaptation trace baseSeed ${trace.baseSeed} must be at most ${Number.MAX_SAFE_INTEGER - 2} so the three sequential seeds stay within the safe-integer range`,
+    });
+  }
+  if (first.sourceSeed !== trace.baseSeed) {
+    ctx.addIssue({
+      code: "custom",
+      message: `Adaptation trace transition 1 sourceSeed ${first.sourceSeed} must equal baseSeed ${trace.baseSeed}`,
+    });
+  }
+  if (second.sourceSeed !== trace.baseSeed + 1) {
+    ctx.addIssue({
+      code: "custom",
+      message: `Adaptation trace transition 2 sourceSeed ${second.sourceSeed} must equal baseSeed + 1 (${trace.baseSeed + 1})`,
     });
   }
 
@@ -196,7 +214,7 @@ export const GridSeriesCanaryAdaptationTraceV1Schema = z
     scenarioVersion: z.literal(GRID_SERIES_CANARY_SCENARIO_VERSION),
     adaptationRuleVersion: z.literal(GRID_SERIES_CANARY_ADAPTATION_RULE_VERSION),
     seriesId: z.string().uuid(),
-    baseSeed: z.number().int().nonnegative(),
+    baseSeed: z.number().int().nonnegative().safe(),
     transitions: z.tuple([
       gridSeriesCanaryAdaptationTransitionSchema,
       gridSeriesCanaryAdaptationTransitionSchema,

@@ -3,6 +3,7 @@ import type { MatchRecordV3 } from "../schemas/match-record.schema.js";
 import type { FactualMatchReportV2 } from "../schemas/factual-report.schema.js";
 import type { MatchReview } from "../schemas/review.schema.js";
 import { sha256Hex } from "./grid-canary-digest.js";
+import { normaliseDisabledComponents } from "./grid-canary-fallback-agreement.js";
 
 /**
  * Pure grid canary bundle cross-agreement validator (Milestone 0.2C Phase
@@ -348,16 +349,4 @@ function checkTextArtifact(
     `${label} must be valid UTF-8`,
   );
   check(failures, contentCheck(text), `${label} lacks the required content marker`);
-}
-
-function normaliseDisabledComponents(state: {
-  mobilityDisabled: boolean;
-  weaponDisabled: boolean;
-  utilityDisabled: boolean;
-}): Array<"mobility" | "weapon" | "utility"> {
-  const result: Array<"mobility" | "weapon" | "utility"> = [];
-  if (state.mobilityDisabled) result.push("mobility");
-  if (state.weaponDisabled) result.push("weapon");
-  if (state.utilityDisabled) result.push("utility");
-  return result;
 }

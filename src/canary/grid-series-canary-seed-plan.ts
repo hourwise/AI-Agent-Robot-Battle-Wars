@@ -27,8 +27,13 @@ export const GRID_SERIES_CANARY_MAX_BASE_SEED =
   MAX_SAFE_INTEGER - (GRID_SERIES_CANARY_MAXIMUM_MATCHES - 1);
 
 /**
- * Pure seed-plan factory. Returns a frozen plan `[baseSeed, baseSeed + 1,
- * baseSeed + 2]` and rejects malformed, unsafe or overflowing base seeds.
+ * Pure seed-plan factory. Returns a runtime-frozen plan
+ * `[baseSeed, baseSeed + 1, baseSeed + 2]` and rejects malformed, unsafe or
+ * overflowing base seeds.
+ *
+ * Both the containing plan object and its seed tuple are frozen with
+ * `Object.freeze`, so an attempted mutation can never alter any seed and no
+ * shared mutable tuple exists. Every call returns fresh frozen values.
  */
 export function createGridSeriesCanarySeedPlan(
   baseSeed: number,
@@ -48,10 +53,13 @@ export function createGridSeriesCanarySeedPlan(
       `Series canary base seed must be at most ${GRID_SERIES_CANARY_MAX_BASE_SEED} so the three sequential seeds stay within the safe-integer range; received ${baseSeed}`,
     );
   }
-  const seeds = [baseSeed, baseSeed + 1, baseSeed + 2] as const satisfies readonly [
+  const seeds = Object.freeze([baseSeed, baseSeed + 1, baseSeed + 2]) as readonly [
     number,
     number,
     number,
   ];
-  return { baseSeed, seeds };
+  return Object.freeze({
+    baseSeed,
+    seeds,
+  });
 }

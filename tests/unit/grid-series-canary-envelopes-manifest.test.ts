@@ -245,4 +245,24 @@ describe("grid series canary manifest v1 (Phase 3D2B)", () => {
     const parsed = GridSeriesCanaryManifestV1Schema.safeParse(manifest);
     expect(parsed.success).toBe(false);
   });
+
+  it("rejects an unsafe base seed", () => {
+    const manifest = buildManifest();
+    manifest.baseSeed = Number.MAX_SAFE_INTEGER + 1;
+    manifest.seeds = [manifest.baseSeed, manifest.baseSeed + 1, manifest.baseSeed + 2];
+    expect(GridSeriesCanaryManifestV1Schema.safeParse(manifest).success).toBe(false);
+  });
+
+  it("rejects an overflowing base seed", () => {
+    const manifest = buildManifest();
+    manifest.baseSeed = Number.MAX_SAFE_INTEGER - 1;
+    manifest.seeds = [manifest.baseSeed, manifest.baseSeed + 1, manifest.baseSeed + 2];
+    expect(GridSeriesCanaryManifestV1Schema.safeParse(manifest).success).toBe(false);
+  });
+
+  it("rejects an unsafe derived seed", () => {
+    const manifest = buildManifest();
+    manifest.seeds = [5, 6, Number.MAX_SAFE_INTEGER + 1];
+    expect(GridSeriesCanaryManifestV1Schema.safeParse(manifest).success).toBe(false);
+  });
 });

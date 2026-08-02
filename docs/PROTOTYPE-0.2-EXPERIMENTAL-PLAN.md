@@ -89,8 +89,16 @@ three-match canary with two deterministic policy adaptations, series-record
 v2, JSON envelopes, an adaptation trace, a series report and a validated
 atomic artifact bundle, sharing the extracted immutable publication and
 physical-root guards) is implemented by the `agent/0.2c-grid-series-canary`
-task. The authoritative runtime migration and live grid match production
-remain future, separately authorised phases.
+task; Phase 3D2B.1 (grid series canary provenance and immutability hardening —
+runtime-frozen seed plan, safe-integer seed contracts in persisted schemas,
+complete report/review agreement including disabled components before
+adaptation, full series-entry-to-record and envelope provenance binding,
+build/policy execution binding, manifest evidence recomputation from
+persisted artifacts, rendered per-match fact and raw score validation, and
+the shared publisher declaration contract) is implemented by the
+`agent/0.2c-grid-series-canary-hardening` task. The authoritative runtime
+migration and live grid match production remain future, separately
+authorised phases.
 
 **Milestone 0.2C progress (2026-08-01):**
 
@@ -265,6 +273,45 @@ remain future, separately authorised phases.
   arguments); the existing `match` and `series` commands are unchanged and
   no runtime selector, provider integration, default activation, benchmark
   execution or balance conclusion was added.
+- Phase 3D2B.1 — grid series canary provenance and immutability hardening:
+  **complete**. The Phase 3D2B review gaps were closed before any
+  activation-readiness evaluation: the seed plan is now runtime-frozen
+  (`Object.isFrozen` plan and seeds; mutation cannot change values; separate
+  frozen values per call); the manifest and adaptation-trace schemas require
+  safe-integer seeds (with `baseSeed ≤ Number.MAX_SAFE_INTEGER - 2` and
+  sequential source seeds) and the bundle validator independently requires
+  every seed in the manifest, series entries, match records, factual reports
+  and trace to be a safe integer; adaptation now requires **complete**
+  report/review agreement — winner, method, rounds, both final integrity
+  values and both canonical disabled-component lists (`mobility`, `weapon`,
+  `utility` order; missing/extra/different/duplicate/reordered claims
+  rejected) — before any impairment fact is read, via one shared
+  `gridFallbackReviewDisagreements` / `normaliseDisabledComponents` helper
+  used by the adaptation, the fallback-review builder and both bundle
+  validators; series entries are bound to their actual match records and
+  envelopes (match summary fields, embedded factual report and review,
+  fallback-envelope alignment, and the frozen intentional local-fallback
+  `reviewFailure` marker); builds and policies are bound to actual execution
+  (entry design/policy = record fighter A proposal/policy, fighter B =
+  frozen Bulwark proposal/`BULWARK_POLICY`, competitor build identical across
+  records, and the adaptation chain agrees with the actual record policies);
+  manifest evidence is recomputed from persisted artifacts
+  (`recomputeGridSeriesCanaryEvidence`) and must agree with the manifest;
+  rendered per-match facts are cross-validated (text replay exact completion
+  line/round/seed via the shared `formatCompetitionEndedLine`, review prompt
+  exactly reproducible via `buildReviewUserPrompt`, ASCII seed/method/round)
+  and the authoritative raw series score line and "3 matches completed" are
+  required in the report; and the shared publisher validates its declaration
+  contract before any filesystem activity while keeping the seven-file and
+  eight-file bundles byte-for-byte unchanged. Frozen regression digests for
+  seed 3 prove the event streams, reports, trace and series record are
+  unchanged, and artifact versions remain match v3 / report v2 / series v2 /
+  manifest v1. No simulator, scenario, policy, seed-derivation,
+  adaptation-rule or combat semantics changed; no benchmark partition ran;
+  seeds and fixtures unchanged; held-out and `all` sealed; C1/C2/AB2 and
+  checksums unchanged with C2 default; constants `0.2.0 / 0.2.0` and
+  catalogue `1`; normal match/series legacy; no provider or external API
+  call; no activation-readiness evaluation; no default activation.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

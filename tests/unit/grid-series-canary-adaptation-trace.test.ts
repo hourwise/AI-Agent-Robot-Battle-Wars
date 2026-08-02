@@ -97,4 +97,31 @@ describe("grid series canary adaptation trace schema v1 (Phase 3D2B)", () => {
     trace2.baseSeed = -1;
     expect(parse(trace2)).toHaveProperty("issues");
   });
+
+  it("rejects an unsafe base seed", () => {
+    const trace = runTrace();
+    trace.baseSeed = Number.MAX_SAFE_INTEGER + 1;
+    expect(parse(trace)).toHaveProperty("issues");
+  });
+
+  it("rejects an overflowing base seed", () => {
+    const trace = runTrace();
+    trace.baseSeed = Number.MAX_SAFE_INTEGER - 1;
+    expect(parse(trace)).toHaveProperty("issues");
+  });
+
+  it("rejects an unsafe transition source seed", () => {
+    const trace = runTrace();
+    trace.transitions[0].sourceSeed = Number.MAX_SAFE_INTEGER + 1;
+    expect(parse(trace)).toHaveProperty("issues");
+  });
+
+  it("rejects transition source seeds that do not match base/base+1", () => {
+    const trace = runTrace();
+    trace.transitions[1].sourceSeed = trace.baseSeed + 2;
+    expect(parse(trace)).toHaveProperty("issues");
+    const trace2 = runTrace();
+    trace2.transitions[0].sourceSeed = trace2.baseSeed + 1;
+    expect(parse(trace2)).toHaveProperty("issues");
+  });
 });

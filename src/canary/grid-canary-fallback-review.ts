@@ -2,13 +2,14 @@ import type { FactualMatchReportV2 } from "../schemas/factual-report.schema.js";
 import type { MatchReview } from "../schemas/review.schema.js";
 import { validateMatchReview } from "../schemas/review.schema.js";
 import { buildFallbackReview } from "../prompts/review-prompt.v1.js";
-import type { FighterStateSummaryV2 } from "../schemas/factual-report.schema.js";
+import { normaliseDisabledComponents } from "./grid-canary-fallback-agreement.js";
 
 /**
  * The existing deterministic fallback review (reused from the deepseek agent's
  * fallback shape) produced without instantiating any provider (Milestone 0.2C
  * Phase 3D2A / 3D2B). Shared by the single-match grid canary and the grid
- * adaptive-series canary.
+ * adaptive-series canary. Disabled-component lists use the shared canonical
+ * order `mobility`, `weapon`, `utility` from the fallback-agreement module.
  */
 export function buildDeterministicFallbackReview(
   report: FactualMatchReportV2,
@@ -44,14 +45,4 @@ export function buildDeterministicFallbackReview(
     );
   }
   return validated.review;
-}
-
-function normaliseDisabledComponents(
-  state: FighterStateSummaryV2,
-): Array<"mobility" | "weapon" | "utility"> {
-  const result: Array<"mobility" | "weapon" | "utility"> = [];
-  if (state.mobilityDisabled) result.push("mobility");
-  if (state.weaponDisabled) result.push("weapon");
-  if (state.utilityDisabled) result.push("utility");
-  return result;
 }

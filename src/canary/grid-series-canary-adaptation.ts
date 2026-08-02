@@ -2,6 +2,7 @@ import type { ActionPolicy } from "../simulator/types.js";
 import type { FactualMatchReportV2 } from "../schemas/factual-report.schema.js";
 import type { MatchReview } from "../schemas/review.schema.js";
 import { actionPolicySchema } from "../schemas/policy.schema.js";
+import { gridFallbackReviewDisagreements } from "./grid-canary-fallback-agreement.js";
 
 /**
  * Deterministic grid series canary policy adaptation (Milestone 0.2C Phase
@@ -80,38 +81,6 @@ export class GridSeriesCanaryAdaptationError extends Error {
 /** Condition names that count as an impaired (cannot flank) competitor. */
 const IMPAIRED_CONDITIONS = new Set(["immobilised", "overturned"]);
 
-function assertReviewAgreesWithReport(
-  review: MatchReview,
-  report: FactualMatchReportV2,
-): void {
-  const observed = review.observedOutcome;
-  if (observed.winnerId !== report.winner) {
-    throw new GridSeriesCanaryAdaptationError(
-      `Fallback review observedOutcome.winnerId ${String(observed.winnerId)} does not agree with the factual report winner ${String(report.winner)}`,
-    );
-  }
-  if (observed.method !== report.resultMethod) {
-    throw new GridSeriesCanaryAdaptationError(
-      `Fallback review observedOutcome.method ${observed.method} does not agree with the factual report result method ${report.resultMethod}`,
-    );
-  }
-  if (observed.rounds !== report.rounds) {
-    throw new GridSeriesCanaryAdaptationError(
-      `Fallback review observedOutcome.rounds ${observed.rounds} does not agree with the factual report rounds ${report.rounds}`,
-    );
-  }
-  if (observed.ownFinalIntegrity !== report.finalStates.fighterA.integrity) {
-    throw new GridSeriesCanaryAdaptationError(
-      `Fallback review observedOutcome.ownFinalIntegrity ${observed.ownFinalIntegrity} does not agree with the factual report fighterA integrity ${report.finalStates.fighterA.integrity}`,
-    );
-  }
-  if (observed.opponentFinalIntegrity !== report.finalStates.fighterB.integrity) {
-    throw new GridSeriesCanaryAdaptationError(
-      `Fallback review observedOutcome.opponentFinalIntegrity ${observed.opponentFinalIntegrity} does not agree with the factual report fighterB integrity ${report.finalStates.fighterB.integrity}`,
-    );
-  }
-}
-
 function aggressionAfter(matchNumber: 1 | 2, own: number, opponent: number): number {
   const aheadOrEqual = own >= opponent;
   if (matchNumber === 1) return aheadOrEqual ? 80 : 70;
@@ -133,9 +102,18 @@ export function adaptGridCanaryPolicy(
     );
   }
 
-  // The report and the deterministic fallback review must agree before the
-  // adaptation trusts either one.
-  assertReviewAgreesWithReport(fallbackReview, factualReport);
+  // The report and the deterministic fallback review must agree completely
+  // (winner, method, rounds, both final integrity values and both canonical
+  // disabled-component lists) before the adaptation trusts either one. This
+  // completes before any impairment fact is read for opening selection, and
+  // conditions remain authoritative factual-report facts (never inferred from
+  // the review).
+  const disagreements = gridFallbackReviewDisagreements(factualReport, fallbackReview);
+  if (disagreements.length > 0) {
+    throw new GridSeriesCanaryAdaptationError(
+      `Fallback review does not completely agree with the factual report: ${disagreements.join("; ")}`,
+    );
+  }
 
   const fighterA = factualReport.finalStates.fighterA;
   const fighterB = factualReport.finalStates.fighterB;

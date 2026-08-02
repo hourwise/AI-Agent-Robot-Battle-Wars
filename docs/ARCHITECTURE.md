@@ -560,6 +560,66 @@ a correctness and operational pipeline check. No default activation, runtime
 selector or provider integration was added; activation-readiness was not
 performed and Milestone 0.2C is not complete.
 
+### Grid series canary provenance and immutability hardening (Milestone 0.2C Phase 3D2B.1)
+
+The Phase 3D2B review gaps are closed before any activation-readiness
+evaluation:
+
+- `src/canary/grid-series-canary-seed-plan.ts` — the returned plan and seed
+  tuple are now `Object.freeze`d at runtime (`Object.isFrozen` holds for both);
+  attempted mutation cannot change any seed; separate calls return separate
+  frozen values.
+- `src/schemas/grid-series-canary-manifest.schema.ts` /
+  `src/schemas/grid-series-canary-adaptation-trace.schema.ts` — safe-integer
+  seed constraints: manifest `baseSeed`/seeds use `.safe()` with
+  `baseSeed ≤ Number.MAX_SAFE_INTEGER - 2` and exact sequential seeds; the
+  trace requires safe base/source seeds with transition 1 source = base and
+  transition 2 source = base + 1.
+- `src/canary/grid-canary-fallback-agreement.ts` — the single shared
+  `gridFallbackReviewDisagreements` / `normaliseDisabledComponents` helper for
+  complete report/review outcome agreement (winner, method, rounds, both final
+  integrity values, both canonical disabled-component lists in the order
+  `mobility`, `weapon`, `utility`). Used by the adaptation preflight, the
+  deterministic fallback-review builder and both bundle validators; the
+  single-match fallback-review validation is preserved unchanged.
+- `src/canary/grid-series-canary-adaptation.ts` — complete report/review
+  agreement (including disabled components) completes before any impairment
+  fact is read for opening selection; conditions remain authoritative
+  factual-report facts.
+- `src/canary/grid-series-canary-bundle.ts` — `validateGridSeriesCanaryBundle`
+  now requires: per-match provenance binding (entry match summary equals the
+  record on every field; embedded factual report structurally equals the
+  report-envelope item; embedded review non-null and structurally equal to the
+  fallback-review-envelope item; fallback-envelope match number/ID alignment;
+  frozen intentional local-fallback `reviewFailure` marker), build/policy
+  execution binding (entry design/policy = record fighter A proposal/policy;
+  fighter B = frozen Bulwark proposal/`BULWARK_POLICY`; competitor build
+  identical across records; adaptation chain agrees with actual record
+  policies), safe-integer seeds everywhere, complete fallback-review agreement,
+  recomputed manifest evidence (`recomputeGridSeriesCanaryEvidence` must agree
+  with the ten recomputable manifest flags), rendered per-match facts (text
+  replay exact completion line/round/seed via the shared
+  `formatCompetitionEndedLine`; review prompt exactly reproducible via
+  `buildReviewUserPrompt`; ASCII seed/method/round), and the authoritative raw
+  series score line + "3 matches completed" in the report. Operational-only
+  evidence (round trips, deterministic re-execution, full read-back, bundle
+  cross-agreement, replay final-state agreement) retains its service check.
+- `src/canary/immutable-canary-bundle.ts` — `assertValidBundleDeclaration`
+  validates the caller-supplied declaration (unique plain-filename entry names,
+  manifest exactly once, unique artifacts, no manifest collisions, artifacts
+  declared in `entryNames`, exactly one artifact per non-manifest entry;
+  `/`, `\`, `..`, absolute and empty names rejected) before any filesystem
+  activity; the seven-file match and eight-file series bundles remain
+  byte-for-byte unchanged.
+
+No simulator, scenario, policy, seed-derivation or adaptation-rule semantics
+changed; no benchmark partition ran; seeds and fixtures unchanged; held-out
+and `all` remain sealed; C1/C2/AB2 and qualification checksums remain frozen
+with C2 default; constants remain `0.2.0 / 0.2.0` and catalogue `1`; normal
+`match`/`series` remain legacy; no provider or external API call occurred; no
+activation-readiness evaluation was performed; no default activation occurred;
+Milestone 0.2C remains incomplete.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

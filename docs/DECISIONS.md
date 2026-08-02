@@ -891,6 +891,130 @@ grid adaptive-series canary **complete**; activation-readiness **not
 performed**; default grid activation **not performed**; Milestone 0.2C **not
 complete** pending a separately authorised activation-readiness decision.
 
+## D45: Grid series canary provenance and immutability hardening (2026-08-02)
+
+Milestone 0.2C Phase 3D2B.1 closes four contract gaps found in the Phase 3D2B
+review of the isolated deterministic three-match grid adaptive-series canary,
+before any activation-readiness evaluation is introduced: the seed plan was
+TypeScript-readonly but not frozen at runtime; adaptation did not fully
+establish factual-report/fallback-review agreement before using impairment
+facts; persisted series entries were not fully bound to the actual match
+records and envelope artifacts; and bundle validation did not verify
+disabled-component lists or the authoritative score rendered in the series
+report. No simulator, policy, seed-derivation, adaptation-rule or combat
+semantics changed, and no activation-readiness work occurred.
+
+- **The seed plan is now runtime-frozen**: `createGridSeriesCanarySeedPlan`
+  returns `Object.freeze`d plan and seed-tuple values (`Object.isFrozen(plan)`
+  and `Object.isFrozen(plan.seeds)` are both true), attempted mutation can
+  never alter any seed, and separate calls return separate frozen values with
+  no shared mutable tuple. Seed derivation remains `[base, base + 1, base + 2]`.
+- **Safe-integer seed contracts now exist in persisted schemas**: the
+  grid-series manifest schema requires a non-negative safe base seed and three
+  safe seeds with `baseSeed ≤ Number.MAX_SAFE_INTEGER - 2` and exact
+  `seeds[0]=base`, `seeds[1]=base+1`, `seeds[2]=base+2`; the adaptation-trace
+  schema requires safe base and source seeds with transition 1 source seed =
+  base and transition 2 source seed = base + 1. The pure bundle validator
+  independently requires every relevant seed in the manifest, series entries,
+  match records, factual reports and adaptation trace to be a safe integer.
+  General legacy match/series seed schemas are unchanged.
+- **Adaptation requires complete report/review outcome agreement**:
+  `adaptGridCanaryPolicy` now requires the deterministic fallback review to
+  agree with the authoritative factual-report v2 on winner, result method,
+  rounds, both final integrity values **and both canonical disabled-component
+  lists** before any impairment fact is read for opening selection. Disabled
+  lists are derived in the canonical order `mobility`, `weapon`, `utility`;
+  a missing claim, an extra component, a different component, a duplicate or
+  an incorrect canonical order is rejected. Conditions remain authoritative
+  factual-report facts and are never inferred from the review.
+- **A single shared fallback-agreement helper is used everywhere**:
+  `gridFallbackReviewDisagreements` (`src/canary/grid-canary-fallback-agreement.ts`)
+  plus `normaliseDisabledComponents` is used by the adaptation preflight, the
+  series-bundle cross-validation and the deterministic fallback-review
+  builder, so there is exactly one canonical implementation. The existing
+  single-match fallback-review validation is preserved unchanged.
+- **Every series entry is bound to its actual match record and envelopes**:
+  the bundle validator now requires `entry.matchId` / `entry.match.matchId` /
+  `entry.match.createdAt` / seed / rounds / winner / resultMethod / schema /
+  simulator / positioning to equal the record; the embedded factual report to
+  equal the factual-reports envelope item (complete structural value, not only
+  the ID and summary); the embedded review to be non-null and equal the
+  fallback-review envelope item; the fallback-envelope entry's match number and
+  match ID to align; and every entry's `reviewFailure` to exactly equal the
+  frozen intentional local-fallback marker (`category: local_fallback` with the
+  exact message). An absent or different marker is rejected.
+- **Recorded builds and policies are bound to actual execution**: each entry's
+  `designBeforeMatch` must equal the record's fighter A build proposal and its
+  `policyBeforeMatch` must equal the record's fighter A policy; every record's
+  fighter B build proposal and policy must equal the frozen Bulwark proposal
+  and `BULWARK_POLICY`; the competitor build proposal must remain identical
+  across all three records. No `nextDesign`; matches 1 and 2 carry a
+  `nextPolicy`, match 3 does not; the adaptation chain (trace policy-after,
+  series entry policy-before/next-policy and the actual match-record config
+  policies) must agree end-to-end.
+- **Disabled-component facts are validated in the bundle**: the shared helper
+  validates own and opponent disabled lists for every fallback review, and
+  the manifest evidence recomputation covers mobility-disabled impairment
+  facts used for opening selection through the adaptation-facts agreement.
+- **Manifest evidence is recomputed from persisted artifacts**: the pure
+  `recomputeGridSeriesCanaryEvidence` derives `allMatchesTerminated` (round
+  cap), `allMatchRecordsV3`, `allFactualReportsV2`, `allReportsBoundToRecords`,
+  `allFallbackReviewsValid`, `allMovementZonesCanonical` (initial, movement and
+  round-end zones), `translatedGridMovementObserved`, `combatAttemptObserved`,
+  `policyAdaptationCount` and `adaptationFactsAgree` directly from the parsed
+  records/reports/reviews/transitions, and every corresponding manifest field
+  must agree. Evidence established operationally before publication (series
+  and trace round trips, deterministic re-execution, full read-back, bundle
+  cross-agreement and replay final-state agreement) retains its service check;
+  the distinction is documented. No new balance evidence was invented.
+- **Rendered per-match facts are cross-validated**: each text replay must
+  contain the exact authoritative completion line (winner or draw and method,
+  via the shared `formatCompetitionEndedLine` used by the renderer), the
+  authoritative round count and the match seed; each review prompt must be
+  exactly reproducible from the corresponding factual report
+  (`buildReviewUserPrompt`); each ASCII replay must retain the grid marker and
+  match-specific identity/final-result facts (seed, method, round/draw).
+- **The authoritative raw series score is verified in the report**: the report
+  must contain the exact canonical score line (competitor wins, Bulwark wins,
+  draws, via the shared `formatSeriesCanaryScoreLine`) and exactly
+  "3 matches completed"; a report with the wrong score, swapped scores, wrong
+  draw count, wrong match count or any percentage/win rate is rejected.
+- **The shared publisher validates its declaration contract before any
+  filesystem activity**: `assertValidBundleDeclaration` rejects duplicate or
+  path-like entry/artifact names, a manifest filename absent or duplicated in
+  `entryNames`, artifact/manifest collisions, artifacts not declared in
+  `entryNames`, and missing artifacts for non-manifest entries, before the
+  final/temporary preflight or any directory creation. The existing seven-file
+  match-canary and eight-file series-canary bundles are byte-for-byte
+  unchanged.
+- **Frozen regression is proven**: seed 3 with fixed injected identities keeps
+  identical three-match event streams, reports, adaptation trace and series
+  record (frozen SHA-256 digests asserted); the series-grid canary keeps
+  match v3 / report v2 / series v2 / manifest v1; match-grid canary bytes and
+  behaviour, collision/race/symlink/inventory/digest/cleanup guarantees, legacy
+  `runSeries` (calls `runMatch`, schema v1), legacy match persistence (v2),
+  legacy factual reports (v1) and all package scripts except the previously
+  added `series:grid:canary` remain unchanged.
+- **No benchmark, balance, provider or activation change**: no benchmark
+  partition ran, no benchmark seed or fixture changed, held-out and `all`
+  remain sealed, C1/C2/AB2 checksums and qualification constants remain frozen
+  with C2 the default, global simulator/ruleset constants remain `0.2.0 /
+0.2.0`, catalogue `1`, normal `match`/`series` remain legacy, no provider or
+  external API call occurred, no activation-readiness evaluation was performed
+  and no default activation occurred.
+
+Status: Phase 1 geometry complete; Phase 2 persistence/replay complete; Phase
+3A grid runtime core complete; Phase 3B activation hardening complete; Phase
+3B.1 momentum correction complete; Phase 3C lateral/flank integration complete;
+Phase 3D1 reporting/series compatibility foundation complete; Phase 3D1.1
+reporting hardening complete; Phase 3D2A isolated grid match canary
+**implemented**; Phase 3D2A.1 evidence and artifact verification **complete**;
+Phase 3D2A.2 immutable publication hardening **complete**; Phase 3D2B isolated
+grid adaptive-series canary **implemented**; Phase 3D2B.1 provenance and
+immutability hardening **complete**; activation-readiness **not performed**;
+default grid activation **not performed**; Milestone 0.2C **not complete**
+pending a separately authorised activation-readiness decision.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

@@ -147,9 +147,131 @@ export interface PublishImmutableBundleParams {
 }
 
 /**
+ * Rejected immutable-bundle declaration (Milestone 0.2C Phase 3D2B.1).
+ * Thrown before any filesystem activity when the caller-supplied bundle
+ * declaration is malformed.
+ */
+export class ImmutableBundleDeclarationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ImmutableBundleDeclarationError";
+  }
+}
+
+/** Names must be plain filenames, not paths (no separators, no traversal). */
+function assertPlainFilename(name: string, label: string): void {
+  if (name.length === 0) {
+    throw new ImmutableBundleDeclarationError(`${label} must not be empty`);
+  }
+  if (name.includes("/") || name.includes("\\")) {
+    throw new ImmutableBundleDeclarationError(
+      `${label} must be a plain filename, not a path: ${JSON.stringify(name)}`,
+    );
+  }
+  if (name === "." || name === "..") {
+    throw new ImmutableBundleDeclarationError(
+      `${label} must not be a traversal reference: ${JSON.stringify(name)}`,
+    );
+  }
+  if (name.startsWith("/") || name.startsWith("\\") || /^[A-Za-z]:/.test(name)) {
+    throw new ImmutableBundleDeclarationError(
+      `${label} must not be an absolute path: ${JSON.stringify(name)}`,
+    );
+  }
+  if (name.includes("\u0000")) {
+    throw new ImmutableBundleDeclarationError(
+      `${label} must not contain a NUL character`,
+    );
+  }
+}
+
+/**
+ * Validates the caller-supplied immutable-bundle declaration before any
+ * filesystem activity (Milestone 0.2C Phase 3D2B.1):
+ *
+ *   - `entryNames` contains unique plain filenames;
+ *   - `manifestFileName` is a plain filename occurring exactly once;
+ *   - every artifact name is unique, a plain filename, never the manifest
+ *     filename, and occurs in `entryNames`;
+ *   - every non-manifest `entryNames` value has exactly one artifact;
+ *   - `/`, `\`, `..`, absolute paths and empty names are rejected.
+ *
+ * The existing seven-file match-canary and eight-file series-canary bundles
+ * satisfy this contract, so their published bytes are unchanged.
+ */
+export function assertValidBundleDeclaration(params: {
+  manifestFileName: string;
+  entryNames: readonly string[];
+  artifacts: readonly ImmutableBundleArtifact[];
+}): void {
+  const { manifestFileName, entryNames, artifacts } = params;
+
+  assertPlainFilename(manifestFileName, "manifest filename");
+  if (entryNames.length === 0) {
+    throw new ImmutableBundleDeclarationError(
+      "Canary bundle declaration must declare at least one entry name",
+    );
+  }
+
+  const seenEntries = new Set<string>();
+  let manifestCount = 0;
+  for (const name of entryNames) {
+    assertPlainFilename(name, "entry name");
+    if (seenEntries.has(name)) {
+      throw new ImmutableBundleDeclarationError(
+        `Canary bundle entryNames must be unique; duplicate ${JSON.stringify(name)}`,
+      );
+    }
+    seenEntries.add(name);
+    if (name === manifestFileName) manifestCount += 1;
+  }
+  if (manifestCount !== 1) {
+    throw new ImmutableBundleDeclarationError(
+      `Canary bundle manifest filename must occur exactly once in entryNames; found ${manifestCount}`,
+    );
+  }
+
+  const artifactNames = new Set<string>();
+  for (const artifact of artifacts) {
+    assertPlainFilename(artifact.name, "artifact name");
+    if (artifact.name === manifestFileName) {
+      throw new ImmutableBundleDeclarationError(
+        `Canary bundle artifact must not use the manifest filename: ${JSON.stringify(artifact.name)}`,
+      );
+    }
+    if (artifactNames.has(artifact.name)) {
+      throw new ImmutableBundleDeclarationError(
+        `Canary bundle artifact names must be unique; duplicate ${JSON.stringify(artifact.name)}`,
+      );
+    }
+    artifactNames.add(artifact.name);
+    if (!seenEntries.has(artifact.name)) {
+      throw new ImmutableBundleDeclarationError(
+        `Canary bundle artifact ${JSON.stringify(artifact.name)} is not declared in entryNames`,
+      );
+    }
+  }
+
+  const nonManifestEntries = entryNames.filter((name) => name !== manifestFileName);
+  if (nonManifestEntries.length !== artifactNames.size) {
+    throw new ImmutableBundleDeclarationError(
+      `Canary bundle declaration must provide exactly one artifact per non-manifest entry (${nonManifestEntries.length} entries, ${artifactNames.size} artifacts)`,
+    );
+  }
+  for (const name of nonManifestEntries) {
+    if (!artifactNames.has(name)) {
+      throw new ImmutableBundleDeclarationError(
+        `Canary bundle declaration is missing an artifact for entry ${JSON.stringify(name)}`,
+      );
+    }
+  }
+}
+
+/**
  * Publishes one immutable canary bundle atomically and exclusively.
  *
- * The final path `outputRoot/<canaryId>` and the temporary path
+ * The caller-supplied bundle declaration is validated before any filesystem
+ * activity. Then the final path `outputRoot/<canaryId>` and the temporary path
  * `outputRoot/.tmp-<canaryId>` are preflighted with `lstat` and must not exist
  * as any filesystem entry. The temporary directory is created **exclusively**
  * with non-recursive `mkdir`, the declared non-manifest artifacts are written,
@@ -167,6 +289,9 @@ export async function publishImmutableBundle(
   const { fs, outputRoot, canaryId, manifestFileName, entryNames, artifacts } = params;
   const finalDir = join(outputRoot, canaryId);
   const tmpDir = join(outputRoot, `.tmp-${canaryId}`);
+
+  // Declaration contract validation before any filesystem activity.
+  assertValidBundleDeclaration({ manifestFileName, entryNames, artifacts });
 
   const runVerification = async (dir: string): Promise<void> => {
     await assertExactBundleInventory(fs, dir, entryNames);
