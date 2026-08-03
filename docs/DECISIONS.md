@@ -1356,6 +1356,133 @@ performed**; default grid activation **not performed**; Phase 3E2 **not
 started**; Milestone 0.2C **not complete** pending a separately authorised
 activation-readiness decision.
 
+## D50: Isolated supplemental grapple-reposition coverage (Phase 3E2, 2026-08-03)
+
+Phase 3E2 collects only the missing grapple-reposition feature evidence
+through a separate deterministic supplement. The official v3 evaluation
+(`0d8487a8-939d-4f9a-a16a-544b71eaa869`, suite checksum
+`c3b8a16d407891d0a92966fb9d6ed20fe5e11776bf545624fb3dbcadb4e2503c`,
+classification `inconclusive`) is valid and authoritative and was **not**
+altered, replaced, reinterpreted or rerun. All hard, slot-order, progress and
+other coverage gates passed; C04 (no grapple reposition observed) was the only
+non-pass gate, with base reposition observations knockback 36 / overturn 8 /
+grapple 0.
+
+- **Why the original 312-run v3 suite did not observe grapple reposition.**
+  The v3 suite's only Grappler is R4 `grappler-bulwark` (Grid Grappler versus
+  the canonical Bulwark), whose Bulwark opponent uses `BULWARK_POLICY` and a
+  defensive build. Grapple repositioning requires a Grappler hit with the 50%
+  `grappleReposition` roll and a resolvable destination; the observed suite
+  produced 36 knockbacks, 8 overturns and 0 grapple repositions. The
+  supplement deliberately increases the grapple-reposition opportunity by
+  pairing a maximum-aggression Grapple Coverage Attacker against a stationary,
+  zero-aggression target in both fighter slots — a feature-exercising
+  scenario, not a balance scenario.
+- **Why Phase 3E2 is additive evidence rather than a v3 rerun.** The official
+  v3 suite identity, checksum, classification, bundle and evaluation ID are
+  frozen historical fact. A rerun would create a replacement evaluation and
+  reinterpret existing evidence. The supplement is a separate, bounded,
+  development-only check (24 canonical seeds × 2 role assignments = 48
+  matches) that anchors the official base before executing any match and adds
+  a new immutable bundle under `data/readiness/grid-supplements/` without
+  touching the official `data/readiness/grid/` directory.
+- **Fixed supplemental scenario and 48-run plan.** New scenario registry
+  `grid-grapple-coverage-scenarios-v1` (checksum
+  `1aba546d5e0aa3ef3c95ee5bb45b2c412480a3822543999b291227a22a8c503f`) with one
+  scenario and two role assignments (Grapple Coverage Attacker `x` versus
+  Stationary Coverage Target `y`, attacker in fighter A then fighter B),
+  deeply frozen with catalogue-valid builds, no shared mutable references and
+  fresh mutable configurations per execution. The exact plan is `24 seeds × 2
+assignments = 48` runs (assignment order → canonical readiness-seed order),
+  no shuffling, unique `(assignmentId, seed)` tuples, frozen entries and a
+  deterministic plan checksum
+  (`e30dda08253c3cdaba771a5c4af810fcb17cd7a7669a1efcc2b86e5d9df01a26`) that
+  includes the supplement suite ID, the anchored base v3 evaluation ID and
+  suite checksum, the seed and scenario registry checksums, the runtime
+  identity and the ordered run tuples.
+- **Base-v3 anchoring.** Before any match, the supplement reads all nine
+  official v3 artifacts, validates them with
+  `validateGridActivationReadinessBundle`, and requires the exact evaluation
+  ID, suite ID, suite checksum, canonical seed/scenario-registry checksums,
+  `inconclusive` classification, C04 as the only non-pass gate and base
+  reposition counts 36/8/0, retaining the SHA-256 of the base manifest,
+  decision and metrics. If the official base is absent or invalid, the CLI
+  fails without running matches or writing artifacts.
+- **Authoritative grapple-event requirements.** A valid grapple-reposition
+  observation must come from the frozen runtime's actual event contract: an
+  authoritative successful `attack_hit` by the Grapple Coverage Attacker with
+  weapon `grappler`, a corresponding `movement_resolved` event with `action:
+"grapple"`, canonical fighter IDs (attacker is the actor, repositioned
+  defender is the target), canonical `from`/`to` zones with `from !== to`,
+  canonical facing, a valid in-match round, valid chronology, and a
+  destination that exactly agrees with the canonical `resolveGridGrapple`
+  resolver. Attack attempts without hits, same-cell hits (no reposition
+  possible), ordinary movement, knockback, malformed actor/target semantics
+  and report-only statements are never counted.
+- **Decision derivation.** `GridGrappleCoverageDecisionV1` returns `not_ready`
+  on any hard failure (fewer than 48 completed matches, deterministic
+  mismatch, runtime identity mismatch, invalid record/report,
+  report/final-state disagreement, invalid chronology, malformed grapple
+  event, resolver disagreement, input mutation, artifact-integrity failure,
+  invalid base bundle or identity mismatch, or legacy/canary isolation
+  regression). It returns `coverage_confirmed` only when there are at least 2
+  valid grapple-reposition events, at least 1 in each fighter slot, and at
+  least one distinct seed produces a valid reposition in each role assignment;
+  otherwise `inconclusive`. The combined readiness addendum derives
+  `ready_for_opt_in_beta_review` only when the base is valid and inconclusive
+  solely on C04, base knockback and overturn are both observed, and the
+  supplement is `coverage_confirmed`; any hard failure gives `not_ready`;
+  otherwise `inconclusive`.
+- **Immutable supplemental bundle.** The root guard now includes
+  `grid-readiness-supplement → data/readiness/grid-supplements` and the
+  supplement service rejects `data/readiness/grid`, normal match/series
+  storage, both canary roots, other in-repository data roots, descendants,
+  symlink/junction ancestry and external symlink roots. Each official
+  supplement writes exactly ten regular files (`manifest.json`,
+  `base-readiness-reference.json`, `seed-registry.json`,
+  `scenario-registry.json`, `run-index.json`, `match-records.json`,
+  `factual-reports.json`, `metrics.json`, `decision.json`, `report.txt`) with
+  manifest-last immutable publication, complete read-back, exact inventory,
+  SHA-256 digests of every non-manifest artifact, schema round trips and
+  complete cross-artifact validation (records/reports/run-index binding,
+  shared record-evidence inspector, complete report/final-state agreement,
+  recomputed run checksums, authoritative grapple evidence, recomputed
+  metrics, recomputed decision, recomputed combined classification and
+  byte-for-byte report regeneration). No replay text is persisted.
+- **Actual official supplemental result.** Exactly one official supplement
+  executed (`supplementId 4eca43e2-cc3d-41ee-bfad-73e18238ff61`, artifact
+  directory `data/readiness/grid-supplements/4eca43e2-cc3d-41ee-bfad-73e18238ff61/`):
+  48/48 deterministic matches, 480 Grappler attempts / 204 hits / 276 misses,
+  **8 valid grapple-reposition events** (4 with the attacker in fighter A and
+  4 in fighter B, each from 4 distinct seeds), 186 same-cell Grappler hits
+  without reposition, 0 wrong-fighter and 0 malformed/resolver-disagreeing
+  grapple events. Supplemental coverage decision: **`coverage_confirmed`**.
+- **Combined readiness classification.** With the official v3 base valid and
+  inconclusive solely on C04 (knockback 36 > 0, overturn 8 > 0) and the
+  supplement `coverage_confirmed`, the combined readiness classification is
+  **`ready_for_opt_in_beta_review`**. This means only that a separate opt-in
+  beta decision may now be considered; it is not an activation decision.
+- **No balance qualification, no opt-in beta decision, no default
+  activation.** The supplement is additive development-only coverage evidence:
+  it does not modify the official v3 evaluation, does not qualify combat
+  balance, does not perform the opt-in beta decision and does not activate the
+  grid runtime. No official v3 rerun occurred; no benchmark ran and no seed
+  bank was opened; held-out and `all` remain sealed; C1/C2/AB2, constants and
+  defaults are unchanged; the 24 seeds, seven readiness scenarios, thirteen
+  assignments and 312-run plan are unchanged; both canaries and legacy
+  match/series are unchanged; no provider or external API call occurred; no
+  tuning followed the result; Milestone 0.2C remains incomplete.
+
+Status: Phase 3E1 v1 evaluation **historical**; Phase 3E1.1 v2 evaluation
+**historical**; Phase 3E1.2 v3 provenance finalisation **complete**; Phase
+3E1.2 v3 official evaluation **complete**; Phase 3E1.3 fatal-agreement
+hardening **complete**; Phase 3E1.3.1 coherent tamper proof **complete**;
+Phase 3E2 supplemental grapple tooling **complete**; Phase 3E2 official
+supplement **complete**; supplemental coverage decision
+**`coverage_confirmed`**; combined readiness classification
+**`ready_for_opt_in_beta_review`**; opt-in beta decision **not performed**;
+default grid activation **not performed**; Milestone 0.2C **not complete**.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

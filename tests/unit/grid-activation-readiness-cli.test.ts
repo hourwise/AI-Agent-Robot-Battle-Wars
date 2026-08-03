@@ -15,6 +15,7 @@ const EXPECTED_SCRIPTS: Record<string, string> = {
   "match:grid:canary": "tsx src/app/run-grid-canary-match.ts",
   "series:grid:canary": "tsx src/app/run-grid-series-canary.ts",
   "readiness:grid": "tsx src/app/run-grid-activation-readiness.ts",
+  "readiness:grid:grapple": "tsx src/app/run-grid-grapple-coverage-supplement.ts",
   benchmark: "tsx src/app/run-benchmark.ts",
   "benchmark:lifecycle": "tsx src/app/run-lifecycle-benchmark.ts",
 };
@@ -38,10 +39,10 @@ describe("grid activation-readiness CLI (Phase 3E1)", () => {
     }
   });
 
-  it("adds only readiness:grid and leaves the existing application scripts unchanged", () => {
+  it("adds only readiness:grid and readiness:grid:grapple and leaves the existing application scripts unchanged", () => {
     const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
     expect(pkg.scripts).toMatchObject(EXPECTED_SCRIPTS);
-    // Exactly the existing scripts plus the single new readiness script.
+    // Exactly the existing scripts plus the two grid readiness scripts.
     const keys = Object.keys(pkg.scripts).sort();
     expect(keys).toEqual(
       [
@@ -56,6 +57,7 @@ describe("grid activation-readiness CLI (Phase 3E1)", () => {
         "match",
         "match:grid:canary",
         "readiness:grid",
+        "readiness:grid:grapple",
         "replay",
         "series",
         "series:grid:canary",

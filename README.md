@@ -107,6 +107,19 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
   rewritten to `not_ready`; round 0 permits only `competition_started`; and
   the official v3 evaluation (`0d8487a8-...`, suite checksum
   `c3b8a16d...`) remains unchanged and still validates.
+  Phase 3E2 added an **isolated, additive supplemental grapple-coverage
+  check** (`readiness:grid:grapple`): because the official v3 suite observed
+  no grapple reposition (coverage gate C04 inconclusive), a separate
+  deterministic 48-match supplement (24 canonical readiness seeds × 2 role
+  assignments of a feature-exercising Grapple Coverage Attacker versus a
+  Stationary Coverage Target) collects ONLY the missing grapple-reposition
+  feature evidence through the frozen runtime's actual event contract,
+  anchors and validates the official v3 bundle before any match, and
+  publishes an immutable ten-file supplement bundle under
+  `data/readiness/grid-supplements/`. The official supplement confirmed
+  grapple repositioning in both fighter slots (`coverage_confirmed`), giving
+  a combined readiness classification of `ready_for_opt_in_beta_review`,
+  which still is not an activation decision.
   The live
   five-zone simulator is unchanged: the normal application still uses
   `runMatch` (legacy `0.2.0`) and emits schema v2, and `runGridMatch` is not
@@ -285,6 +298,61 @@ suite checksum `dd38ac8a…`) and Phase 3E1.1 v2 bundle
 (`data/readiness/grid/d788284d-a795-4125-984c-9146261e271a/`, suite checksum
 `df944410…`) remain preserved and parse as historical but are rejected as
 current readiness evidence.
+
+#### Grid grapple coverage supplement
+
+```bash
+npm run readiness:grid:grapple   # Isolated additive grapple-reposition coverage supplement (no arguments)
+```
+
+Phase 3E2 is an isolated, additive supplement that collects **only** the
+missing grapple-reposition feature evidence. The official v3 evaluation is
+valid and authoritative (`0d8487a8-...`, suite checksum `c3b8a16d...`, suite
+`grid-activation-readiness-v3`, classification `inconclusive`, C04 only — no
+grapple reposition observed, with base reposition observations knockback 36 /
+overturn 8 / grapple 0). The supplement answers whether the frozen grid
+runtime can produce valid, deterministic grapple-reposition events through
+the full `runGridMatch → record → report → replay` pipeline in **both fighter
+slots**, without altering, replacing, reinterpreting or rerunning the official
+v3 suite.
+
+The service first anchors the official v3 bundle at
+`data/readiness/grid/0d8487a8-.../` (strong validator, exact evaluation ID,
+suite checksum, canonical registry checksums, `inconclusive` classification,
+C04 as the only non-pass gate, and base reposition counts 36/8/0); it fails
+without running any match if the base is absent or invalid. It reuses the
+canonical 24-seed readiness registry unchanged and a new
+feature-exercising scenario registry (`grid-grapple-coverage-scenarios-v1`,
+checksum `1aba546d...`) with exactly one scenario (Grapple Coverage Attacker
+`x` versus Stationary Coverage Target `y`) and two role assignments, run as
+`24 seeds × 2 assignments = 48` deterministic matches with a frozen plan
+(checksum `e30dda08...`). A valid grapple-reposition observation requires an
+authoritative `attack_hit` by the Grappler, a corresponding
+`movement_resolved` event with `action: "grapple"`, canonical actor/target
+semantics, `from !== to`, and a destination that exactly agrees with the
+canonical `resolveGridGrapple` resolver; attempts, misses, knockback,
+malformed events, resolver disagreements and same-cell hits are never counted.
+The supplement runs twice under fixed identities (byte-identical repeat),
+derives execution/grapple/isolation metrics, produces the
+`GridGrappleCoverageDecisionV1` (`coverage_confirmed`, `inconclusive` or
+`not_ready`) and the combined readiness addendum, and publishes an immutable
+ten-file bundle under `data/readiness/grid-supplements/<supplementId>/`
+(`manifest.json`, `base-readiness-reference.json`, `seed-registry.json`,
+`scenario-registry.json`, `run-index.json`, `match-records.json`,
+`factual-reports.json`, `metrics.json`, `decision.json`, `report.txt`). The
+root guard rejects `data/readiness/grid`, normal match/series storage, both
+canary roots, every other in-repository data root, descendants, symlink or
+junction ancestry and external symlink roots.
+
+Official Phase 3E2 supplement result: **`coverage_confirmed`** (480 Grappler
+attempts, 204 hits, 276 misses; 8 valid grapple-reposition events — 4 with the
+attacker in fighter A and 4 in fighter B, each from 4 distinct seeds; 186
+same-cell Grappler hits without reposition), combined readiness classification
+**`ready_for_opt_in_beta_review`**, artifact directory
+`data/readiness/grid-supplements/4eca43e2-cc3d-41ee-bfad-73e18238ff61/`. This
+is additive development-only coverage evidence: it does not modify the
+official v3 evaluation, does not qualify combat balance, does not perform the
+opt-in beta decision and does not activate the grid runtime.
 
 ### Replay
 

@@ -11,12 +11,17 @@ import { fsEntryKind } from "./immutable-canary-bundle.js";
  *
  *   - within the repository `data` tree, the service-level output root must
  *     resolve to exactly the selected canonical root
- *     (`data/canary/grid-match`, `data/canary/grid-series` or
- *     `data/readiness/grid`);
+ *     (`data/canary/grid-match`, `data/canary/grid-series`,
+ *     `data/readiness/grid` or `data/readiness/grid-supplements`);
  *   - a grid-match service may not use the grid-series root, and vice versa;
  *   - the grid-readiness service must reject normal match/series storage,
  *     both canary roots, and every other in-repository data root, and
  *     descendants of the canonical readiness root are never valid service
+ *     roots;
+ *   - the grid-readiness-supplement service must reject normal match/series
+ *     storage, both canary roots, the official readiness root
+ *     (`data/readiness/grid`) and every other in-repository data root, and
+ *     descendants of the canonical supplement root are never valid service
  *     roots;
  *   - `data/matches`, `data/series` and every descendant, the `data` root and
  *     every other in-repository data path are rejected;
@@ -40,12 +45,14 @@ import { fsEntryKind } from "./immutable-canary-bundle.js";
  * Both guards run before combat or series execution; the physical re-inspection
  * also runs after the output root is created and before any artifact write.
  */
-export type CanaryRootKind = "grid-match" | "grid-series" | "grid-readiness";
+export type CanaryRootKind =
+  "grid-match" | "grid-series" | "grid-readiness" | "grid-readiness-supplement";
 
 const CANONICAL_ROOT_SEGMENTS: Record<CanaryRootKind, readonly string[]> = {
   "grid-match": ["canary", "grid-match"],
   "grid-series": ["canary", "grid-series"],
   "grid-readiness": ["readiness", "grid"],
+  "grid-readiness-supplement": ["readiness", "grid-supplements"],
 };
 
 export class GridCanaryOutputRootError extends Error {
@@ -71,14 +78,18 @@ export function getCanaryProtectedOutputRoots(): { matches: string; series: stri
 
 /**
  * The protected roots for a selected kind. The grid-readiness kind must also
- * reject both existing canary roots.
+ * reject both existing canary roots; the grid-readiness-supplement kind must
+ * additionally reject the official readiness root.
  */
 function getKindProtectedRoots(kind: CanaryRootKind): string[] {
   const protectedRoots = getCanaryProtectedOutputRoots();
   const roots = [protectedRoots.matches, protectedRoots.series];
-  if (kind === "grid-readiness") {
+  if (kind === "grid-readiness" || kind === "grid-readiness-supplement") {
     roots.push(getCanaryCanonicalOutputRoot("grid-match"));
     roots.push(getCanaryCanonicalOutputRoot("grid-series"));
+  }
+  if (kind === "grid-readiness-supplement") {
+    roots.push(getCanaryCanonicalOutputRoot("grid-readiness"));
   }
   return roots;
 }

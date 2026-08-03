@@ -21,6 +21,7 @@
     "match:grid:canary": "tsx src/app/run-grid-canary-match.ts",
     "series:grid:canary": "tsx src/app/run-grid-series-canary.ts",
     "readiness:grid": "tsx src/app/run-grid-activation-readiness.ts",
+    "readiness:grid:grapple": "tsx src/app/run-grid-grapple-coverage-supplement.ts",
     "replay": "tsx src/app/replay-match.ts",
     "smoke:design": "tsx src/app/smoke-design.ts",
     "benchmark": "tsx src/app/run-benchmark.ts",

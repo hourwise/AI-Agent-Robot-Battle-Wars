@@ -120,7 +120,18 @@ ordinary-hold invariant enforcement, record-derived execution metrics with
 explicit operational attestations, complete report/final-state agreement,
 corrected timing validation, and an explicit CRLF formatting contract) is
 implemented by the `agent/0.2c-grid-readiness-provenance-finalization` task.
-The authoritative runtime
+Phase 3E1.3 (verifier-only fatal report/final-state agreement hardening) is
+implemented by the `agent/0.2c-grid-readiness-fatal-agreement` task, with the
+coherent tamper-proof completion by the
+`agent/0.2c-grid-grapple-coverage-supplement` predecessor
+`agent/0.2c-grid-readiness-coherent-tamper-proof`. Phase 3E2 (isolated
+supplemental grapple-reposition coverage — a feature-exercising one-scenario /
+two-assignment registry, an exact 48-run plan, a pure execution core with
+authoritative grapple-event evidence and deterministic repeat, grapple
+metrics, a supplement decision and combined readiness addendum, an immutable
+ten-file supplement bundle under `data/readiness/grid-supplements/`, and the
+`readiness:grid:grapple` command) is implemented by the
+`agent/0.2c-grid-grapple-coverage-supplement` task. The authoritative runtime
 migration and live grid match production remain future, separately
 authorised phases.
 
@@ -502,6 +513,65 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   benchmark ran, no seed bank was opened, held-out/all remain sealed, no
   provider call, tuning, opt-in beta decision or default activation occurred,
   and Phase 3E2 has not started.
+- Phase 3E2 — isolated supplemental grapple-reposition coverage: **complete;
+  official supplement run complete; supplemental coverage decision
+  `coverage_confirmed`**. Because the official v3 suite observed no grapple
+  reposition (C04 inconclusive; base reposition observations knockback 36 /
+  overturn 8 / grapple 0), Phase 3E2 collects ONLY the missing
+  grapple-reposition feature evidence through a separate deterministic
+  supplement that never alters, replaces, reinterprets or reruns the official
+  v3 suite. The supplement anchors the official v3 bundle (strong validator,
+  exact evaluation ID, suite checksum `c3b8a16d...`, canonical registry
+  checksums, `inconclusive` classification, C04-only non-pass gate, base
+  counts 36/8/0) before executing any match and fails without running matches
+  if the base is absent or invalid. It reuses the canonical 24-seed readiness
+  registry unchanged and adds a feature-exercising scenario registry
+  (`grid-grapple-coverage-scenarios-v1`, checksum `1aba546d...`): one scenario
+  (Grapple Coverage Attacker `x` versus Stationary Coverage Target `y`) and
+  two role assignments, deeply frozen with catalogue-valid builds, exact role
+  swapping, no shared references and fresh mutable configurations. The exact
+  48-run plan (24 seeds × 2 assignments, assignment → seed ordering, unique
+  `(assignmentId, seed)` tuples, plan checksum `e30dda08...`) is executed by a
+  pure core (direct `runGridMatch` only) with v3 records, v2 reports, the
+  shared record-evidence inspector, complete report/final-state agreement,
+  text/ASCII replays, the review prompt and canonical run checksums, then
+  re-executed byte-identically under fixed identities. A valid
+  grapple-reposition observation requires an authoritative Grappler
+  `attack_hit`, a `movement_resolved` event with `action: "grapple"`, canonical
+  actor/target semantics, `from !== to`, canonical facing and a destination
+  exactly agreeing with `resolveGridGrapple`; attempts, misses, knockback,
+  same-cell hits, malformed events and resolver disagreements are never
+  counted. The metrics reducer aggregates execution, grapple-feature
+  (per-slot and per-seed reposition counts, source/destination zones, round
+  stats) and isolation diagnostics; `GridGrappleCoverageDecisionV1` returns
+  `not_ready` on any hard failure, `coverage_confirmed` when both slots are
+  evidenced from distinct seeds, else `inconclusive`. The combined readiness
+  addendum derives `ready_for_opt_in_beta_review` only when the base is valid
+  and inconclusive solely on C04 with knockback and overturn observed and the
+  supplement is `coverage_confirmed`. The root guard now includes
+  `grid-readiness-supplement → data/readiness/grid-supplements` (rejecting
+  `data/readiness/grid`, normal match/series storage, both canary roots, other
+  in-repository data roots, descendants, symlink/junction ancestry and
+  external symlink roots), and each official supplement publishes an immutable
+  ten-file bundle (`manifest.json`, `base-readiness-reference.json`,
+  `seed-registry.json`, `scenario-registry.json`, `run-index.json`,
+  `match-records.json`, `factual-reports.json`, `metrics.json`,
+  `decision.json`, `report.txt`) with complete read-back, digests, schema
+  round trips and cross-artifact validation. Exactly one official supplement
+  executed (`supplementId 4eca43e2-cc3d-41ee-bfad-73e18238ff61`): 48/48
+  deterministic matches, 480 Grappler attempts / 204 hits / 276 misses, **8
+  valid grapple-reposition events** (4 per fighter slot, 4 distinct seeds
+  each), 186 same-cell hits without reposition, 0 wrong-fighter and 0
+  malformed/resolver-disagreeing events. Supplemental coverage decision:
+  **`coverage_confirmed`**; combined readiness classification:
+  **`ready_for_opt_in_beta_review`** (a separate opt-in beta decision may now
+  be considered — it is not an activation decision). The official v3
+  evaluation was not rerun or modified; no benchmark ran and no seed bank was
+  opened; held-out/all remain sealed; C1/C2/AB2 and constants unchanged with
+  C2 default; the 24 seeds, seven readiness scenarios, thirteen assignments
+  and 312-run plan unchanged; both canaries and legacy match/series unchanged;
+  no provider or external API call; no tuning after results; no opt-in beta
+  decision; no default activation; Milestone 0.2C remains incomplete.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

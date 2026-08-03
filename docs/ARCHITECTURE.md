@@ -769,10 +769,12 @@ permission to activate grid.
   other. Individual replay text is never included. Historical v1 and v2
   artifacts parse but are rejected as current readiness evidence.
 - `src/canary/canary-output-root.ts` — the kind-aware root guard now includes
-  `grid-readiness → data/readiness/grid`; the readiness service rejects normal
+  `grid-readiness → data/readiness/grid` and `grid-readiness-supplement →
+data/readiness/grid-supplements`; the readiness service rejects normal
   match/series storage, both canary roots, every other in-repository data
   root, canonical-root descendants, symlink/junction ancestry and external
-  symlink roots.
+  symlink roots, and the supplement service additionally rejects the official
+  readiness root.
 - `src/app/grid-activation-readiness.ts` — `runGridActivationReadiness`
   orchestrates the lexical/physical root guards, fixed registries, 312-run
   plan, injected evaluation/match UUIDs and timestamp, publication preflight,
@@ -787,6 +789,69 @@ permission to activate grid.
 DEVELOPMENT-ONLY / NON-BENCHMARK / NON-ACTIVATING` banner. A completed
   evaluation exits zero regardless of its decision; it exits nonzero only for
   an operational failure that prevents producing a validated decision bundle.
+- `src/readiness/grid-grapple-scenarios.ts` — the Phase 3E2 supplemental
+  scenario registry (`grid-grapple-coverage-scenarios-v1`, checksum
+  `1aba546d...`): one feature-exercising scenario (Grapple Coverage Attacker
+  `x` versus Stationary Coverage Target `y`) and two role assignments, deeply
+  frozen, catalogue-valid, exact role swapping, no shared references and
+  fresh mutable configurations per execution.
+- `src/readiness/grid-grapple-run-plan.ts` — the frozen supplemental run plan
+  (`grid-grapple-coverage-supplement-v1`): exactly 48 runs (24 canonical
+  seeds × 2 assignments), assignment → seed ordering, unique
+  `(assignmentId, seed)` tuples, and a deterministic plan checksum
+  (`e30dda08...`) over the supplement suite ID, anchored base v3 evaluation
+  ID and suite checksum, both registry checksums, the runtime identity and
+  the ordered runs.
+- `src/readiness/grid-grapple-evidence.ts` — the authoritative grapple-event
+  extractor. A valid grapple-reposition observation requires an authoritative
+  Grappler `attack_hit`, a `movement_resolved` event with `action: "grapple"`,
+  canonical actor/target semantics, `from !== to`, canonical facing, a valid
+  in-match round and a destination exactly agreeing with `resolveGridGrapple`;
+  attempts, misses, knockback, same-cell hits, wrong-fighter events and
+  malformed/resolver-disagreeing events are never counted as repositions.
+- `src/readiness/grid-grapple-execution-core.ts` — the pure 48-run execution
+  core (direct `runGridMatch` only): v3 records, v2 reports, shared
+  record-evidence inspector, complete report/final-state agreement,
+  text/ASCII replays, review prompt, canonical run checksums and authoritative
+  grapple evidence, with byte-identical deterministic repeat.
+- `src/readiness/grid-grapple-metrics.ts` — the pure grapple metrics reducer
+  (execution, grapple-feature and isolation diagnostics; timing informational
+  only).
+- `src/readiness/grid-grapple-decision.ts` — `GridGrappleCoverageDecisionV1`
+  (`coverage_confirmed` / `inconclusive` / `not_ready`) and the combined
+  readiness addendum (`GridActivationReadinessAddendumV1`) with the required
+  additive non-activating disclaimer and the combined readiness
+  classification derivation.
+- `src/readiness/grid-grapple-report.ts` — the supplemental human-readable
+  report (additive, non-benchmark, non-activating, never a balance pass).
+- `src/readiness/grid-grapple-supplement-bundle.ts` — the immutable
+  supplement bundle: base-v3 anchoring (strong validator, exact evaluation
+  ID, suite checksum, canonical registry checksums, `inconclusive`
+  classification, C04-only non-pass gate, base counts 36/8/0, base
+  manifest/decision/metrics SHA-256), the ten-file inventory
+  (`manifest.json`, `base-readiness-reference.json`, `seed-registry.json`,
+  `scenario-registry.json`, `run-index.json`, `match-records.json`,
+  `factual-reports.json`, `metrics.json`, `decision.json`, `report.txt`),
+  manifest v1 with digests and the addendum, and
+  `validateGridGrappleCoverageSupplementBundle` which cross-validates
+  records/reports/run-index (binding, shared inspector, final-state
+  agreement, recomputed checksums, authoritative grapple evidence),
+  recomputed metrics, recomputed decision, the recomputed combined
+  classification and byte-for-byte report regeneration.
+- `src/app/grid-grapple-coverage-supplement.ts` —
+  `runGridGrappleCoverageSupplement` orchestrates the root guards, base
+  anchoring, fixed registries and 48-run plan, injected supplement/match
+  UUIDs and timestamp, publication preflight, primary and repeat execution
+  with determinism comparison, records/reports/run-index/metrics
+  construction, hard checks, decision, addendum, report, digests, manifest,
+  shared immutable publish and read-back.
+- `src/app/run-grid-grapple-coverage-supplement.ts` — the
+  `readiness:grid:grapple` command under the
+  `FORGE ARENA — GRID GRAPPLE COVERAGE SUPPLEMENT /
+DEVELOPMENT-ONLY / ADDITIVE / NON-ACTIVATING` banner. Accepts no arguments;
+  a completed `coverage_confirmed`, `inconclusive` or `not_ready` result exits
+  zero; it exits nonzero only for an operational failure that prevents
+  producing a validated supplement bundle.
 
 The readiness evaluation imports no benchmark module, reads no benchmark seed
 file, uses no `--partition held-out`/`--partition all`, never calls
@@ -870,6 +935,46 @@ scenario or seed was added; no benchmark ran and no seed bank was opened;
 held-out/all remain sealed; no provider call, tuning, opt-in beta decision or
 default activation occurred; Phase 3E2 has not started and Milestone 0.2C
 remains incomplete.
+
+Phase 3E2 added an isolated, additive supplemental grapple-coverage check (the
+v1, v2 and v3 official results above remain unchanged and authoritative). The
+official v3 suite observed no grapple reposition (C04 inconclusive; base
+reposition observations knockback 36 / overturn 8 / grapple 0), so the
+supplement collects ONLY that missing feature evidence through a separate
+deterministic 48-match plan. `runGridGrappleCoverageSupplement` anchors the
+official v3 bundle at `data/readiness/grid/0d8487a8-.../` before any match
+(strong validator, exact evaluation ID, suite checksum, canonical registry
+checksums, `inconclusive` classification, C04-only non-pass gate and base
+counts 36/8/0) and fails without running matches or writing artifacts if the
+base is absent or invalid. It reuses the canonical 24-seed registry unchanged
+and the new feature-exercising scenario registry
+(`grid-grapple-coverage-scenarios-v1`, checksum `1aba546d...`), runs 48
+matches twice under fixed identities, derives the authoritative grapple
+evidence from the frozen event contract, produces the
+`GridGrappleCoverageDecisionV1` and the combined readiness addendum, and
+publishes an immutable ten-file supplement bundle under
+`data/readiness/grid-supplements/<supplementId>/` with complete read-back and
+cross-artifact validation. The root guard now includes
+`grid-readiness-supplement → data/readiness/grid-supplements` and rejects the
+official readiness root, normal match/series storage, both canary roots, other
+in-repository data roots, descendants, symlink/junction ancestry and external
+symlink roots. The exactly-one official supplement (`supplementId
+4eca43e2-cc3d-41ee-bfad-73e18238ff61`, directory
+`data/readiness/grid-supplements/4eca43e2-cc3d-41ee-bfad-73e18238ff61/`)
+classified the supplement as **`coverage_confirmed`**: 48/48 deterministic
+matches, 480 Grappler attempts / 204 hits / 276 misses, 8 valid
+grapple-reposition events (4 per fighter slot, 4 distinct seeds each), 186
+same-cell hits without reposition, 0 wrong-fighter and 0
+malformed/resolver-disagreeing events. The combined readiness classification
+is **`ready_for_opt_in_beta_review`** — a separate opt-in beta decision may
+now be considered, but it is not an activation decision. The official v3
+evaluation was not rerun or modified; no benchmark ran and no seed bank was
+opened; held-out/all remain sealed; C1/C2/AB2, constants and defaults
+unchanged with C2 default; the 24 seeds, seven readiness scenarios, thirteen
+assignments and 312-run plan unchanged; both canaries and legacy match/series
+unchanged; no provider or external API call; no tuning after results; no
+opt-in beta decision; no default activation; Milestone 0.2C remains
+incomplete.
 
 ### Agent usage tracking
 
