@@ -1483,6 +1483,94 @@ supplement **complete**; supplemental coverage decision
 **`ready_for_opt_in_beta_review`**; opt-in beta decision **not performed**;
 default grid activation **not performed**; Milestone 0.2C **not complete**.
 
+## D51: Supplemental grapple evidence provenance hardening (Phase 3E2.1, 2026-08-03)
+
+Phase 3E2.1 hardens the provenance guarantees of the Phase 3E2 supplemental
+grapple-reposition bundle. The official v3 evaluation
+(`0d8487a8-939d-4f9a-a16a-544b71eaa869`, suite checksum
+`c3b8a16d407891d0a92966fb9d6ed20fe5e11776bf545624fb3dbcadb4e2503c`,
+classification `inconclusive`) and the official Phase 3E2 supplement
+(`4eca43e2-cc3d-41ee-bfad-73e18238ff61`) were **not** altered, replaced,
+reinterpreted or rerun.
+
+- **Resolver-valid grapples must be causally backed by a Grappler hit.** The
+  strengthened evidence extractor maintains a per-round attack ledger: every
+  `attack_attempted` (weapon `grappler`, attacker slot) must resolve to
+  exactly one `attack_hit`/`attack_missed` in the same round with canonical
+  actor/target/weapon before `round_ended`; a `movement_resolved` grapple must
+  consume an unmatched non-same-cell hit in the same round; a second grapple
+  for one hit, a grapple without a preceding hit, an outcome without an
+  attempt, a duplicate outcome, noncanonical actor/target, a grapple on a
+  same-cell hit, noncanonical zones/facing, `from === to`, a `from` that does
+  not equal the tracked defender zone, or a destination that disagrees with
+  the canonical resolver are all malformed and never count as reposition
+  coverage. The 50% reposition roll is never inferred: a non-same-cell hit
+  without a movement event is allowed (the roll may have failed).
+- **Persisted run-index entries and records are bound to the canonical plan
+  and scenario.** Each run-index entry must equal the canonical plan run (run
+  number, scenario ID, assignment ID, seed, role swap, competitors), the
+  attacker slot is derived from the plan (never trusted from the persisted
+  entry), record/report indices must match canonical run order, the run-index
+  summary must agree with the authoritative record, the record configuration
+  must exactly match the canonical supplemental scenario (machine name,
+  chassis, mobility, weapon, utility, armour, policy, ruleset, catalogue;
+  attacker weapon `grappler`, target weapon `hammer`), the grid runtime
+  identity must be exactly `0.3.0 / grid-3x3-v1 / 0.2.0 / 1`, and every record
+  must use the injected supplement timestamp.
+- **Decision and addendum payloads are independently rebuilt and compared.**
+  The validator rebuilds the complete decision from the recomputed metrics and
+  hard checks and requires full equality with the persisted decision; it
+  rebuilds the complete combined readiness addendum from the anchored base
+  reference and the recomputed metrics and requires full equality with the
+  persisted addendum; the combined classification is re-derived from the
+  rebuilt addendum; the report is regenerated from the recomputed metrics,
+  rebuilt decision, re-derived combined classification and rebuilt addendum.
+- **Official base hashes are pinned, not self-declared.** The base identity
+  now carries frozen SHA-256 hashes of the official v3 manifest, decision and
+  metrics (`46b1b888dd66021fc811451c1db8f22f21c912621fc85a90a4cc52980ff06f85`,
+  `d4bf61e1e5c74bbb9181f95d22889fdae263e1520e58e8720e2bfe8cfeb07b9a`,
+  `113bfa2cc66e364eab637f3d7c00b8f05602c355133fe21eb2aae6d79467eee4`), and
+  anchoring requires every identity field plus these three pinned hashes
+  computed over the actual bytes. The service retains the exact start-of-run
+  base bytes and re-checks them (plus the pinned hashes) immediately before
+  publication: any change is an operational failure that prevents publication.
+- **Official supplement passes the stronger validator unchanged.** The frozen
+  official supplement passes the complete strengthened bundle validator and
+  the frozen official anchor unchanged: 480 attempts / 204 hits / 276 misses,
+  8 valid repositions (4 per fighter slot, 4 distinct seeds each), 186
+  same-cell hits without reposition, 0 wrong-fighter and 0
+  malformed/resolver-disagreeing grapple events; decision
+  `coverage_confirmed`; combined readiness classification
+  `ready_for_opt_in_beta_review`; all ten artifacts byte-for-byte unchanged.
+- **Fully coherent corruption tests.** Nine corruption scenarios rebuild the
+  whole bundle coherently (all downstream artifacts, digests and checksums
+  consistent with the tamper) and must be rejected by the intended provenance
+  rule — not a stale digest: alternate run plan, alternate build, fake
+  resolver-valid grapple without a hit, false grapple origin, second grapple
+  for one hit, decision payload corruption with the label kept, addendum
+  corruption with the combined label kept, cross-envelope supplement-ID
+  disagreement, and a base-mutation race (base mutated after anchoring and
+  before publication → operational failure, no supplement artifact published).
+- **No evaluation rerun, no balance qualification, no opt-in beta decision,
+  no default activation.** The official v3 evaluation and the official
+  supplement are unchanged historical facts; no official rerun occurred; no
+  benchmark ran and no seed bank was opened; held-out and `all` remain sealed;
+  C1/C2/AB2, constants, defaults, both canaries and legacy match/series are
+  unchanged; no provider or external API call occurred; no tuning followed the
+  result; Milestone 0.2C remains incomplete.
+
+Status: Phase 3E1 v1 evaluation **historical**; Phase 3E1.1 v2 evaluation
+**historical**; Phase 3E1.2 v3 provenance finalisation **complete**; Phase
+3E1.2 v3 official evaluation **complete** and **unchanged**; Phase 3E1.3
+fatal-agreement hardening **complete**; Phase 3E1.3.1 coherent tamper proof
+**complete**; Phase 3E2 supplemental grapple tooling **complete**; Phase 3E2
+official supplement **complete** and **unchanged**; Phase 3E2.1 provenance
+hardening **complete**; official supplement under the stronger validator
+**passes unchanged**; supplemental coverage decision
+**`coverage_confirmed`**; combined readiness classification
+**`ready_for_opt_in_beta_review`**; opt-in beta decision **not performed**;
+default grid activation **not performed**; Milestone 0.2C **not complete**.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

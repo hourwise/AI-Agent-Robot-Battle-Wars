@@ -54,6 +54,7 @@ import { sha256Hex } from "../../src/canary/grid-canary-digest.js";
 import { GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT } from "../../src/readiness/grid-grapple-run-plan.js";
 import { gridReadinessSeedRegistryChecksum } from "../../src/readiness/seed-registry.js";
 import { gridGrappleCoverageScenarioRegistryChecksum } from "../../src/readiness/grid-grapple-scenarios.js";
+import type { GridGrappleCoverageBaseV3Identity } from "../../src/readiness/grid-grapple-supplement-bundle.js";
 
 export const GRAPPLE_SUPPLEMENT_TEST_ID = "33333333-3333-4333-8333-333333333333";
 export const GRAPPLE_SUPPLEMENT_TEST_CREATED_AT = "2026-08-03T00:00:00.000Z";
@@ -65,18 +66,39 @@ export function grappleSupplementTestMatchIds(): string[] {
   });
 }
 
+let cachedFixtureBase: ReturnType<typeof buildReadinessTestBundle> | null = null;
+
+function fixtureBase(): ReturnType<typeof buildReadinessTestBundle> {
+  if (cachedFixtureBase === null) cachedFixtureBase = buildReadinessTestBundle();
+  return cachedFixtureBase;
+}
+
 /**
  * The equivalent validated fixture base identity: the test evaluation bundle
  * from `buildReadinessTestBundle()` with the frozen official suite checksum
- * (identical registries and run plan) and the fixture evaluation ID.
+ * (identical registries and run plan), the fixture evaluation ID and the
+ * fixture's own artifact hashes.
  */
-export function grappleSupplementFixtureBaseIdentity(): {
-  evaluationId: string;
-  suiteChecksum: string;
-} {
+export function grappleSupplementFixtureBaseIdentity(): GridGrappleCoverageBaseV3Identity {
+  const base = fixtureBase();
   return {
     evaluationId: READINESS_TEST_EVALUATION_ID,
+    suiteId: "grid-activation-readiness-v3",
     suiteChecksum: GRID_GRAPPLE_COVERAGE_BASE_V3_SUITE_CHECKSUM,
+    seedRegistryId: "grid-readiness-development-v1",
+    seedRegistryChecksum:
+      "54acf0151360f59d429fd7b2a84f48b48f4a791e522cf58bc381b927d62b78a0",
+    scenarioRegistryId: "grid-readiness-scenarios-v1",
+    scenarioRegistryChecksum:
+      "b07270171f6e38efac2d1992f051d7bd881e323c00cee92b9caa9490ddb85b67",
+    classification: "inconclusive",
+    nonPassGates: ["C04"],
+    knockbackEvents: 36,
+    overturnEvents: 8,
+    grappleRepositionEvents: 0,
+    manifestChecksum: sha256Hex(base.contents["manifest.json"]!),
+    decisionChecksum: sha256Hex(base.contents["decision.json"]!),
+    metricsChecksum: sha256Hex(base.contents["metrics.json"]!),
   };
 }
 
@@ -105,7 +127,7 @@ export interface GridGrappleSupplementFixture {
  * access), anchored to the equivalent validated fixture base bundle.
  */
 export function buildGridGrappleSupplementFixture(): GridGrappleSupplementFixture {
-  const base = buildReadinessTestBundle();
+  const base = fixtureBase();
   const baseIdentity = grappleSupplementFixtureBaseIdentity();
   const baseReference = anchorGridGrappleCoverageBaseV3(base.contents, baseIdentity);
 
@@ -424,4 +446,169 @@ function scenarioRegistryChecksumValue(
   registry: ReturnType<typeof createGridGrappleCoverageScenarioRegistry>,
 ): string {
   return gridGrappleCoverageScenarioRegistryChecksum(registry);
+}
+
+export interface RebuildSupplementContentsInput {
+  supplementId: string;
+  createdAt: string;
+  seedRegistry: ReturnType<typeof readinessTestSeedRegistry>;
+  scenarioRegistry: ReturnType<typeof createGridGrappleCoverageScenarioRegistry>;
+  planChecksum: string;
+  baseReference: GridGrappleCoverageBaseV3Reference;
+  records: readonly unknown[];
+  reports: readonly unknown[];
+  runIndexEntries: readonly Record<string, unknown>[];
+  metrics: GridGrappleCoverageMetrics;
+  decision: GridGrappleCoverageDecisionV1;
+  addendum: GridActivationReadinessAddendumV1;
+  combined: GridActivationReadinessCombinedClassification;
+}
+
+/**
+ * Rebuilds the complete ten-artifact supplement contents from explicitly
+ * provided components (records, reports, run-index entries, metrics, decision,
+ * addendum and combined classification). Used by coherent corruption tests so
+ * every downstream artifact and digest is rewritten consistently.
+ */
+export function rebuildSupplementContents(
+  input: RebuildSupplementContentsInput,
+): Record<string, string> {
+  const {
+    supplementId,
+    createdAt,
+    seedRegistry,
+    scenarioRegistry,
+    planChecksum,
+    baseReference,
+    records,
+    reports,
+    runIndexEntries,
+    metrics,
+    decision,
+    addendum,
+    combined,
+  } = input;
+
+  const recordsEnvelope = {
+    schemaVersion: "1" as const,
+    supplementId,
+    items: records,
+  };
+  const reportsEnvelope = {
+    schemaVersion: "1" as const,
+    supplementId,
+    items: reports,
+  };
+  const runIndexEnvelope = {
+    schemaVersion: "1" as const,
+    supplementId,
+    items: runIndexEntries,
+  };
+
+  const report = buildGridGrappleCoverageReport({
+    supplementId,
+    createdAt,
+    baseV3EvaluationId: baseReference.evaluationId,
+    baseV3SuiteChecksum: baseReference.suiteChecksum,
+    baseV3ManifestChecksum: baseReference.manifestChecksum,
+    baseV3DecisionChecksum: baseReference.decisionChecksum,
+    baseV3MetricsChecksum: baseReference.metricsChecksum,
+    baseV3Classification: baseReference.classification,
+    baseV3NonPassGates: baseReference.nonPassGates,
+    seedRegistryId: seedRegistry.registryId,
+    seedRegistryChecksum: seedRegistryChecksumValue(seedRegistry),
+    scenarioRegistryId: scenarioRegistry.registryId,
+    scenarioRegistryChecksum: scenarioRegistryChecksumValue(scenarioRegistry),
+    planChecksum,
+    metrics,
+    decision: decision.decision,
+    combinedReadinessClassification: combined,
+    addendum,
+  });
+
+  const serializedSeedRegistry = serializeGridReadinessSeedRegistry(seedRegistry);
+  const serializedScenarioRegistry = JSON.stringify(
+    {
+      schemaVersion: "1",
+      registryId: scenarioRegistry.registryId,
+      purpose: scenarioRegistry.purpose,
+      simulatorVersion: scenarioRegistry.simulatorVersion,
+      positioningModel: scenarioRegistry.positioningModel,
+      rulesetVersion: scenarioRegistry.rulesetVersion,
+      catalogueVersion: scenarioRegistry.catalogueVersion,
+      scenarios: scenarioRegistry.scenarios.map((scenario) => ({
+        scenarioId: scenario.scenarioId,
+        familyName: scenario.familyName,
+        fighterX: {
+          displayName: scenario.fighterX.displayName,
+          buildProposal: scenario.fighterX.buildProposal,
+          policy: scenario.fighterX.policy,
+        },
+        fighterY: {
+          displayName: scenario.fighterY.displayName,
+          buildProposal: scenario.fighterY.buildProposal,
+          policy: scenario.fighterY.policy,
+        },
+      })),
+      assignments: scenarioRegistry.assignments.map((assignment) => ({
+        assignmentId: assignment.assignmentId,
+        scenarioId: assignment.scenarioId,
+        fighterACompetitor: assignment.fighterACompetitor,
+        fighterBCompetitor: assignment.fighterBCompetitor,
+        roleSwapped: assignment.roleSwapped,
+      })),
+    },
+    null,
+    2,
+  );
+  const serializedRunIndex = serializeGridActivationReadinessEnvelope(runIndexEnvelope);
+  const serializedRecords = serializeGridActivationReadinessEnvelope(recordsEnvelope);
+  const serializedReports = serializeGridActivationReadinessEnvelope(reportsEnvelope);
+  const serializedMetrics = serializeGridGrappleCoverageMetrics(metrics, supplementId);
+  const serializedDecision = serializeGridActivationReadinessEnvelope(decision);
+  const serializedBaseReference =
+    serializeGridGrappleCoverageBaseReference(baseReference);
+  const serializedReport = report;
+
+  const digests: Record<string, string> = {
+    [GRID_GRAPPLE_SUPPLEMENT_BASE_REFERENCE_ARTIFACT]: sha256Hex(serializedBaseReference),
+    [GRID_GRAPPLE_SUPPLEMENT_SEED_REGISTRY_ARTIFACT]: sha256Hex(serializedSeedRegistry),
+    [GRID_GRAPPLE_SUPPLEMENT_SCENARIO_REGISTRY_ARTIFACT]: sha256Hex(
+      serializedScenarioRegistry,
+    ),
+    [GRID_GRAPPLE_SUPPLEMENT_RUN_INDEX_ARTIFACT]: sha256Hex(serializedRunIndex),
+    [GRID_GRAPPLE_SUPPLEMENT_MATCH_RECORDS_ARTIFACT]: sha256Hex(serializedRecords),
+    [GRID_GRAPPLE_SUPPLEMENT_FACTUAL_REPORTS_ARTIFACT]: sha256Hex(serializedReports),
+    [GRID_GRAPPLE_SUPPLEMENT_METRICS_ARTIFACT]: sha256Hex(serializedMetrics),
+    [GRID_GRAPPLE_SUPPLEMENT_DECISION_ARTIFACT]: sha256Hex(serializedDecision),
+    [GRID_GRAPPLE_SUPPLEMENT_REPORT_ARTIFACT]: sha256Hex(serializedReport),
+  };
+
+  const manifest = buildGridGrappleCoverageSupplementManifest({
+    supplementId,
+    createdAt,
+    seedRegistry,
+    scenarioRegistry,
+    planChecksum,
+    decision,
+    combinedReadinessClassification: combined,
+    addendum,
+    digests,
+    decisionChecksum: digests[GRID_GRAPPLE_SUPPLEMENT_DECISION_ARTIFACT]!,
+    reportChecksum: digests[GRID_GRAPPLE_SUPPLEMENT_REPORT_ARTIFACT]!,
+  });
+  const serializedManifest = serializeGridGrappleCoverageSupplementManifest(manifest);
+
+  return {
+    [GRID_GRAPPLE_SUPPLEMENT_MANIFEST_FILE]: serializedManifest,
+    [GRID_GRAPPLE_SUPPLEMENT_BASE_REFERENCE_ARTIFACT]: serializedBaseReference,
+    [GRID_GRAPPLE_SUPPLEMENT_SEED_REGISTRY_ARTIFACT]: serializedSeedRegistry,
+    [GRID_GRAPPLE_SUPPLEMENT_SCENARIO_REGISTRY_ARTIFACT]: serializedScenarioRegistry,
+    [GRID_GRAPPLE_SUPPLEMENT_RUN_INDEX_ARTIFACT]: serializedRunIndex,
+    [GRID_GRAPPLE_SUPPLEMENT_MATCH_RECORDS_ARTIFACT]: serializedRecords,
+    [GRID_GRAPPLE_SUPPLEMENT_FACTUAL_REPORTS_ARTIFACT]: serializedReports,
+    [GRID_GRAPPLE_SUPPLEMENT_METRICS_ARTIFACT]: serializedMetrics,
+    [GRID_GRAPPLE_SUPPLEMENT_DECISION_ARTIFACT]: serializedDecision,
+    [GRID_GRAPPLE_SUPPLEMENT_REPORT_ARTIFACT]: serializedReport,
+  };
 }

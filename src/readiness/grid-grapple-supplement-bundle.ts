@@ -47,14 +47,16 @@ import {
   type GridGrappleCoverageMetrics,
 } from "./grid-grapple-metrics.js";
 import {
-  deriveGridGrappleCoverageDecision,
-  deriveCombinedReadinessClassification,
+  buildGridGrappleCoverageDecision,
+  buildGridActivationReadinessAddendum,
   deserializeGridGrappleCoverageDecision,
   gridActivationReadinessAddendumV1Schema,
   type GridGrappleCoverageDecisionV1,
   type GridActivationReadinessAddendumV1,
   type GridGrappleCoverageHardChecks,
 } from "./grid-grapple-decision.js";
+import { grappleAttackerSlotForRun } from "./grid-grapple-execution-core.js";
+import type { GridGrappleCoverageScenarioFamily } from "./grid-grapple-scenarios.js";
 import { buildGridGrappleCoverageReport } from "./grid-grapple-report.js";
 
 // ── Frozen official base v3 identity ────────────────────────────────────────
@@ -80,24 +82,66 @@ export const GRID_GRAPPLE_COVERAGE_BASE_V3_OVERTURN_EVENTS = 8 as const;
 export const GRID_GRAPPLE_COVERAGE_BASE_V3_GRAPPLE_REPOSITION_EVENTS = 0 as const;
 
 /**
+ * Frozen SHA-256 checksums of the official v3 base artifacts (Phase 3E2.1).
+ * Computed over the exact persisted bytes of the official bundle at
+ * `data/readiness/grid/0d8487a8-.../`. These pin the official base evidence
+ * so the supplement read-back never trusts self-declared hashes.
+ */
+export const GRID_GRAPPLE_COVERAGE_BASE_V3_MANIFEST_CHECKSUM =
+  "46b1b888dd66021fc811451c1db8f22f21c912621fc85a90a4cc52980ff06f85" as const;
+
+export const GRID_GRAPPLE_COVERAGE_BASE_V3_DECISION_CHECKSUM =
+  "d4bf61e1e5c74bbb9181f95d22889fdae263e1520e58e8720e2bfe8cfeb07b9a" as const;
+
+export const GRID_GRAPPLE_COVERAGE_BASE_V3_METRICS_CHECKSUM =
+  "113bfa2cc66e364eab637f3d7c00b8f05602c355133fe21eb2aae6d79467eee4" as const;
+
+/** The only non-pass gate of the official v3 evaluation. */
+export const GRID_GRAPPLE_COVERAGE_BASE_V3_NON_PASS_GATES: readonly string[] =
+  Object.freeze(["C04"]);
+
+/**
  * The frozen official base-v3 identity used by the production supplement
  * service. Tests may inject an equivalent validated fixture identity (same
- * suite checksum and canonical registry checksums, different evaluation ID).
+ * suite checksum, canonical registry checksums, classification, gates and
+ * counts, different evaluation ID and fixture artifact hashes).
  */
 export interface GridGrappleCoverageBaseV3Identity {
   readonly evaluationId: string;
+  readonly suiteId: "grid-activation-readiness-v3";
   readonly suiteChecksum: string;
+  readonly seedRegistryId: string;
+  readonly seedRegistryChecksum: string;
+  readonly scenarioRegistryId: string;
+  readonly scenarioRegistryChecksum: string;
+  readonly classification: "inconclusive";
+  readonly nonPassGates: readonly string[];
+  readonly knockbackEvents: number;
+  readonly overturnEvents: number;
+  readonly grappleRepositionEvents: number;
+  readonly manifestChecksum: string;
+  readonly decisionChecksum: string;
+  readonly metricsChecksum: string;
 }
 
 export const GRID_GRAPPLE_COVERAGE_BASE_V3_IDENTITY: GridGrappleCoverageBaseV3Identity =
   Object.freeze({
     evaluationId: GRID_GRAPPLE_COVERAGE_BASE_V3_EVALUATION_ID,
+    suiteId: "grid-activation-readiness-v3" as const,
     suiteChecksum: GRID_GRAPPLE_COVERAGE_BASE_V3_SUITE_CHECKSUM,
+    seedRegistryId: "grid-readiness-development-v1" as const,
+    seedRegistryChecksum: GRID_GRAPPLE_COVERAGE_BASE_V3_SEED_REGISTRY_CHECKSUM,
+    scenarioRegistryId: "grid-readiness-scenarios-v1" as const,
+    scenarioRegistryChecksum: GRID_GRAPPLE_COVERAGE_BASE_V3_SCENARIO_REGISTRY_CHECKSUM,
+    classification: "inconclusive" as const,
+    nonPassGates: GRID_GRAPPLE_COVERAGE_BASE_V3_NON_PASS_GATES,
+    knockbackEvents: GRID_GRAPPLE_COVERAGE_BASE_V3_KNOCKBACK_EVENTS,
+    overturnEvents: GRID_GRAPPLE_COVERAGE_BASE_V3_OVERTURN_EVENTS,
+    grappleRepositionEvents: GRID_GRAPPLE_COVERAGE_BASE_V3_GRAPPLE_REPOSITION_EVENTS,
+    manifestChecksum: GRID_GRAPPLE_COVERAGE_BASE_V3_MANIFEST_CHECKSUM,
+    decisionChecksum: GRID_GRAPPLE_COVERAGE_BASE_V3_DECISION_CHECKSUM,
+    metricsChecksum: GRID_GRAPPLE_COVERAGE_BASE_V3_METRICS_CHECKSUM,
   });
-
-/** The only non-pass gate of the official v3 evaluation. */
-export const GRID_GRAPPLE_COVERAGE_BASE_V3_NON_PASS_GATES: readonly string[] =
-  Object.freeze(["C04"]);
 
 /**
  * Anchored reference to the official v3 base evaluation, captured before any
@@ -169,9 +213,9 @@ export function anchorGridGrappleCoverageBaseV3(
       `Official base evaluation ID mismatch: expected ${expectedBaseV3.evaluationId}, received ${manifest.evaluationId}`,
     );
   }
-  if (manifest.suiteId !== GRID_GRAPPLE_COVERAGE_BASE_V3_SUITE_ID) {
+  if (manifest.suiteId !== expectedBaseV3.suiteId) {
     throw new GridGrappleCoverageBaseAnchorError(
-      `Official base suite ID mismatch: expected ${GRID_GRAPPLE_COVERAGE_BASE_V3_SUITE_ID}, received ${manifest.suiteId}`,
+      `Official base suite ID mismatch: expected ${expectedBaseV3.suiteId}, received ${manifest.suiteId}`,
     );
   }
   if (manifest.suiteChecksum !== expectedBaseV3.suiteChecksum) {
@@ -179,24 +223,29 @@ export function anchorGridGrappleCoverageBaseV3(
       `Official base suite checksum mismatch: expected ${expectedBaseV3.suiteChecksum}, received ${manifest.suiteChecksum}`,
     );
   }
-  if (
-    manifest.seedRegistryChecksum !== GRID_GRAPPLE_COVERAGE_BASE_V3_SEED_REGISTRY_CHECKSUM
-  ) {
+  if (manifest.seedRegistryId !== expectedBaseV3.seedRegistryId) {
     throw new GridGrappleCoverageBaseAnchorError(
-      `Official base seed-registry checksum mismatch: expected ${GRID_GRAPPLE_COVERAGE_BASE_V3_SEED_REGISTRY_CHECKSUM}, received ${manifest.seedRegistryChecksum}`,
+      `Official base seed-registry ID mismatch: expected ${expectedBaseV3.seedRegistryId}, received ${manifest.seedRegistryId}`,
     );
   }
-  if (
-    manifest.scenarioRegistryChecksum !==
-    GRID_GRAPPLE_COVERAGE_BASE_V3_SCENARIO_REGISTRY_CHECKSUM
-  ) {
+  if (manifest.seedRegistryChecksum !== expectedBaseV3.seedRegistryChecksum) {
     throw new GridGrappleCoverageBaseAnchorError(
-      `Official base scenario-registry checksum mismatch: expected ${GRID_GRAPPLE_COVERAGE_BASE_V3_SCENARIO_REGISTRY_CHECKSUM}, received ${manifest.scenarioRegistryChecksum}`,
+      `Official base seed-registry checksum mismatch: expected ${expectedBaseV3.seedRegistryChecksum}, received ${manifest.seedRegistryChecksum}`,
     );
   }
-  if (manifest.decision !== "inconclusive") {
+  if (manifest.scenarioRegistryId !== expectedBaseV3.scenarioRegistryId) {
     throw new GridGrappleCoverageBaseAnchorError(
-      `Official base classification must be inconclusive; received ${manifest.decision}`,
+      `Official base scenario-registry ID mismatch: expected ${expectedBaseV3.scenarioRegistryId}, received ${manifest.scenarioRegistryId}`,
+    );
+  }
+  if (manifest.scenarioRegistryChecksum !== expectedBaseV3.scenarioRegistryChecksum) {
+    throw new GridGrappleCoverageBaseAnchorError(
+      `Official base scenario-registry checksum mismatch: expected ${expectedBaseV3.scenarioRegistryChecksum}, received ${manifest.scenarioRegistryChecksum}`,
+    );
+  }
+  if (manifest.decision !== expectedBaseV3.classification) {
+    throw new GridGrappleCoverageBaseAnchorError(
+      `Official base classification mismatch: expected ${expectedBaseV3.classification}, received ${manifest.decision}`,
     );
   }
 
@@ -209,13 +258,11 @@ export function anchorGridGrappleCoverageBaseV3(
   const decision = decisionParsed.decision;
   const nonPass = decision.gates.filter((g) => g.outcome !== "pass").map((g) => g.gateId);
   if (
-    nonPass.length !== GRID_GRAPPLE_COVERAGE_BASE_V3_NON_PASS_GATES.length ||
-    nonPass.some(
-      (id, index) => id !== GRID_GRAPPLE_COVERAGE_BASE_V3_NON_PASS_GATES[index],
-    )
+    nonPass.length !== expectedBaseV3.nonPassGates.length ||
+    nonPass.some((id, index) => id !== expectedBaseV3.nonPassGates[index])
   ) {
     throw new GridGrappleCoverageBaseAnchorError(
-      `Official base evaluation must have exactly C04 as its only non-pass gate; received ${nonPass.join(", ") || "none"}`,
+      `Official base evaluation must have exactly ${expectedBaseV3.nonPassGates.join(", ") || "no"} non-pass gates; received ${nonPass.join(", ") || "none"}`,
     );
   }
 
@@ -226,22 +273,39 @@ export function anchorGridGrappleCoverageBaseV3(
     );
   }
   const combat = metricsParsed.metrics.combat;
-  if (combat.knockbackEvents !== GRID_GRAPPLE_COVERAGE_BASE_V3_KNOCKBACK_EVENTS) {
+  if (combat.knockbackEvents !== expectedBaseV3.knockbackEvents) {
     throw new GridGrappleCoverageBaseAnchorError(
-      `Official base knockback events must be ${GRID_GRAPPLE_COVERAGE_BASE_V3_KNOCKBACK_EVENTS}; received ${combat.knockbackEvents}`,
+      `Official base knockback events must be ${expectedBaseV3.knockbackEvents}; received ${combat.knockbackEvents}`,
     );
   }
-  if (combat.overturnEvents !== GRID_GRAPPLE_COVERAGE_BASE_V3_OVERTURN_EVENTS) {
+  if (combat.overturnEvents !== expectedBaseV3.overturnEvents) {
     throw new GridGrappleCoverageBaseAnchorError(
-      `Official base overturn events must be ${GRID_GRAPPLE_COVERAGE_BASE_V3_OVERTURN_EVENTS}; received ${combat.overturnEvents}`,
+      `Official base overturn events must be ${expectedBaseV3.overturnEvents}; received ${combat.overturnEvents}`,
     );
   }
-  if (
-    combat.grappleRepositionEvents !==
-    GRID_GRAPPLE_COVERAGE_BASE_V3_GRAPPLE_REPOSITION_EVENTS
-  ) {
+  if (combat.grappleRepositionEvents !== expectedBaseV3.grappleRepositionEvents) {
     throw new GridGrappleCoverageBaseAnchorError(
-      `Official base grapple reposition events must be ${GRID_GRAPPLE_COVERAGE_BASE_V3_GRAPPLE_REPOSITION_EVENTS}; received ${combat.grappleRepositionEvents}`,
+      `Official base grapple reposition events must be ${expectedBaseV3.grappleRepositionEvents}; received ${combat.grappleRepositionEvents}`,
+    );
+  }
+
+  // Pinned artifact hashes over the exact persisted bytes (never self-declared).
+  const manifestChecksum = sha256Hex(manifestText);
+  const decisionChecksum = sha256Hex(decisionText);
+  const metricsChecksum = sha256Hex(metricsText);
+  if (manifestChecksum !== expectedBaseV3.manifestChecksum) {
+    throw new GridGrappleCoverageBaseAnchorError(
+      `Official base manifest checksum mismatch: expected ${expectedBaseV3.manifestChecksum}, received ${manifestChecksum}`,
+    );
+  }
+  if (decisionChecksum !== expectedBaseV3.decisionChecksum) {
+    throw new GridGrappleCoverageBaseAnchorError(
+      `Official base decision checksum mismatch: expected ${expectedBaseV3.decisionChecksum}, received ${decisionChecksum}`,
+    );
+  }
+  if (metricsChecksum !== expectedBaseV3.metricsChecksum) {
+    throw new GridGrappleCoverageBaseAnchorError(
+      `Official base metrics checksum mismatch: expected ${expectedBaseV3.metricsChecksum}, received ${metricsChecksum}`,
     );
   }
 
@@ -258,11 +322,171 @@ export function anchorGridGrappleCoverageBaseV3(
     knockbackEvents: combat.knockbackEvents,
     overturnEvents: combat.overturnEvents,
     grappleRepositionEvents: combat.grappleRepositionEvents,
-    manifestChecksum: sha256Hex(manifestText),
-    decisionChecksum: sha256Hex(decisionText),
-    metricsChecksum: sha256Hex(metricsText),
+    manifestChecksum,
+    decisionChecksum,
+    metricsChecksum,
   };
   return reference;
+}
+
+// ── Frozen official supplement identity and anchor (Phase 3E2.1) ───────────
+
+/** The official Phase 3E2 grapple-coverage supplement. */
+export const GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_ID =
+  "4eca43e2-cc3d-41ee-bfad-73e18238ff61" as const;
+
+export const GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_DECISION =
+  "coverage_confirmed" as const;
+
+export const GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_COMBINED =
+  "ready_for_opt_in_beta_review" as const;
+
+/**
+ * Frozen SHA-256 checksums of the official Phase 3E2 supplement artifacts,
+ * computed over the exact persisted bytes at
+ * `data/readiness/grid-supplements/4eca43e2-.../`.
+ */
+export const GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_MANIFEST_CHECKSUM =
+  "a9220d5242aed168c4d5928e96ac31fd4a9b758280fbc7168af94cf059bf0a0c" as const;
+
+export const GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_BASE_REFERENCE_CHECKSUM =
+  "c28301140d0a2aaba6682f0abb33943ce4b1baa967d91da1983ebdde8d1bec0e" as const;
+
+export const GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_METRICS_CHECKSUM =
+  "76d1290fdc7f7972057d28fa4188318556fff1f86e3138c6415cec6887f50320" as const;
+
+export const GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_DECISION_CHECKSUM =
+  "7da3d619e519ce13538edd5173078b9fb605e367007f1a3f89b235a9a4cb93b3" as const;
+
+export const GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_REPORT_CHECKSUM =
+  "5569aecba51109df0ee141ba8b1e1d77e2fbe544e9d1854d0ae10176336de1f4" as const;
+
+export const GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_PLAN_CHECKSUM =
+  "e30dda08253c3cdaba771a5c4af810fcb17cd7a7669a1efcc2b86e5d9df01a26" as const;
+
+export interface GridGrappleCoverageOfficialSupplementIdentity {
+  readonly supplementId: string;
+  readonly suiteId: "grid-grapple-coverage-supplement-v1";
+  readonly scenarioRegistryChecksum: string;
+  readonly planChecksum: string;
+  readonly decision: "coverage_confirmed";
+  readonly combinedReadinessClassification: "ready_for_opt_in_beta_review";
+  readonly manifestChecksum: string;
+  readonly baseReferenceChecksum: string;
+  readonly metricsChecksum: string;
+  readonly decisionChecksum: string;
+  readonly reportChecksum: string;
+}
+
+export const GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_IDENTITY: GridGrappleCoverageOfficialSupplementIdentity =
+  Object.freeze({
+    supplementId: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_ID,
+    suiteId: "grid-grapple-coverage-supplement-v1" as const,
+    scenarioRegistryChecksum: GRID_GRAPPLE_COVERAGE_CANONICAL_SCENARIO_REGISTRY_CHECKSUM,
+    planChecksum: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_PLAN_CHECKSUM,
+    decision: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_DECISION,
+    combinedReadinessClassification: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_COMBINED,
+    manifestChecksum: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_MANIFEST_CHECKSUM,
+    baseReferenceChecksum:
+      GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_BASE_REFERENCE_CHECKSUM,
+    metricsChecksum: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_METRICS_CHECKSUM,
+    decisionChecksum: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_DECISION_CHECKSUM,
+    reportChecksum: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_REPORT_CHECKSUM,
+  });
+
+export class GridGrappleCoverageOfficialSupplementAnchorError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GridGrappleCoverageOfficialSupplementAnchorError";
+  }
+}
+
+/**
+ * Pure anchor for the official Phase 3E2 supplement (Phase 3E2.1). Runs the
+ * complete strengthened generic supplement validator, then requires the
+ * frozen official supplement identity: the exact supplement ID, the frozen
+ * scenario-registry and plan checksums, `coverage_confirmed`,
+ * `ready_for_opt_in_beta_review` and all frozen official artifact hashes.
+ *
+ * This anchor is evidence preparation for a later governance decision; it
+ * must not itself perform that decision.
+ */
+export function anchorOfficialGridGrappleCoverageSupplement(
+  contents: Record<string, string>,
+): GridGrappleCoverageOfficialSupplementIdentity {
+  // 1. Complete strengthened generic supplement validation (including the
+  // pinned official base identity).
+  const result = validateGridGrappleCoverageSupplementBundle(
+    contents,
+    GRID_GRAPPLE_COVERAGE_BASE_V3_IDENTITY,
+  );
+
+  const manifestParsed = deserializeGridGrappleCoverageSupplementManifest(
+    contents[GRID_GRAPPLE_SUPPLEMENT_MANIFEST_FILE]!,
+  );
+  if (!manifestParsed.ok) {
+    throw new GridGrappleCoverageOfficialSupplementAnchorError(
+      `Official supplement manifest did not parse: ${manifestParsed.errors}`,
+    );
+  }
+  const manifest = manifestParsed.manifest;
+
+  if (manifest.supplementId !== GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_ID) {
+    throw new GridGrappleCoverageOfficialSupplementAnchorError(
+      `Official supplement ID mismatch: expected ${GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_ID}, received ${manifest.supplementId}`,
+    );
+  }
+  if (
+    manifest.scenarioRegistryChecksum !==
+    GRID_GRAPPLE_COVERAGE_CANONICAL_SCENARIO_REGISTRY_CHECKSUM
+  ) {
+    throw new GridGrappleCoverageOfficialSupplementAnchorError(
+      "Official supplement scenario-registry checksum does not match the frozen value",
+    );
+  }
+  if (
+    manifest.planChecksum !==
+    GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_IDENTITY.planChecksum
+  ) {
+    throw new GridGrappleCoverageOfficialSupplementAnchorError(
+      "Official supplement plan checksum does not match the frozen value",
+    );
+  }
+  if (manifest.supplementDecision !== "coverage_confirmed") {
+    throw new GridGrappleCoverageOfficialSupplementAnchorError(
+      `Official supplement decision must be coverage_confirmed; received ${manifest.supplementDecision}`,
+    );
+  }
+  if (manifest.combinedReadinessClassification !== "ready_for_opt_in_beta_review") {
+    throw new GridGrappleCoverageOfficialSupplementAnchorError(
+      `Official combined readiness classification must be ready_for_opt_in_beta_review; received ${manifest.combinedReadinessClassification}`,
+    );
+  }
+
+  const hashes: Record<string, string> = {
+    manifest: sha256Hex(contents[GRID_GRAPPLE_SUPPLEMENT_MANIFEST_FILE]!),
+    baseReference: sha256Hex(contents[GRID_GRAPPLE_SUPPLEMENT_BASE_REFERENCE_ARTIFACT]!),
+    metrics: sha256Hex(contents[GRID_GRAPPLE_SUPPLEMENT_METRICS_ARTIFACT]!),
+    decision: sha256Hex(contents[GRID_GRAPPLE_SUPPLEMENT_DECISION_ARTIFACT]!),
+    report: sha256Hex(contents[GRID_GRAPPLE_SUPPLEMENT_REPORT_ARTIFACT]!),
+  };
+  const expected: Record<string, string> = {
+    manifest: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_MANIFEST_CHECKSUM,
+    baseReference: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_BASE_REFERENCE_CHECKSUM,
+    metrics: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_METRICS_CHECKSUM,
+    decision: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_DECISION_CHECKSUM,
+    report: GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_REPORT_CHECKSUM,
+  };
+  for (const name of Object.keys(expected)) {
+    if (hashes[name] !== expected[name]) {
+      throw new GridGrappleCoverageOfficialSupplementAnchorError(
+        `Official supplement ${name} checksum mismatch: expected ${expected[name]}, received ${hashes[name]}`,
+      );
+    }
+  }
+
+  void result;
+  return GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_IDENTITY;
 }
 
 // ── Supplement bundle inventory ─────────────────────────────────────────────
@@ -891,14 +1115,24 @@ function sameJson(a: unknown, b: unknown): boolean {
 }
 
 /**
- * Recomputation of the supplemental metrics from the persisted artifacts:
- * per-run grapple evidence from the actual records, final-state agreements
- * from the shared agreement rule, and the canonical 48-run execution counts.
+ * Recomputation of the supplemental metrics from the persisted artifacts
+ * (Phase 3E2.1). Uses the canonical plan entries, plan-derived attacker slots,
+ * the authoritative record result/rounds/event-count, the strengthened causal
+ * grapple extractor and complete report/final-state agreement. Operational
+ * values are bound to the manifest attestations. The persisted metrics
+ * artifact is always the value being checked, never the source for non-timing
+ * facts.
  */
 export function recomputeGridGrappleCoverageMetricsFromArtifacts(input: {
   runIndex: GridGrappleCoverageRunIndexEnvelope;
   records: GridGrappleCoverageMatchRecordsEnvelope;
   reports: GridGrappleCoverageFactualReportsEnvelope;
+  plan: GridGrappleCoverageRunPlan;
+  scenarioRegistry: GridGrappleCoverageScenarioRegistry;
+  manifestEvidence: {
+    deterministicReexecutionPassed: boolean;
+    inputsUnmodified: boolean;
+  };
   persistedTiming: {
     totalElapsedMs: number;
     meanMsPerMatch: number;
@@ -906,53 +1140,90 @@ export function recomputeGridGrappleCoverageMetricsFromArtifacts(input: {
     p95MsPerMatch: number;
   };
 }): GridGrappleCoverageMetrics {
-  const { runIndex, records, reports, persistedTiming } = input;
+  const {
+    runIndex,
+    records,
+    reports,
+    plan,
+    scenarioRegistry,
+    manifestEvidence,
+    persistedTiming,
+  } = input;
   if (
     runIndex.items.length !== GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT ||
     records.items.length !== GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT ||
-    reports.items.length !== GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT
+    reports.items.length !== GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT ||
+    plan.runs.length !== GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT
   ) {
     throw new Error(
-      "Grid grapple coverage metrics recomputation requires exactly 48 run-index, record and report items",
+      "Grid grapple coverage metrics recomputation requires exactly 48 run-index, record, report and plan items",
     );
   }
-  const runs = runIndex.items.map((entry, index) => {
+  const scenario = scenarioRegistry.scenarios[0]!;
+  const runs = plan.runs.map((planRun, index) => {
+    const entry = runIndex.items[index]!;
     const record = records.items[index]!;
     const report = reports.items[index]!;
+    const attackerSlot = grappleAttackerSlotForRun(planRun);
     if (
       record.matchId !== entry.matchId ||
       report.matchId !== entry.matchId ||
-      (entry.attackerSlot !== "fighter_a" && entry.attackerSlot !== "fighter_b")
+      entry.attackerSlot !== attackerSlot ||
+      entry.runNumber !== planRun.runNumber ||
+      entry.scenarioId !== planRun.scenarioId ||
+      entry.assignmentId !== planRun.assignmentId ||
+      entry.seed !== planRun.seed ||
+      entry.roleSwapped !== planRun.roleSwapped ||
+      entry.fighterACompetitor !== planRun.fighterACompetitor ||
+      entry.fighterBCompetitor !== planRun.fighterBCompetitor ||
+      entry.recordIndex !== index ||
+      entry.reportIndex !== index
     ) {
       throw new Error(
-        `Grid grapple coverage metrics recomputation: run ${entry.runNumber} record/report/attacker binding mismatch`,
+        `Grid grapple coverage metrics recomputation: run ${planRun.runNumber} does not equal the canonical plan`,
+      );
+    }
+    // The authoritative record is the source for result facts after the
+    // run-index/record agreement is established.
+    if (
+      record.seed !== entry.seed ||
+      record.rounds !== entry.rounds ||
+      record.result.winner !== entry.winner ||
+      record.result.method !== entry.resultMethod ||
+      record.events.length !== entry.eventCount ||
+      !recordConfigMatchesCanonical(record, scenario, planRun)
+    ) {
+      throw new Error(
+        `Grid grapple coverage metrics recomputation: run ${planRun.runNumber} record does not agree with the run index or canonical scenario`,
       );
     }
     // Throws on any malformed/chronologically invalid/duplicate/impossible
     // event fact: any inspector failure invalidates the supplement.
     inspectGridReadinessRecordEvidence(record);
     assertGridReadinessRecordReportFinalAgreement(record, report);
-    const evidence = extractGridGrappleRunEvidence(record, entry.attackerSlot);
+    const evidence = extractGridGrappleRunEvidence(record, attackerSlot);
     return {
-      runNumber: entry.runNumber,
-      seed: entry.seed,
-      attackerSlot: entry.attackerSlot,
-      winner: entry.winner,
-      resultMethod: entry.resultMethod,
-      rounds: entry.rounds,
-      eventCount: entry.eventCount,
+      runNumber: planRun.runNumber,
+      seed: planRun.seed,
+      attackerSlot,
+      winner: record.result.winner,
+      resultMethod: record.result.method,
+      rounds: record.rounds,
+      eventCount: record.events.length,
       evidence,
     };
   });
   const metrics = computeGridGrappleCoverageMetrics({
     runs,
     execution: {
-      deterministicRuns: GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT,
+      deterministicRuns: manifestEvidence.deterministicReexecutionPassed
+        ? GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT
+        : 0,
       schemaValidRecords: records.items.length,
       schemaValidReports: reports.items.length,
       finalStateAgreements: records.items.length,
       invalidEventCount: 0,
-      mutationFailures: 0,
+      mutationFailures: manifestEvidence.inputsUnmodified ? 0 : 1,
     },
     timing: {
       totalElapsedMs: persistedTiming.totalElapsedMs,
@@ -986,6 +1257,51 @@ function hardChecksFromEvidence(evidenceList: readonly GridGrappleRunEvidence[])
     resolverDisagreementsAbsent: malformed === 0,
     wrongFighterAbsent: wrongFighter === 0,
   };
+}
+
+function buildProposalMatches(recordBuild: unknown, expectedProposal: unknown): boolean {
+  const record = recordBuild as { proposal?: unknown };
+  return sameJson(record?.proposal, expectedProposal);
+}
+
+function policyMatches(recordPolicy: unknown, expectedPolicy: unknown): boolean {
+  return sameJson(recordPolicy, expectedPolicy);
+}
+
+/**
+ * Phase 3E2.1: exact supplemental scenario binding. Requires the record's
+ * complete fighter configurations (machine name, chassis, mobility, weapon,
+ * utility, all five armour values and the complete action policy) and the
+ * ruleset/catalogue versions to match the canonical scenario and assignment,
+ * with the attacker configuration carrying weapon `grappler` and the target
+ * configuration carrying weapon `hammer`.
+ */
+function recordConfigMatchesCanonical(
+  record: GridGrappleCoverageMatchRecordsEnvelope["items"][number],
+  scenario: GridGrappleCoverageScenarioFamily,
+  run: GridGrappleCoverageRun,
+): boolean {
+  const configA = run.fighterACompetitor === "x" ? scenario.fighterX : scenario.fighterY;
+  const configB = run.fighterBCompetitor === "x" ? scenario.fighterX : scenario.fighterY;
+  const attackerProposal =
+    run.fighterACompetitor === "x"
+      ? (record.config.fighterA.build as { proposal?: { weaponId?: string } }).proposal
+      : (record.config.fighterB.build as { proposal?: { weaponId?: string } }).proposal;
+  const targetProposal =
+    run.fighterACompetitor === "x"
+      ? (record.config.fighterB.build as { proposal?: { weaponId?: string } }).proposal
+      : (record.config.fighterA.build as { proposal?: { weaponId?: string } }).proposal;
+  return (
+    record.config.seed === run.seed &&
+    buildProposalMatches(record.config.fighterA.build, configA.buildProposal) &&
+    policyMatches(record.config.fighterA.policy, configA.policy) &&
+    buildProposalMatches(record.config.fighterB.build, configB.buildProposal) &&
+    policyMatches(record.config.fighterB.policy, configB.policy) &&
+    record.config.rulesetVersion === "0.2.0" &&
+    record.config.catalogueVersion === "1" &&
+    attackerProposal?.weaponId === "grappler" &&
+    targetProposal?.weaponId === "hammer"
+  );
 }
 
 /**
@@ -1138,17 +1454,26 @@ export function validateGridGrappleCoverageSupplementBundle(
     "manifest report checksum mismatch",
   );
 
-  // Base reference must be the frozen official base.
+  // Base reference must be the frozen official base: every identity field and
+  // the pinned artifact hashes (never self-declared).
   check(
     baseReference.evaluationId === expectedBaseV3.evaluationId &&
+      baseReference.suiteId === expectedBaseV3.suiteId &&
       baseReference.suiteChecksum === expectedBaseV3.suiteChecksum &&
-      baseReference.classification === "inconclusive" &&
-      baseReference.nonPassGates.length === 1 &&
-      baseReference.nonPassGates[0] === "C04" &&
-      baseReference.knockbackEvents === GRID_GRAPPLE_COVERAGE_BASE_V3_KNOCKBACK_EVENTS &&
-      baseReference.overturnEvents === GRID_GRAPPLE_COVERAGE_BASE_V3_OVERTURN_EVENTS &&
-      baseReference.grappleRepositionEvents ===
-        GRID_GRAPPLE_COVERAGE_BASE_V3_GRAPPLE_REPOSITION_EVENTS,
+      baseReference.seedRegistryId === expectedBaseV3.seedRegistryId &&
+      baseReference.seedRegistryChecksum === expectedBaseV3.seedRegistryChecksum &&
+      baseReference.scenarioRegistryId === expectedBaseV3.scenarioRegistryId &&
+      baseReference.scenarioRegistryChecksum ===
+        expectedBaseV3.scenarioRegistryChecksum &&
+      baseReference.classification === expectedBaseV3.classification &&
+      baseReference.nonPassGates.length === expectedBaseV3.nonPassGates.length &&
+      baseReference.nonPassGates.every((g, i) => g === expectedBaseV3.nonPassGates[i]) &&
+      baseReference.knockbackEvents === expectedBaseV3.knockbackEvents &&
+      baseReference.overturnEvents === expectedBaseV3.overturnEvents &&
+      baseReference.grappleRepositionEvents === expectedBaseV3.grappleRepositionEvents &&
+      baseReference.manifestChecksum === expectedBaseV3.manifestChecksum &&
+      baseReference.decisionChecksum === expectedBaseV3.decisionChecksum &&
+      baseReference.metricsChecksum === expectedBaseV3.metricsChecksum,
     "base reference does not match the frozen official v3 evaluation",
   );
   check(
@@ -1184,28 +1509,97 @@ export function validateGridGrappleCoverageSupplementBundle(
     "manifest plan checksum does not match the recomputed run plan",
   );
 
-  // Core cross-agreement: record/report/run-index binding, shared evidence
-  // inspector, complete final-state agreement, recomputed run checksums and
-  // authoritative grapple evidence per run.
+  // Phase 3E2.1: one exact supplement ID across every envelope and artifact,
+  // and the decision createdAt must equal the manifest createdAt.
+  check(
+    runIndex.supplementId === manifest.supplementId &&
+      records.supplementId === manifest.supplementId &&
+      reports.supplementId === manifest.supplementId &&
+      metrics.supplementId === manifest.supplementId &&
+      decision.supplementId === manifest.supplementId &&
+      manifest.addendum.supplement.supplementId === manifest.supplementId,
+    "supplement ID is not identical across the manifest, run index, records, reports, metrics, decision and addendum",
+  );
+  check(
+    decision.createdAt === manifest.createdAt,
+    "decision createdAt does not equal the manifest createdAt",
+  );
+
+  // Core cross-agreement: canonical plan binding, record/report/run-index
+  // binding, supplemental scenario/config binding, shared evidence inspector,
+  // complete final-state agreement, recomputed run checksums and the
+  // strengthened causal grapple evidence per run.
+  const scenario = scenarioRegistry.scenarios[0]!;
   const evidenceList: GridGrappleRunEvidence[] = [];
-  for (let i = 0; i < runIndex.items.length; i++) {
+  for (let i = 0; i < plan.runs.length; i++) {
+    const planRun = plan.runs[i]!;
     const entry = runIndex.items[i]!;
     const record = records.items[i]!;
     const report = reports.items[i]!;
-    const label = `run ${entry.runNumber} (${entry.assignmentId}, seed ${entry.seed})`;
+    const label = `run ${planRun.runNumber} (${planRun.assignmentId}, seed ${planRun.seed})`;
+
+    // Phase 4: every persisted run must equal the canonical plan.
     check(
-      record.matchId === entry.matchId && report.matchId === entry.matchId,
-      `${label} record/report binding mismatch`,
+      entry.runNumber === planRun.runNumber &&
+        entry.scenarioId === planRun.scenarioId &&
+        entry.assignmentId === planRun.assignmentId &&
+        entry.seed === planRun.seed &&
+        entry.roleSwapped === planRun.roleSwapped &&
+        entry.fighterACompetitor === planRun.fighterACompetitor &&
+        entry.fighterBCompetitor === planRun.fighterBCompetitor,
+      `${label} persisted run-index entry does not equal the canonical run plan`,
+    );
+    // The authoritative attacker slot is derived from the canonical plan,
+    // never trusted from the persisted entry.
+    const attackerSlot = grappleAttackerSlotForRun(planRun);
+    check(
+      entry.attackerSlot === attackerSlot,
+      `${label} persisted attackerSlot does not match the canonical plan`,
     );
     check(
-      record.seed === entry.seed && report.seed === entry.seed,
-      `${label} record/report seed mismatch`,
+      entry.recordIndex === i && entry.reportIndex === i,
+      `${label} record/report index does not match the canonical run order`,
+    );
+    check(
+      record.matchId === entry.matchId &&
+        record.seed === entry.seed &&
+        record.rounds === entry.rounds &&
+        record.result.winner === entry.winner &&
+        record.result.method === entry.resultMethod &&
+        record.events.length === entry.eventCount,
+      `${label} run-index summary does not agree with the authoritative record`,
+    );
+    check(
+      report.matchId === entry.matchId && report.seed === entry.seed,
+      `${label} report binding mismatch`,
     );
     check(
       report.rounds === record.rounds &&
         report.winner === record.result.winner &&
         report.resultMethod === record.result.method,
       `${label} record/report result binding mismatch`,
+    );
+    // Phase 5: exact supplemental scenario/config binding.
+    check(
+      recordConfigMatchesCanonical(record, scenario, planRun),
+      `${label} record configuration does not match the canonical supplemental scenario`,
+    );
+    // Runtime identity must be exactly grid 0.3.0 / grid-3x3-v1 / 0.2.0 / 1.
+    check(
+      record.simulatorVersion === "0.3.0" &&
+        record.positioningModel === "grid-3x3-v1" &&
+        record.rulesetVersion === "0.2.0" &&
+        record.catalogueVersion === "1" &&
+        report.simulatorVersion === "0.3.0" &&
+        report.positioningModel === "grid-3x3-v1" &&
+        report.rulesetVersion === "0.2.0" &&
+        report.catalogueVersion === "1",
+      `${label} record/report runtime identity is not grid 0.3.0 / grid-3x3-v1 / 0.2.0 / 1`,
+    );
+    // Phase 6: every match record uses the injected supplement timestamp.
+    check(
+      record.createdAt === manifest.createdAt,
+      `${label} record createdAt does not match the injected supplement timestamp`,
     );
     try {
       inspectGridReadinessRecordEvidence(record);
@@ -1238,7 +1632,7 @@ export function validateGridGrappleCoverageSupplementBundle(
     );
     let evidence: GridGrappleRunEvidence;
     try {
-      evidence = extractGridGrappleRunEvidence(record, entry.attackerSlot);
+      evidence = extractGridGrappleRunEvidence(record, attackerSlot);
     } catch (e) {
       check(
         false,
@@ -1267,13 +1661,22 @@ export function validateGridGrappleCoverageSupplementBundle(
     );
   }
 
-  // Recomputed metrics must equal the persisted metrics.
+  // Recomputed metrics must equal the persisted metrics (Phase 7: canonical
+  // plan facts, plan-derived attacker slots, authoritative records, the
+  // strengthened causal extractor and manifest-attestation-bound operational
+  // values).
   let recomputedMetrics: GridGrappleCoverageMetrics | null = null;
   try {
     recomputedMetrics = recomputeGridGrappleCoverageMetricsFromArtifacts({
       runIndex,
       records,
       reports,
+      plan,
+      scenarioRegistry,
+      manifestEvidence: {
+        deterministicReexecutionPassed: manifest.evidence.deterministicReexecutionPassed,
+        inputsUnmodified: manifest.evidence.inputsUnmodified,
+      },
       persistedTiming: {
         totalElapsedMs: metrics.timing.totalElapsedMs,
         meanMsPerMatch: metrics.timing.meanMsPerMatch,
@@ -1303,6 +1706,37 @@ export function validateGridGrappleCoverageSupplementBundle(
       sameJson(persistedShape, recomputedShape),
       "persisted metrics do not match the metrics recomputed from the persisted records and reports",
     );
+
+    // Phase 8: informational timing validation. Timing is excluded from the
+    // decision; a timing-only change must never alter a classification.
+    const timing = metrics.timing;
+    if (
+      !Number.isFinite(timing.totalElapsedMs) ||
+      !Number.isFinite(timing.meanMsPerMatch) ||
+      !Number.isFinite(timing.medianMsPerMatch) ||
+      !Number.isFinite(timing.p95MsPerMatch) ||
+      timing.totalElapsedMs < 0 ||
+      timing.meanMsPerMatch < 0 ||
+      timing.medianMsPerMatch < 0 ||
+      timing.p95MsPerMatch < 0
+    ) {
+      failures.push("supplement metrics timing values must be finite and non-negative");
+    }
+    // Documented numeric tolerance: mean must approximate totalElapsedMs / 48
+    // within a relative tolerance of 0.05 plus a small absolute floor.
+    const expectedMean =
+      timing.totalElapsedMs / GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT;
+    const meanTolerance = Math.max(expectedMean, 1) * 0.05 + Number.EPSILON;
+    if (Math.abs(timing.meanMsPerMatch - expectedMean) > meanTolerance) {
+      failures.push(
+        `supplement metrics timing meanMsPerMatch ${timing.meanMsPerMatch} does not approximate totalElapsedMs / 48 (${expectedMean.toFixed(4)})`,
+      );
+    }
+    if (timing.p95MsPerMatch < timing.medianMsPerMatch) {
+      failures.push(
+        "supplement metrics timing p95MsPerMatch must be at least medianMsPerMatch",
+      );
+    }
   }
 
   if (recomputedMetrics === null) {
@@ -1311,15 +1745,25 @@ export function validateGridGrappleCoverageSupplementBundle(
     );
   }
 
-  // Recomputed decision must equal the persisted decision.
+  // Phase 9: rebuild the COMPLETE decision artifact from recomputed metrics
+  // and hard checks derived from validated facts and manifest attestations.
+  // Exact structural equality with the persisted decision is required.
   const grappleHard = hardChecksFromEvidence(evidenceList);
-  const hardChecks: GridGrappleCoverageHardChecks = {
-    allMatchesCompleted: recomputedMetrics.execution.totalCompletedRuns === 48,
+  const recomputedHardChecks: GridGrappleCoverageHardChecks = {
+    allMatchesCompleted:
+      recomputedMetrics.execution.totalCompletedRuns ===
+      GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT,
     determinismVerified: manifest.evidence.deterministicReexecutionPassed,
     runtimeIdentityMatches: true,
-    recordsValid: recomputedMetrics.execution.schemaValidRecords === 48,
-    reportsValid: recomputedMetrics.execution.schemaValidReports === 48,
-    finalStateAgreementsComplete: recomputedMetrics.execution.finalStateAgreements === 48,
+    recordsValid:
+      recomputedMetrics.execution.schemaValidRecords ===
+      GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT,
+    reportsValid:
+      recomputedMetrics.execution.schemaValidReports ===
+      GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT,
+    finalStateAgreementsComplete:
+      recomputedMetrics.execution.finalStateAgreements ===
+      GRID_GRAPPLE_COVERAGE_SUPPLEMENT_RUN_COUNT,
     chronologyValid: true,
     malformedGrappleEventsAbsent: grappleHard.malformedGrappleEventsAbsent,
     resolverDisagreementsAbsent: grappleHard.resolverDisagreementsAbsent,
@@ -1329,21 +1773,28 @@ export function validateGridGrappleCoverageSupplementBundle(
     baseV3IdentityMatches: true,
     legacyIsolationVerified: manifest.evidence.legacyIsolationRegressionPassed,
   };
-  const recomputedDecision = deriveGridGrappleCoverageDecision({
+  const rebuiltDecision = buildGridGrappleCoverageDecision({
+    supplementId: manifest.supplementId,
+    createdAt: manifest.createdAt,
     metrics: recomputedMetrics,
-    hardChecks,
+    hardChecks: recomputedHardChecks,
   });
-  check(
-    decision.decision === recomputedDecision,
-    "persisted decision does not match the decision recomputed from the persisted artifacts",
-  );
+  if (!sameJson(decision, rebuiltDecision)) {
+    failures.push(
+      "persisted decision artifact does not equal the complete decision rebuilt from the persisted records, metrics and manifest attestations",
+    );
+  }
   check(
     decision.decision === manifest.supplementDecision,
     "persisted decision does not match the manifest supplement decision",
   );
 
-  // Combined classification must equal the recomputed combined classification.
-  const recomputedCombined = deriveCombinedReadinessClassification({
+  // Phase 10: rebuild the COMPLETE addendum from the exact frozen base
+  // reference, canonical checksums, the rebuilt decision and the recomputed
+  // metrics. Exact structural equality with the persisted addendum is
+  // required.
+  const g = recomputedMetrics.grapple;
+  const rebuiltAddendum = buildGridActivationReadinessAddendum({
     baseV3: {
       evaluationId: baseReference.evaluationId,
       suiteChecksum: baseReference.suiteChecksum,
@@ -1360,24 +1811,32 @@ export function validateGridGrappleCoverageSupplementBundle(
       supplementId: manifest.supplementId,
       planChecksum: manifest.planChecksum,
       scenarioRegistryChecksum: manifest.scenarioRegistryChecksum,
-      decision: decision.decision,
-      validGrappleRepositionEvents: metrics.grapple.validGrappleRepositionEvents,
-      fighterAAttackerRepositionCount: metrics.grapple.fighterAAttackerRepositionCount,
-      fighterBAttackerRepositionCount: metrics.grapple.fighterBAttackerRepositionCount,
+      decision: rebuiltDecision.decision,
+      validGrappleRepositionEvents: g.validGrappleRepositionEvents,
+      fighterAAttackerRepositionCount: g.fighterAAttackerRepositionCount,
+      fighterBAttackerRepositionCount: g.fighterBAttackerRepositionCount,
       distinctSeedsProducingFighterAAttackerReposition:
-        metrics.grapple.distinctSeedsProducingFighterAAttackerReposition,
+        g.distinctSeedsProducingFighterAAttackerReposition,
       distinctSeedsProducingFighterBAttackerReposition:
-        metrics.grapple.distinctSeedsProducingFighterBAttackerReposition,
+        g.distinctSeedsProducingFighterBAttackerReposition,
     },
   });
+  if (!sameJson(manifest.addendum, rebuiltAddendum)) {
+    failures.push(
+      "persisted addendum does not equal the complete addendum rebuilt from the frozen base reference, canonical checksums, rebuilt decision and recomputed metrics",
+    );
+  }
+  const recomputedCombined = rebuiltAddendum.combinedReadinessClassification;
   check(
     recomputedCombined === manifest.combinedReadinessClassification &&
       recomputedCombined === manifest.addendum.combinedReadinessClassification,
     "persisted combined readiness classification does not match recomputation",
   );
 
-  // The human report must regenerate byte-for-byte from the persisted
-  // artifacts.
+  // Phase 12: the human report must regenerate byte-for-byte from the exact
+  // frozen base reference, canonical registries and plan, recomputed metrics,
+  // the rebuilt decision and the rebuilt addendum (never from unverified
+  // persisted decision/addendum values).
   const regeneratedReport = buildGridGrappleCoverageReport({
     supplementId: manifest.supplementId,
     createdAt: manifest.createdAt,
@@ -1395,9 +1854,9 @@ export function validateGridGrappleCoverageSupplementBundle(
       gridGrappleCoverageScenarioRegistryChecksum(scenarioRegistry),
     planChecksum: manifest.planChecksum,
     metrics: recomputedMetrics,
-    decision: decision.decision,
+    decision: rebuiltDecision.decision,
     combinedReadinessClassification: recomputedCombined,
-    addendum: manifest.addendum,
+    addendum: rebuiltAddendum,
   });
   check(
     contents[GRID_GRAPPLE_SUPPLEMENT_REPORT_ARTIFACT] === regeneratedReport,

@@ -236,4 +236,127 @@ describe("grid grapple coverage evidence (Phase 3E2 Phase 7)", () => {
       expect(round).toBeGreaterThanOrEqual(1);
     }
   });
+
+  it("maintains the causal ledger invariant attempts = hits + misses on every run", () => {
+    for (const run of outcome.results) {
+      const evidence = extractGridGrappleRunEvidence(run.record, run.attackerSlot);
+      expect(evidence.grapplerAttackAttempts).toBe(
+        evidence.grapplerHits + evidence.grapplerMisses,
+      );
+      // The real runtime produces no ledger violations.
+      expect(evidence.malformedOrResolverDisagreeingGrappleEvents).toBe(0);
+      expect(evidence.grappleEventsAttributedToWrongFighter).toBe(0);
+    }
+  });
+
+  it("does not infer the hidden 50% reposition roll: a hit without movement is valid", () => {
+    for (const run of outcome.results) {
+      const evidence = extractGridGrappleRunEvidence(run.record, run.attackerSlot);
+      expect(evidence.grappleRepositionEvents).toBeLessThanOrEqual(evidence.grapplerHits);
+      expect(
+        evidence.grapplerHits -
+          evidence.sameCellGrapplerHitsWithoutReposition -
+          evidence.grappleRepositionEvents,
+      ).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("rejects a resolver-valid grapple movement without a preceding Grappler hit", () => {
+    expect(repositionRun).not.toBeNull();
+    const run = repositionRun!;
+    const grappleEvent = findGrappleMovementEvent(run.record, run.attackerSlot);
+    expect(grappleEvent).not.toBeNull();
+    const cloned = structuredClone(run.record);
+    // Remove the attack_hit that precedes the grapple movement (keep the
+    // attempt so the ledger sees an attempt without an outcome).
+    const hitIndex = (() => {
+      for (let i = grappleEvent!.index - 1; i >= 0; i--) {
+        const e = cloned.events[i]!;
+        if (
+          e.type === "attack_hit" &&
+          e.actorId === run.attackerSlot &&
+          e.round === grappleEvent!.event.round
+        ) {
+          return i;
+        }
+      }
+      return -1;
+    })();
+    expect(hitIndex).toBeGreaterThanOrEqual(0);
+    cloned.events.splice(hitIndex, 1);
+    const evidence = extractGridGrappleRunEvidence(cloned, run.attackerSlot);
+    expect(evidence.malformedOrResolverDisagreeingGrappleEvents).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(evidence.grappleRepositionEvents).toBeLessThan(
+      run.evidence.grappleRepositionEvents,
+    );
+  });
+
+  it("rejects a grapple event with a false tracked defender origin", () => {
+    expect(repositionRun).not.toBeNull();
+    const run = repositionRun!;
+    const grappleEvent = findGrappleMovementEvent(run.record, run.attackerSlot);
+    expect(grappleEvent).not.toBeNull();
+    const cloned = structuredClone(run.record);
+    const data = (cloned.events[grappleEvent!.index] as { data: Record<string, unknown> })
+      .data;
+    const originalFrom = data.from as string;
+    const falseFrom = originalFrom === "north" ? "south" : "north";
+    data.from = falseFrom;
+    const evidence = extractGridGrappleRunEvidence(cloned, run.attackerSlot);
+    expect(evidence.malformedOrResolverDisagreeingGrappleEvents).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(evidence.grappleRepositionEvents).toBeLessThan(
+      run.evidence.grappleRepositionEvents,
+    );
+  });
+
+  it("rejects a second resolver-valid grapple event for one hit", () => {
+    expect(repositionRun).not.toBeNull();
+    const run = repositionRun!;
+    const grappleEvent = findGrappleMovementEvent(run.record, run.attackerSlot);
+    expect(grappleEvent).not.toBeNull();
+    const cloned = structuredClone(run.record);
+    // Duplicate the grapple movement; only the first may consume the hit.
+    cloned.events.splice(
+      grappleEvent!.index + 1,
+      0,
+      structuredClone(grappleEvent!.event),
+    );
+    const evidence = extractGridGrappleRunEvidence(cloned, run.attackerSlot);
+    expect(evidence.malformedOrResolverDisagreeingGrappleEvents).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(evidence.grappleRepositionEvents).toBe(run.evidence.grappleRepositionEvents);
+  });
+
+  it("rejects an attack outcome without a matching attempt", () => {
+    expect(repositionRun).not.toBeNull();
+    const run = repositionRun!;
+    const cloned = structuredClone(run.record);
+    const attemptIndex = (() => {
+      for (let i = 0; i < cloned.events.length; i++) {
+        const e = cloned.events[i]!;
+        if (
+          e.type === "attack_attempted" &&
+          e.actorId === run.attackerSlot &&
+          (e.data as { weapon?: string }).weapon === "grappler"
+        ) {
+          return i;
+        }
+      }
+      return -1;
+    })();
+    expect(attemptIndex).toBeGreaterThanOrEqual(0);
+    cloned.events.splice(attemptIndex, 1);
+    const evidence = extractGridGrappleRunEvidence(cloned, run.attackerSlot);
+    expect(evidence.malformedOrResolverDisagreeingGrappleEvents).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(evidence.grapplerAttackAttempts).toBeLessThan(
+      run.evidence.grapplerAttackAttempts,
+    );
+  });
 });

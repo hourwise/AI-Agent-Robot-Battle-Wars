@@ -131,8 +131,16 @@ authoritative grapple-event evidence and deterministic repeat, grapple
 metrics, a supplement decision and combined readiness addendum, an immutable
 ten-file supplement bundle under `data/readiness/grid-supplements/`, and the
 `readiness:grid:grapple` command) is implemented by the
-`agent/0.2c-grid-grapple-coverage-supplement` task. The authoritative runtime
-migration and live grid match production remain future, separately
+`agent/0.2c-grid-grapple-coverage-supplement` task. Phase 3E2.1 (verifier-only
+supplemental grapple evidence provenance hardening — causal binding of
+resolver-valid grapples to an unmatched non-same-cell Grappler hit, binding of
+persisted run-index entries and records to the canonical plan and scenario,
+independent decision/addendum reconstruction with full payload equality,
+pinned frozen official base hashes, a pre-publication base immutability
+re-check, and fully coherent corruption-test coverage, with the official
+supplement still passing the stronger validator unchanged) is implemented by
+the `agent/0.2c-grid-grapple-provenance-hardening` task. The authoritative
+runtime migration and live grid match production remain future, separately
 authorised phases.
 
 **Milestone 0.2C progress (2026-08-01):**
@@ -572,6 +580,35 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   and 312-run plan unchanged; both canaries and legacy match/series unchanged;
   no provider or external API call; no tuning after results; no opt-in beta
   decision; no default activation; Milestone 0.2C remains incomplete.
+- Phase 3E2.1 — supplemental grapple evidence provenance hardening:
+  **complete (verifier-only); official supplement still passes the stronger
+  validator unchanged**. Phase 3E2.1 hardens the provenance guarantees of the
+  Phase 3E2 supplement without altering, replacing, reinterpreting or rerunning
+  the official v3 evaluation or the official supplement. A resolver-valid
+  grapple movement is now causally required to follow an unmatched
+  non-same-cell Grappler hit in the same round (a grapple without a hit, a
+  second grapple for one hit, an outcome without an attempt, a false
+  `from`/facing or a destination disagreeing with the canonical resolver is
+  malformed and never counts as coverage). Persisted run-index entries and
+  records are bound to the canonical 48-run plan (attacker slot derived from
+  the plan, never from the persisted entry) and to the canonical supplemental
+  scenario configuration. The decision and the combined readiness addendum are
+  independently rebuilt from the recomputed metrics and must equal the
+  persisted payloads in full. The official base manifest/decision/metrics
+  hashes are pinned to frozen values (not self-declared) and re-checked
+  byte-for-byte immediately before publication; any change is an operational
+  failure that prevents publication. Nine fully coherent corruption scenarios
+  (alternate plan, alternate build, fake grapple without a hit, false origin,
+  second grapple for one hit, decision payload corruption, addendum
+  corruption, cross-envelope supplement-ID disagreement, base-mutation race)
+  are rejected by their intended provenance rule. The official supplement
+  (`4eca43e2-...`) passes the strengthened validator unchanged
+  (480/204/276; 8 valid repositions, 4 per slot from 4 distinct seeds each;
+  186 same-cell; 0 wrong-fighter; 0 malformed); decision
+  `coverage_confirmed`; combined `ready_for_opt_in_beta_review`. No official
+  rerun, benchmark, seed bank, provider call, tuning, opt-in beta decision or
+  default activation occurred; held-out/all remain sealed; Milestone 0.2C
+  remains incomplete.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

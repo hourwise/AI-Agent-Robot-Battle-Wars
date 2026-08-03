@@ -354,6 +354,20 @@ is additive development-only coverage evidence: it does not modify the
 official v3 evaluation, does not qualify combat balance, does not perform the
 opt-in beta decision and does not activate the grid runtime.
 
+Phase 3E2.1 hardened the supplement's provenance (verifier-only, no rerun):
+a resolver-valid grapple must now be causally backed by an unmatched
+non-same-cell Grappler hit in the same round (a second grapple for one hit, a
+grapple without a hit, a false origin, a noncanonical destination or an
+outcome without an attempt is malformed and never counts as coverage);
+persisted run-index entries and records are bound to the canonical 48-run plan
+and the canonical supplemental scenario (attacker slot derived from the plan,
+never from the persisted entry); the decision and the combined readiness
+addendum are independently rebuilt and must equal the persisted payloads; and
+the official v3 base hashes (manifest/decision/metrics) are pinned to frozen
+values and re-checked byte-for-byte immediately before publication. The
+official supplement still passes the strengthened validator unchanged
+(480/204/276, 8 valid repositions, 186 same-cell, 0 malformed).
+
 ### Replay
 
 ```bash

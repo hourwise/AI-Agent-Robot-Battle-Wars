@@ -803,12 +803,18 @@ DEVELOPMENT-ONLY / NON-BENCHMARK / NON-ACTIVATING` banner. A completed
   ID and suite checksum, both registry checksums, the runtime identity and
   the ordered runs.
 - `src/readiness/grid-grapple-evidence.ts` — the authoritative grapple-event
-  extractor. A valid grapple-reposition observation requires an authoritative
-  Grappler `attack_hit`, a `movement_resolved` event with `action: "grapple"`,
-  canonical actor/target semantics, `from !== to`, canonical facing, a valid
-  in-match round and a destination exactly agreeing with `resolveGridGrapple`;
-  attempts, misses, knockback, same-cell hits, wrong-fighter events and
-  malformed/resolver-disagreeing events are never counted as repositions.
+  extractor (causally hardened in Phase 3E2.1). A per-round attack ledger
+  requires every Grappler `attack_attempted` to resolve to exactly one
+  `attack_hit`/`attack_missed` in the same round with canonical
+  actor/target/weapon before `round_ended`; a valid grapple-reposition
+  observation requires an authoritative Grappler `attack_hit`, a
+  `movement_resolved` event with `action: "grapple"`, canonical actor/target
+  semantics, `from !== to`, canonical facing, a valid in-match round and a
+  destination exactly agreeing with `resolveGridGrapple`, and the grapple must
+  consume an unmatched non-same-cell hit in the same round (a second grapple
+  for one hit is malformed). Attempts, misses, knockback, same-cell hits,
+  wrong-fighter events and malformed/resolver-disagreeing events are never
+  counted as repositions; the 50% reposition roll is never inferred.
 - `src/readiness/grid-grapple-execution-core.ts` — the pure 48-run execution
   core (direct `runGridMatch` only): v3 records, v2 reports, shared
   record-evidence inspector, complete report/final-state agreement,
@@ -827,24 +833,33 @@ DEVELOPMENT-ONLY / NON-BENCHMARK / NON-ACTIVATING` banner. A completed
 - `src/readiness/grid-grapple-supplement-bundle.ts` — the immutable
   supplement bundle: base-v3 anchoring (strong validator, exact evaluation
   ID, suite checksum, canonical registry checksums, `inconclusive`
-  classification, C04-only non-pass gate, base counts 36/8/0, base
-  manifest/decision/metrics SHA-256), the ten-file inventory
+  classification, C04-only non-pass gate, base counts 36/8/0, and the frozen
+  pinned base manifest/decision/metrics SHA-256), the ten-file inventory
   (`manifest.json`, `base-readiness-reference.json`, `seed-registry.json`,
   `scenario-registry.json`, `run-index.json`, `match-records.json`,
   `factual-reports.json`, `metrics.json`, `decision.json`, `report.txt`),
   manifest v1 with digests and the addendum, and
   `validateGridGrappleCoverageSupplementBundle` which cross-validates
-  records/reports/run-index (binding, shared inspector, final-state
-  agreement, recomputed checksums, authoritative grapple evidence),
-  recomputed metrics, recomputed decision, the recomputed combined
-  classification and byte-for-byte report regeneration.
+  records/reports/run-index (canonical plan binding with the attacker slot
+  derived from the plan, canonical scenario config binding, shared
+  inspector, final-state agreement, recomputed checksums, causally
+  strengthened grapple evidence, cross-envelope supplement-ID and timestamp
+  agreement), recomputed metrics, a fully rebuilt decision and a fully
+  rebuilt combined readiness addendum compared for equality, the recomputed
+  combined classification and byte-for-byte report regeneration, plus
+  `anchorOfficialGridGrappleCoverageSupplement` for the frozen official
+  supplement identity.
 - `src/app/grid-grapple-coverage-supplement.ts` —
   `runGridGrappleCoverageSupplement` orchestrates the root guards, base
   anchoring, fixed registries and 48-run plan, injected supplement/match
   UUIDs and timestamp, publication preflight, primary and repeat execution
   with determinism comparison, records/reports/run-index/metrics
   construction, hard checks, decision, addendum, report, digests, manifest,
-  shared immutable publish and read-back.
+  shared immutable publish and read-back. Phase 3E2.1 retains the exact
+  start-of-run base bytes and runs `assertOfficialBaseUnchangedSinceStart`
+  immediately before publication: any change in any of the nine base
+  artifacts, or any drift from the pinned base hashes, is an operational
+  failure that prevents publication.
 - `src/app/run-grid-grapple-coverage-supplement.ts` — the
   `readiness:grid:grapple` command under the
   `FORGE ARENA — GRID GRAPPLE COVERAGE SUPPLEMENT /
@@ -975,6 +990,30 @@ assignments and 312-run plan unchanged; both canaries and legacy match/series
 unchanged; no provider or external API call; no tuning after results; no
 opt-in beta decision; no default activation; Milestone 0.2C remains
 incomplete.
+
+Phase 3E2.1 hardened the supplement's provenance (verifier-only; the official
+v3 evaluation and the official Phase 3E2 supplement are unchanged and still
+validate). A resolver-valid grapple movement is now causally required to
+follow an unmatched non-same-cell Grappler hit in the same round — a grapple
+without a hit, a second grapple for one hit, an outcome without an attempt, a
+false `from`/facing or a destination disagreeing with the canonical resolver
+is malformed and never counts as coverage. Persisted run-index entries and
+records are bound to the canonical 48-run plan (attacker slot derived from the
+plan, never from the persisted entry) and to the canonical supplemental
+scenario configuration. The decision and the combined readiness addendum are
+independently rebuilt from the recomputed metrics and must equal the persisted
+payloads in full. The official base manifest/decision/metrics hashes are
+pinned to frozen values (not self-declared) and re-checked byte-for-byte
+immediately before publication. Nine fully coherent corruption scenarios
+(alternate plan, alternate build, fake grapple without a hit, false origin,
+second grapple for one hit, decision payload corruption, addendum corruption,
+cross-envelope supplement-ID disagreement, and a base-mutation race) are
+rejected by their intended provenance rule. The official supplement
+(`4eca43e2-...`) passes the strengthened validator unchanged
+(480/204/276; 8 valid repositions, 4 per slot from 4 distinct seeds each; 186
+same-cell; 0 wrong-fighter; 0 malformed). No official rerun, benchmark, seed
+bank, provider call, tuning, opt-in beta decision or default activation
+occurred; held-out/all remain sealed; Milestone 0.2C remains incomplete.
 
 ### Agent usage tracking
 

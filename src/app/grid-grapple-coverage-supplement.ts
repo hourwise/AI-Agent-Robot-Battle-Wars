@@ -223,15 +223,18 @@ function toRunIndexEntry(
 }
 
 /**
- * Reads the nine official v3 artifacts from the base directory and anchors
- * them. Fails (without running any match) when the official base bundle is
- * absent or invalid.
+ * Reads the nine official v3 artifacts from the base directory, anchors them
+ * and retains the exact bytes. Fails (without running any match) when the
+ * official base bundle is absent or invalid.
  */
 async function readAndAnchorOfficialBaseV3(
   baseV3Root: string,
   fs: CanaryFileSystem,
   expectedBaseV3: GridGrappleCoverageBaseV3Identity,
-): Promise<GridGrappleCoverageBaseV3Reference> {
+): Promise<{
+  reference: GridGrappleCoverageBaseV3Reference;
+  contents: Record<string, string>;
+}> {
   const entries = [
     "manifest.json",
     "seed-registry.json",
@@ -258,7 +261,73 @@ async function readAndAnchorOfficialBaseV3(
     }
     contents[name] = text;
   }
-  return anchorGridGrappleCoverageBaseV3(contents, expectedBaseV3);
+  const reference = anchorGridGrappleCoverageBaseV3(contents, expectedBaseV3);
+  return { reference, contents };
+}
+
+/**
+ * Phase 3E2.1: immediate-pre-publication base immutability check. Reads all
+ * nine official v3 artifacts again and requires byte-for-byte equality with
+ * the retained start-of-run snapshot plus the expected base identity's pinned
+ * artifact hashes. Any change is an operational failure that prevents
+ * publication.
+ */
+async function assertOfficialBaseUnchangedSinceStart(
+  baseV3Root: string,
+  fs: CanaryFileSystem,
+  retained: Record<string, string>,
+  expectedBaseV3: GridGrappleCoverageBaseV3Identity,
+): Promise<void> {
+  const current = await readOfficialBaseV3Contents(baseV3Root, fs);
+  for (const name of Object.keys(retained)) {
+    if (current[name] !== retained[name]) {
+      throw new Error(
+        `Official v3 base artifact changed during supplement execution: ${name}`,
+      );
+    }
+  }
+  if (
+    sha256Hex(current["manifest.json"]!) !== expectedBaseV3.manifestChecksum ||
+    sha256Hex(current["decision.json"]!) !== expectedBaseV3.decisionChecksum ||
+    sha256Hex(current["metrics.json"]!) !== expectedBaseV3.metricsChecksum
+  ) {
+    throw new Error(
+      "Official v3 base artifact hashes no longer match the pinned expected values",
+    );
+  }
+}
+
+async function readOfficialBaseV3Contents(
+  baseV3Root: string,
+  fs: CanaryFileSystem,
+): Promise<Record<string, string>> {
+  const entries = [
+    "manifest.json",
+    "seed-registry.json",
+    "scenario-registry.json",
+    "run-index.json",
+    "match-records.json",
+    "factual-reports.json",
+    "metrics.json",
+    "decision.json",
+    "report.txt",
+  ];
+  const contents: Record<string, string> = {};
+  for (const name of entries) {
+    let text: string;
+    try {
+      text = await fs.readFile(join(baseV3Root, name), "utf-8");
+    } catch (e) {
+      throw new Error(
+        `Official v3 base bundle is absent or unreadable at ${join(baseV3Root, name)}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+        { cause: e },
+      );
+    }
+    contents[name] = text;
+  }
+  return contents;
 }
 
 export async function runGridGrappleCoverageSupplement(
@@ -278,8 +347,10 @@ export async function runGridGrappleCoverageSupplement(
 
   // 2. Anchor the official v3 base evaluation BEFORE executing any match.
   //    Absent or invalid base → fail without running matches or writing
-  //    artifacts.
-  const baseReference = await readAndAnchorOfficialBaseV3(baseV3Root, fs, expectedBaseV3);
+  //    artifacts. The exact bytes are retained for the pre-publication
+  //    immutability re-check (Phase 3E2.1).
+  const { reference: baseReference, contents: retainedBaseContents } =
+    await readAndAnchorOfficialBaseV3(baseV3Root, fs, expectedBaseV3);
 
   // 3. Load the canonical readiness seed registry (all 24 seeds, existing
   //    order, no cherry-picking).
@@ -646,6 +717,16 @@ export async function runGridGrappleCoverageSupplement(
     [GRID_GRAPPLE_SUPPLEMENT_DECISION_ARTIFACT]: sha256Hex(serializedDecision),
     [GRID_GRAPPLE_SUPPLEMENT_REPORT_ARTIFACT]: sha256Hex(serializedReport),
   };
+
+  // 17b. Phase 3E2.1: base immutability re-check immediately before
+  // publication. If any official v3 artifact changed since the start of the
+  // run, fail operationally without publishing a supplement.
+  await assertOfficialBaseUnchangedSinceStart(
+    baseV3Root,
+    fs,
+    retainedBaseContents,
+    expectedBaseV3,
+  );
 
   // 18. Build the manifest (written last).
   const manifest: GridGrappleCoverageSupplementManifestV1 =

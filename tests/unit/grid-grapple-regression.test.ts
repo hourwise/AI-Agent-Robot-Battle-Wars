@@ -23,7 +23,15 @@ import { buildGridActivationReadinessRunPlan } from "../../src/readiness/run-pla
 import {
   GRID_GRAPPLE_COVERAGE_BASE_V3_EVALUATION_ID,
   GRID_GRAPPLE_COVERAGE_BASE_V3_SUITE_CHECKSUM,
+  GRID_GRAPPLE_COVERAGE_BASE_V3_IDENTITY,
+  GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_PLAN_CHECKSUM,
 } from "../../src/readiness/grid-grapple-supplement-bundle.js";
+import {
+  GRID_GRAPPLE_COVERAGE_CANONICAL_SCENARIO_REGISTRY_CHECKSUM,
+  gridGrappleCoverageScenarioRegistryChecksum,
+} from "../../src/readiness/grid-grapple-scenarios.js";
+import { createGridGrappleCoverageScenarioRegistry } from "../../src/readiness/grid-grapple-scenarios.js";
+import { sha256Hex } from "../../src/canary/grid-canary-digest.js";
 
 const OFFICIAL_V3_DIR = join(
   process.cwd(),
@@ -81,6 +89,41 @@ describe("grid grapple coverage supplement regressions (Phase 3E2)", () => {
     );
     expect(GRID_GRAPPLE_COVERAGE_BASE_V3_SUITE_CHECKSUM).toBe(
       "c3b8a16d407891d0a92966fb9d6ed20fe5e11776bf545624fb3dbcadb4e2503c",
+    );
+  });
+
+  it("keeps the official v3 base artifact hashes frozen and matching the on-disk bytes", () => {
+    if (!existsSync(OFFICIAL_V3_DIR)) return;
+    expect(GRID_GRAPPLE_COVERAGE_BASE_V3_IDENTITY.manifestChecksum).toBe(
+      "46b1b888dd66021fc811451c1db8f22f21c912621fc85a90a4cc52980ff06f85",
+    );
+    expect(GRID_GRAPPLE_COVERAGE_BASE_V3_IDENTITY.decisionChecksum).toBe(
+      "d4bf61e1e5c74bbb9181f95d22889fdae263e1520e58e8720e2bfe8cfeb07b9a",
+    );
+    expect(GRID_GRAPPLE_COVERAGE_BASE_V3_IDENTITY.metricsChecksum).toBe(
+      "113bfa2cc66e364eab637f3d7c00b8f05602c355133fe21eb2aae6d79467eee4",
+    );
+    expect(sha256Hex(readFileSync(join(OFFICIAL_V3_DIR, "manifest.json"), "utf-8"))).toBe(
+      GRID_GRAPPLE_COVERAGE_BASE_V3_IDENTITY.manifestChecksum,
+    );
+    expect(sha256Hex(readFileSync(join(OFFICIAL_V3_DIR, "decision.json"), "utf-8"))).toBe(
+      GRID_GRAPPLE_COVERAGE_BASE_V3_IDENTITY.decisionChecksum,
+    );
+    expect(sha256Hex(readFileSync(join(OFFICIAL_V3_DIR, "metrics.json"), "utf-8"))).toBe(
+      GRID_GRAPPLE_COVERAGE_BASE_V3_IDENTITY.metricsChecksum,
+    );
+  });
+
+  it("keeps the supplemental scenario-registry and plan checksums frozen", () => {
+    const scenarioRegistry = createGridGrappleCoverageScenarioRegistry();
+    expect(gridGrappleCoverageScenarioRegistryChecksum(scenarioRegistry)).toBe(
+      GRID_GRAPPLE_COVERAGE_CANONICAL_SCENARIO_REGISTRY_CHECKSUM,
+    );
+    expect(GRID_GRAPPLE_COVERAGE_CANONICAL_SCENARIO_REGISTRY_CHECKSUM).toBe(
+      "1aba546d5e0aa3ef3c95ee5bb45b2c412480a3822543999b291227a22a8c503f",
+    );
+    expect(GRID_GRAPPLE_COVERAGE_OFFICIAL_SUPPLEMENT_PLAN_CHECKSUM).toBe(
+      "e30dda08253c3cdaba771a5c4af810fcb17cd7a7669a1efcc2b86e5d9df01a26",
     );
   });
 });

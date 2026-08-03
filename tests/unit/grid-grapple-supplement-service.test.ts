@@ -19,6 +19,10 @@ import {
   GRID_GRAPPLE_COVERAGE_BASE_V3_SUITE_CHECKSUM,
 } from "../../src/readiness/grid-grapple-supplement-bundle.js";
 import { existsSync } from "node:fs";
+import {
+  defaultCanaryFs,
+  type CanaryFileSystem,
+} from "../../src/canary/immutable-canary-bundle.js";
 
 const OFFICIAL_BASE_ENTRIES = [
   "manifest.json",
@@ -162,6 +166,53 @@ describe("grid grapple coverage supplement service (Phase 3E2 Phase 13)", () => 
       const current = await readFile(join(baseDir, name), "utf-8");
       expect(current).toBe(fixture.baseContents[name]);
     }
+  });
+
+  it("fails operationally when the temp base bundle is mutated after anchoring, before publication", async () => {
+    const identity = grappleSupplementFixtureBaseIdentity();
+    const raceBase = join(dirname(baseDir), "race-base");
+    const raceOut = join(dirname(baseDir), "race-out");
+    await mkdir(raceBase);
+    await mkdir(raceOut);
+    const fixture = buildGridGrappleSupplementFixture();
+    for (const name of OFFICIAL_BASE_ENTRIES) {
+      await writeFile(join(raceBase, name), fixture.baseContents[name]!, "utf-8");
+    }
+    // The anchor reads every base artifact once (step 2); the
+    // pre-publication immutability re-check reads them again (step 17b).
+    // Simulate an on-disk mutation between the two by returning tampered
+    // metrics bytes for the second read.
+    let metricsReads = 0;
+    const mutatingFs: CanaryFileSystem = {
+      ...defaultCanaryFs,
+      readFile: async (path, encoding) => {
+        const text = await defaultCanaryFs.readFile(path, encoding);
+        if (
+          path.replaceAll("\\", "/").endsWith("metrics.json") &&
+          path.includes("race-base")
+        ) {
+          metricsReads += 1;
+          if (metricsReads === 2) {
+            return `${text}\n// tampered after anchor`;
+          }
+        }
+        return text;
+      },
+    };
+    await expect(
+      runGridGrappleCoverageSupplement(
+        { outputRoot: raceOut, baseV3Root: raceBase, baseV3Identity: identity },
+        {
+          createUuid: createSupplementIdFactory(GRAPPLE_SUPPLEMENT_TEST_ID),
+          now: () => new Date(GRAPPLE_SUPPLEMENT_TEST_CREATED_AT),
+          nowMs: () => 0,
+          fs: mutatingFs,
+        },
+      ),
+    ).rejects.toThrow(/Official v3 base artifact changed during supplement execution/);
+    // No supplement artifact may be published anywhere.
+    expect(existsSync(join(raceOut, GRAPPLE_SUPPLEMENT_TEST_ID))).toBe(false);
+    expect(await readdir(raceOut)).toEqual([]);
   });
 
   it("leaves the on-disk official v3 bundle unchanged when present", async () => {
