@@ -479,6 +479,35 @@ implementation (tests use external temporary roots); the beta is implemented
 but not yet independently reviewed; no default/public/ranked/tournament
 activation occurred; Milestone 0.2C remains incomplete pending review.
 
+Phase 3G.1 hardened the bounded grid-beta safety and artifact provenance
+without running a beta match or altering any official artifact. The
+pre-simulation checkpoint window is closed (load fighters → collision-free
+identity → canonical protected-source preflight → governance bytes unchanged →
+suspension marker absent → synchronous `runGridMatch` with no await between
+the final marker check and the execution core). The shared immutable
+publisher gained an optional `beforeAtomicPublish` hook that the beta uses to
+re-run the complete protected-source preflight, governance byte-unchanged
+check, suspension-marker check and physical output-root recheck immediately
+before the atomic rename; a typed safety error retains the original trigger.
+Suspension-marker creation is genuinely exclusive (`writeFileExclusive` on
+`CanaryFileSystem`, `wx` semantics) with secure marker-parent creation and
+full filesystem-root ancestry inspection; it never replaces an existing
+marker. All beta-owned machine schemas are strict (unknown `provider`/`model`/
+`runtime`/`outputRoot`/`ranked`/`tournament`/`balanceQualified` fields
+reject), fighter artifacts are parsed through the same authoritative
+`parseGridBetaFighterSpec` path used by live loading with canonical byte
+serialization, the complete validated build and policies are bound across the
+record config and initial states, the complete canonical C2 metadata is bound
+across the selection, record and record config, the persisted preflight must
+be the exact canonical pass, the execution attestation primary checksum is
+bound to the persisted record reconstruction, deterministic repeat inputs are
+independent fresh graphs with mutation detection, governance inventory
+reading is exact (dotfiles included, sorted, regular files only), fighter
+input ancestry is inspected from the filesystem root via `lstat`, and the
+physical replay bundle is inventory-validated before any content is read.
+No real beta match or suspension marker was created; Milestone 0.2C remains
+incomplete pending independent Phase 3G.1 review.
+
 ### Replay
 
 ```bash

@@ -2184,6 +2184,33 @@ balance tuning and does not begin Milestone 0.2D.
   executed during implementation; legacy remains default; no
   default/public/ranked/tournament activation occurred; no balance conclusion
   was made; the beta is implemented but not yet independently reviewed.
+- **Grid-beta safety and provenance hardening (Phase 3G.1).** Independent
+  review confirmed the Phase 3G architecture but required concurrency,
+  filesystem and persisted-evidence guarantees before any real beta match.
+  The pre-simulation checkpoint window is closed (canonical preflight →
+  governance bytes unchanged → marker absent → synchronous `runGridMatch`
+  with no await between the final marker check and the execution core); the
+  shared immutable publisher gained an optional `beforeAtomicPublish` final
+  safety hook that re-runs the preflight, governance, marker and physical-root
+  checks immediately before the atomic rename and retains the original
+  safety trigger via a typed `GridBetaSafetyError`; suspension-marker
+  creation is genuinely exclusive (`writeFileExclusive`, `wx` semantics) with
+  secure marker-parent creation and full filesystem-root ancestry inspection;
+  all beta-owned machine schemas are strict (unknown
+  `provider`/`model`/`runtime`/`outputRoot`/`ranked`/`tournament`/
+  `balanceQualified` fields reject); fighter artifacts are parsed through the
+  authoritative `parseGridBetaFighterSpec` path with canonical byte
+  serialization; the complete validated build and policies are bound across
+  the record config and initial states; the complete canonical C2 metadata is
+  bound across the selection, record and record config; the persisted
+  preflight must be the exact canonical pass; the execution attestation
+  primary checksum is bound to the persisted record reconstruction; repeat
+  inputs are independent fresh graphs with mutation detection; governance
+  inventory reading is exact (dotfiles included, sorted, regular files only);
+  fighter input ancestry is inspected from the filesystem root via `lstat`;
+  and the physical replay bundle is inventory-validated before any content is
+  read. No real beta match or marker was created; no official artifact was
+  altered; the beta remains not authorised for its first real execution.
 
 ### 9.20 Phase 3E1 status
 
@@ -2265,15 +2292,22 @@ anchor **pass**; Phase 3G bounded beta implementation **complete**
 (`match:grid:beta` + `replay:grid:beta`, local fighter specs, one suspension
 marker, protected legacy-source preflight, pure deterministic execution core,
 schema-v3 persistence, immutable ten-file beta bundle, no official beta match
-executed, not yet independently reviewed); governance outcome
-**`approved_for_bounded_opt_in_beta_implementation`**; bounded opt-in beta
-implementation **not started — implemented but not yet independently
-reviewed**; grid runtime enabled **no**; legacy default
+executed, not yet independently reviewed); Phase 3G.1 safety/provenance
+hardening **complete** (pre-simulation and pre-publication race closure,
+`beforeAtomicPublish` final safety hook, exclusive suspension-marker
+creation with secure parent, strict beta schemas, authoritative fighter/build
+and complete C2 metadata binding, canonical preflight, primary execution
+checksum binding, deterministic repeat input isolation, exact governance
+inventory, filesystem-root fighter ancestry, physical replay inventory; no
+real beta match or marker created; official artifacts unchanged); governance
+outcome **`approved_for_bounded_opt_in_beta_implementation`**; bounded opt-in
+beta implementation **implemented, not yet authorised for first real
+execution**; grid runtime enabled **no**; legacy default
 **yes**; public rollout **not authorised**; balance qualification **not
 performed**; opt-in beta decision **performed (approval for bounded
 implementation)**; default grid activation **not performed**; Milestone 0.2C
 **not complete** pending a separately authorised activation-readiness
-decision and independent Phase 3G implementation review.
+decision and independent Phase 3G.1 review.
 
 ## 10. Still out of scope
 

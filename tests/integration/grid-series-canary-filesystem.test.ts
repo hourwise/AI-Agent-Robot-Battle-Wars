@@ -70,6 +70,8 @@ function makeFakeFs(hooks: FakeFsHooks): CanaryFileSystem {
       await writeFile(path, data, encoding);
       if (hooks.afterWriteFile) await hooks.afterWriteFile(path, data);
     },
+    writeFileExclusive: (path, data, encoding) =>
+      writeFile(path, data, { encoding: encoding ?? "utf-8", flag: "wx" }),
     readFile: async (path, encoding) => {
       if (hooks.transformReadAt) {
         const transformed = hooks.transformReadAt(

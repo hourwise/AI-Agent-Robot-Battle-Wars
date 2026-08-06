@@ -5,9 +5,11 @@ import { RULESET_VERSION } from "../simulator/constants.js";
 import { runGridMatch } from "../simulator/grid-runtime.js";
 import type { GridMatchResult, MatchConfig } from "../simulator/types.js";
 import type { GridBetaFighterExecutionValues } from "./grid-beta-fighter-spec.js";
+import type { ValidatedBuild } from "../validation/validation.types.js";
 
 /**
- * Pure beta execution core (Milestone 0.2C Phase 3G, Phase 7).
+ * Pure beta execution core (Milestone 0.2C Phase 3G, Phase 7; Phase 3G.1,
+ * Phase 10).
  *
  * `executeGridBetaMatch` may call only `runGridMatch`. It never reads or
  * writes files, never reads the clock, never generates UUIDs, never calls
@@ -16,6 +18,13 @@ import type { GridBetaFighterExecutionValues } from "./grid-beta-fighter-spec.js
  * to grid before simulation. The same match is executed twice with identical
  * build, policy and seed inputs and every simulator fact must be equal; only
  * the primary result is published by the caller.
+ *
+ * Each execution receives an independent fresh input graph: primary and
+ * repeat never share build, policy or config object references, so a primary
+ * execution can never influence the repeat input. Before and after each
+ * execution the supplied build and policy inputs are required to remain
+ * unchanged, so simulator mutation of the config, build or policy is
+ * detected and fails the beta closed.
  */
 
 export class GridBetaExecutionError extends Error {
@@ -50,32 +59,90 @@ function assertSeed(seed: number): void {
   }
 }
 
-/**
- * Executes the same grid beta match twice with identical inputs and requires
- * deterministic equality of all simulator facts: runtime identity, config,
- * initial states, complete ordered event streams, result and rounds.
- */
-export function executeGridBetaMatch(
-  input: ExecuteGridBetaMatchInput,
-): GridBetaExecutionOutcome {
-  assertSeed(input.seed);
-  const config: MatchConfig = {
+/** Deep clone of a validated build (fresh mutable graph per execution). */
+function cloneBuild(build: ValidatedBuild): ValidatedBuild {
+  return {
+    proposal: {
+      machineName: build.proposal.machineName,
+      chassisId: build.proposal.chassisId,
+      mobilityId: build.proposal.mobilityId,
+      weaponId: build.proposal.weaponId,
+      utilityId: build.proposal.utilityId,
+      armour: { ...build.proposal.armour },
+      designSummary: build.proposal.designSummary,
+      designRationale: build.proposal.designRationale,
+    },
+    totalCost: build.totalCost,
+    armourCost: build.armourCost,
+    totalArmourPoints: build.totalArmourPoints,
+    catalogueVersion: build.catalogueVersion,
+  };
+}
+
+/** One independent fresh config graph for a single execution. */
+function buildConfig(input: ExecuteGridBetaMatchInput): MatchConfig {
+  return {
     seed: input.seed,
     fighterA: {
-      build: input.fighterA.build,
-      policy: input.fighterA.policy,
+      build: cloneBuild(input.fighterA.build),
+      policy: { ...input.fighterA.policy },
     },
     fighterB: {
-      build: input.fighterB.build,
-      policy: input.fighterB.policy,
+      build: cloneBuild(input.fighterB.build),
+      policy: { ...input.fighterB.policy },
     },
     rulesetVersion: RULESET_VERSION,
     catalogueVersion: CATALOGUE_V1.version,
     componentQualificationId: DEFAULT_COMPONENT_QUALIFICATION_ID,
   };
+}
 
-  const primary = runGridMatch(config);
-  const repeat = runGridMatch(config);
+/**
+ * Executes the same grid beta match twice with identical but independent
+ * inputs and requires deterministic equality of all simulator facts. This is
+ * the production entry point and may call only the fixed imported
+ * `runGridMatch`.
+ */
+export function executeGridBetaMatch(
+  input: ExecuteGridBetaMatchInput,
+): GridBetaExecutionOutcome {
+  return executeGridBetaMatchWithRunner(input, runGridMatch);
+}
+
+/**
+ * Test-only seam around the fixed imported `runGridMatch`. The production
+ * application service never supplies an alternate simulator: it always calls
+ * `executeGridBetaMatch`, which hard-codes the real `runGridMatch`. This
+ * variant exists so unit tests can inject a deterministic mutating runner to
+ * prove the input-isolation and mutation-detection guarantees.
+ */
+export function executeGridBetaMatchWithRunner(
+  input: ExecuteGridBetaMatchInput,
+  runner: (config: MatchConfig) => GridMatchResult,
+): GridBetaExecutionOutcome {
+  assertSeed(input.seed);
+
+  // Independent fresh input graphs for primary and repeat: neither execution
+  // shares build, policy or config object references with the other, so the
+  // primary execution cannot influence the repeat input.
+  const primaryConfig = buildConfig(input);
+  const repeatConfig = buildConfig(input);
+
+  const primaryInputBefore = JSON.stringify(primaryConfig);
+  const primary = runner(primaryConfig);
+  if (JSON.stringify(primaryConfig) !== primaryInputBefore) {
+    throw new GridBetaExecutionError(
+      "grid beta is not deterministic: the simulator mutated the primary config, build or policy input",
+    );
+  }
+
+  const repeatInputBefore = JSON.stringify(repeatConfig);
+  const repeat = runner(repeatConfig);
+  if (JSON.stringify(repeatConfig) !== repeatInputBefore) {
+    throw new GridBetaExecutionError(
+      "grid beta is not deterministic: the simulator mutated the repeat config, build or policy input",
+    );
+  }
 
   const factsEqual =
     JSON.stringify(primary.runtime) === JSON.stringify(repeat.runtime) &&

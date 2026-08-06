@@ -6,9 +6,22 @@ import {
 import {
   GridBetaExecutionError,
   executeGridBetaMatch,
+  executeGridBetaMatchWithRunner,
   gridBetaMatchResultChecksum,
 } from "../../src/beta/grid-beta-execution-core.js";
+import { runGridMatch } from "../../src/simulator/grid-runtime.js";
+import type { MatchConfig } from "../../src/simulator/types.js";
 import { ALPHA_FIGHTER_SPEC, BETA_FIGHTER_SPEC } from "../helpers/grid-beta-builder.js";
+
+function freshInput() {
+  const specA = parseGridBetaFighterSpec(ALPHA_FIGHTER_SPEC, "alpha").spec;
+  const specB = parseGridBetaFighterSpec(BETA_FIGHTER_SPEC, "beta").spec;
+  return {
+    seed: 12345,
+    fighterA: createGridBetaFighterExecutionValues(specA),
+    fighterB: createGridBetaFighterExecutionValues(specB),
+  };
+}
 
 describe("grid beta execution core (Phase 3G Phase 7)", () => {
   it("executes the same match twice and requires deterministic equality of all simulator facts", () => {
@@ -84,5 +97,55 @@ describe("grid beta execution core (Phase 3G Phase 7)", () => {
         }),
       ).toThrow(GridBetaExecutionError);
     }
+  });
+
+  it("detects simulator mutation of the primary config, build and policy (Phase 3G.1 Phase 10)", () => {
+    const input = freshInput();
+    const mutatingRunner = (config: MatchConfig) => {
+      config.seed = 999;
+      config.fighterA.build.totalCost += 1;
+      config.fighterB.policy.aggression += 1;
+      return runGridMatch(config);
+    };
+    expect(() => executeGridBetaMatchWithRunner(input, mutatingRunner)).toThrow(
+      /mutated the primary config, build or policy input/,
+    );
+  });
+
+  it("detects simulator mutation of the repeat input (Phase 3G.1 Phase 10)", () => {
+    const input = freshInput();
+    const observed: string[] = [];
+    let calls = 0;
+    const runner = (config: MatchConfig) => {
+      // Record the pristine graph before any mutation.
+      observed.push(JSON.stringify(config));
+      calls += 1;
+      if (calls === 2) {
+        config.seed = 999;
+        config.fighterA.build.totalCost += 1;
+      }
+      return runGridMatch(config);
+    };
+    expect(() => executeGridBetaMatchWithRunner(input, runner)).toThrow(
+      /mutated the repeat config, build or policy input/,
+    );
+    // Both executions received identical, independent fresh input graphs: the
+    // primary execution could not influence the repeat input.
+    expect(observed.length).toBe(2);
+    expect(observed[0]).toBe(observed[1]);
+  });
+
+  it("constructs independent fresh input graphs for primary and repeat (Phase 3G.1 Phase 10)", () => {
+    const input = freshInput();
+    const observed: string[] = [];
+    const runner = (config: MatchConfig) => {
+      observed.push(JSON.stringify(config));
+      return runGridMatch(config);
+    };
+    const outcome = executeGridBetaMatchWithRunner(input, runner);
+    expect(outcome.deterministic).toBe(true);
+    // Two independent fresh config graphs, byte-identical before execution.
+    expect(observed.length).toBe(2);
+    expect(observed[0]).toBe(observed[1]);
   });
 });

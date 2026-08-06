@@ -85,10 +85,12 @@ describe("grid beta regressions (Phase 3G Phase 13)", () => {
         `${file} must not invoke a benchmark`,
       ).toBe(false);
     }
-    // The execution core may call only runGridMatch.
+    // The execution core may call only runGridMatch (hard-coded in the
+    // production entry point; only the test seam accepts an injected runner).
     const core = read("src/beta/grid-beta-execution-core.ts");
     expect(/from\s+["'][^"']*simulator\/grid-runtime/.test(core)).toBe(true);
-    expect(core.includes("runGridMatch(")).toBe(true);
+    expect(core.includes("runGridMatch")).toBe(true);
+    expect(core.includes("executeGridBetaMatchWithRunner")).toBe(true);
   });
 
   it("does not modify normal match/series and leaves them on legacy", () => {

@@ -1901,13 +1901,166 @@ Official v3 readiness evidence:          complete and unchanged
 Official grapple supplement:             complete and unchanged
 Official Phase 3F governance decision:   complete, unchanged and source-anchored
 Phase 3G bounded beta implementation:    complete
-explicit internal beta command:          implemented, not yet independently reviewed
+Phase 3G.1 safety/provenance hardening:  complete
+explicit internal beta command:          implemented, not yet authorised for first real execution
 legacy default:                          yes
 grid default activation:                 no
 public rollout:                          not authorised
 ranked/tournament use:                   not authorised
 balance qualification:                   not performed
-Milestone 0.2C:                          not complete pending independent Phase 3G implementation review
+Milestone 0.2C:                          not complete pending independent Phase 3G.1 review
+```
+
+## D55: Grid-beta safety and provenance hardening (Phase 3G.1, 2026-08-06)
+
+Phase 3G.1 hardens the bounded grid-beta safety and artifact provenance after
+independent review found the Phase 3G architecture correct but incomplete on
+several concurrency, filesystem and persisted-evidence guarantees. No real
+beta match was executed, no real suspension marker was created and no
+official readiness, supplement or governance artifact was altered. The Phase
+3G implementation remains unexecuted and not yet authorised for its first
+real execution.
+
+- **Pre-simulation checkpoint window closed.** The final pre-simulation work
+  is ordered so no asynchronous preflight occurs after the final governance
+  and suspension checks: load and validate fighter inputs → generate/check
+  the collision-free identity → run the canonical protected legacy-source
+  preflight and require the exact canonical pass → re-read and require the
+  governance bytes unchanged → require the suspension marker absent → execute
+  `runGridMatch` synchronously with no await between the final marker check
+  and entry into the pure execution core. Race tests prove zero execution
+  calls, no bundle and the correct suspension when a marker appears or a
+  governance artifact changes during the preflight.
+- **Final safety hook before atomic publication.** The shared immutable
+  publisher gained an optional `beforeAtomicPublish` hook that runs after all
+  temporary artifacts are written and the complete temporary bundle is
+  validated, immediately before the atomic rename. Existing canary,
+  readiness, supplement and governance callers remain byte- and
+  behaviour-compatible without the hook. The grid-beta caller uses it to
+  re-run the complete protected-source preflight, require the governance
+  bytes unchanged, require the suspension marker absent and recheck the
+  physical output-root integrity. A typed `GridBetaSafetyError` carries the
+  original trigger and message; on failure the temporary directory is
+  cleaned up, no final bundle exists, and the service creates the suspension
+  marker exactly once with the correct trigger (never collapsing every
+  failure into `bundle_integrity_failure`).
+- **Genuinely exclusive suspension-marker creation.** `CanaryFileSystem`
+  gained `writeFileExclusive` (no-clobber `wx` semantics). The final marker
+  path is created directly; it can never replace an existing file, malformed
+  marker, directory, symbolic link or junction; a partial marker still means
+  suspended; no temporary-marker rename is used; concurrent creators result
+  in exactly one created marker and one closed failure; existing marker bytes
+  are never replaced. The marker parent is securely created when missing and
+  the complete ancestry is inspected from the filesystem root before and
+  after creation, rejecting symbolic links, junctions and non-directory
+  components.
+- **Strict beta machine schemas.** All beta-owned machine schemas
+  (`GridBetaFighterSpecV1`, `GridBetaSelectionV1`,
+  `GridBetaExecutionAttestationV1`, `GridBetaMatchManifestV1` and nested
+  beta-owned objects) are strict. Unknown fields such as `provider`, `model`,
+  `runtime`, `outputRoot`, `ranked`, `tournament` and `balanceQualified`
+  reject rather than silently disappear. Fighter artifacts must be the
+  canonical byte serialization of the parsed spec.
+- **Authoritative persisted fighter validation.** The bundle validator parses
+  every fighter artifact through the same authoritative path used by live
+  loading (`parseGridBetaFighterSpec`): strict schema, identifier agreement,
+  display-name sanitisation and agreement, authoritative catalogue-v1 build
+  and policy validation, canonical serialization and the deterministic
+  checksum — no shape-only duplicate parser.
+- **Complete validated-build binding.** The authoritative `ValidatedBuild` is
+  reconstructed with the existing catalogue validator and compared field-for-
+  field (proposal, total cost, armour cost, total armour points, catalogue
+  version) against the record config and initial-state builds; policies must
+  match exactly; record config and initial-state builds must match one
+  another completely. A schema-shaped over-budget build, invalid catalogue
+  ID, inconsistent derived cost or inconsistent armour total rejects even
+  when every artifact is coherently rewritten.
+- **Complete C2 metadata binding.** The canonical C2 metadata is built from
+  the authoritative registry (`getComponentQualificationConfig` +
+  `getComponentQualificationMetadata`) and must agree exactly across the
+  selection, the record and the record config: `id component-impact-c2`,
+  `model linear-component-impact`, `configChecksum 13548462df34a183`. A
+  record that retains the C2 ID while changing the model or checksum rejects;
+  a separately persisted checksum is never trusted without comparing the
+  complete canonical metadata.
+- **Canonical successful preflight.** A published beta match requires the
+  exact canonical pass: `status pass`, `trigger null`, `failures []` and every
+  detailed boolean exactly `true`, applied both when building the selection
+  and during bundle read-back validation. `status: pass` with contradictory
+  detailed values is rejected. Manifest safety requires
+  `protectedSourcePreflightStatus pass` and `suspensionStatus clear`.
+- **Execution-attestation provenance.** The attestation builder receives
+  explicit confirmed outcomes from the service (governance unchanged before
+  simulation and at the final publication gate, suspension absent at each
+  checkpoint, preflight pass, deterministic equality, empty agent usage,
+  record/report agreement, replay reconstruction agreement, no legacy
+  fallback, temporary bundle validation) and fails if any supplied
+  confirmation is not true. The primary checksum is bound to the persisted
+  record reconstruction (`attestation.primaryResultChecksum ===
+gridBetaMatchResultChecksum(gridRecordToGridResult(record))`); the repeat
+  checksum equals the primary checksum as an execution attestation because
+  the repeat event stream is intentionally not persisted; `manifest.createdAt
+=== record.createdAt`.
+- **Deterministic repeat input isolation.** The execution core constructs
+  independent fresh input graphs for the primary and repeat executions
+  (never one shared mutable config). Before and after each execution the
+  supplied build and policy inputs must remain unchanged, so simulator
+  mutation of the config, build or policy and any primary-influences-repeat
+  contamination are detected. The production application service has no
+  alternate simulator injection; only a test-only seam around the fixed
+  imported `runGridMatch` accepts an injected runner.
+- **Governance inventory hardening.** `readGovernanceBundle` lists every
+  directory entry including dotfiles, sorts both actual and expected lists,
+  requires exact equality, and requires every entry to be a regular
+  non-symlink file. Hidden extras, nested directories and other entry types
+  are rejected.
+- **Fighter input ancestry hardening.** Every existing component from the
+  filesystem root through the fighter root and the target fighter file is
+  inspected with `lstat` (never `stat`); symbolic-link or junction parents
+  above the fighter root, a symbolic-link fighter root, symbolic-link nested
+  directories, symbolic-link final files and non-directory ancestry
+  components are rejected. The final file entry is rechecked after reading to
+  reduce substitution races.
+- **Physical replay inventory validation.** Before reading any replay
+  content, the physical match directory must contain exactly the ten expected
+  entries as regular files (no symbolic links, no directories, no hidden or
+  unexpected file, no missing artifact); the complete bundle is then
+  validated. An eleventh file, a hidden file, a nested directory, a
+  symbolic-link required artifact or an artifact that changes between
+  inventory inspection and read-back rejects before display. Replay remains
+  readable while the suspension marker exists.
+- **Coherent corruption coverage.** Fully coherent corruption tests rebuild
+  every affected downstream artifact and digest so rejection cannot depend on
+  a forgotten checksum: catalogue-invalid fighter, proposal/derived-build
+  disagreement, altered C2 metadata, contradictory preflight, false execution
+  checksum, active suspension status, unknown fields, and created-at
+  disagreement.
+- **Scope and status.** No real beta match ran; no real suspension marker was
+  created; no readiness, supplement or governance command ran; no benchmark
+  ran; no seed bank was opened; held-out and `all` remained sealed; no
+  provider or external API call occurred; normal match/series/replay remained
+  unchanged on legacy; both canaries remained unchanged; official readiness,
+  supplement and governance bytes (all seven hashes) remained unchanged;
+  governance source snapshot, policy-contract checksum and C1/C2/AB2 (with C2
+  default) remained frozen; simulator/ruleset/catalogue identities remained
+  unchanged; no default/public/ranked/tournament activation occurred; no
+  balance conclusion was made; Milestone 0.2D did not begin.
+
+Status:
+
+```
+Official v3 readiness evidence:          complete and unchanged
+Official grapple supplement:             complete and unchanged
+Official Phase 3F governance decision:   complete, unchanged and source-anchored
+Phase 3G bounded beta implementation:    complete
+Phase 3G.1 safety/provenance hardening:  complete
+explicit internal beta command:          implemented, not yet authorised for first real execution
+legacy default:                          yes
+grid default activation:                 no
+public rollout:                          not authorised
+ranked/tournament use:                   not authorised
+balance qualification:                   not performed
+Milestone 0.2C:                          not complete pending independent Phase 3G.1 review
 ```
 
 ## D24: Candidate C component-impact qualification

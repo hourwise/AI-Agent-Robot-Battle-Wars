@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import {
+  assertExactBundleInventory,
   defaultCanaryFs,
   type CanaryFileSystem,
 } from "../canary/immutable-canary-bundle.js";
@@ -10,14 +11,17 @@ import {
 } from "./grid-beta-match-bundle.js";
 
 /**
- * Read-only grid beta replay (Milestone 0.2C Phase 3G, Phase 11).
+ * Read-only grid beta replay (Milestone 0.2C Phase 3G, Phase 11; Phase 3G.1,
+ * Phase 13).
  *
- * Loads a stored beta match bundle from the fixed root, validates the
- * complete ten-file bundle before anything is displayed, and returns the
- * contents for rendering. It performs no simulation, calls no provider, does
- * not read normal match storage and intentionally ignores the suspension
- * marker so existing v3 beta replays remain readable while the beta is
- * suspended.
+ * Loads a stored beta match bundle from the fixed root. The physical match
+ * directory must contain exactly the ten expected entries — regular files
+ * only, no symbolic links, no directories, no hidden or unexpected file and
+ * no missing artifact — before any content is read. The complete ten-file
+ * bundle is then validated before anything is displayed. It performs no
+ * simulation, calls no provider, does not read normal match storage and
+ * intentionally ignores the suspension marker so existing v3 beta replays
+ * remain readable while the beta is suspended.
  */
 
 export class GridBetaReplayError extends Error {
@@ -42,6 +46,20 @@ export async function loadValidatedGridBetaReplayBundle(
   fs: CanaryFileSystem = defaultCanaryFs,
 ): Promise<LoadedGridBetaReplayBundle> {
   const dir = join(outputRoot, matchId);
+  // Phase 13: before reading any replay content, require the physical match
+  // directory to contain exactly the ten expected entries as regular files
+  // (no symbolic links, no directories, no hidden or unexpected file, no
+  // missing artifact). An eleventh file, a hidden file, a nested directory, a
+  // symbolic-link artifact or a changed artifact between inventory inspection
+  // and read-back all reject before display.
+  try {
+    await assertExactBundleInventory(fs, dir, GRID_BETA_MATCH_BUNDLE_ENTRIES);
+  } catch (e) {
+    throw new GridBetaReplayError(
+      `Grid beta replay bundle inventory is invalid at ${dir}: ${e instanceof Error ? e.message : String(e)}`,
+      { cause: e },
+    );
+  }
   const contents: Record<string, string> = {};
   for (const name of GRID_BETA_MATCH_BUNDLE_ENTRIES) {
     try {

@@ -1,4 +1,4 @@
-import { join, resolve, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { z } from "zod";
 import { fsEntryKind, type CanaryFileSystem } from "../canary/immutable-canary-bundle.js";
 import { sha256Hex } from "../canary/grid-canary-digest.js";
@@ -27,14 +27,16 @@ export const GRID_BETA_FIGHTER_SPEC_SCHEMA_VERSION = "1" as const;
 export const GRID_BETA_FIGHTER_SOURCE_KIND = "local-scripted" as const;
 export const GRID_BETA_FIGHTER_MAX_JSON_BYTES = 512 * 1024;
 
-export const gridBetaFighterSpecV1Schema = z.object({
-  schemaVersion: z.literal(GRID_BETA_FIGHTER_SPEC_SCHEMA_VERSION),
-  sourceKind: z.literal(GRID_BETA_FIGHTER_SOURCE_KIND),
-  fighterId: z.string().regex(GRID_BETA_FIGHTER_ID_PATTERN),
-  displayName: z.string().min(1).max(20),
-  buildProposal: machineBuildProposalSchema,
-  policy: actionPolicySchema,
-});
+export const gridBetaFighterSpecV1Schema = z
+  .object({
+    schemaVersion: z.literal(GRID_BETA_FIGHTER_SPEC_SCHEMA_VERSION),
+    sourceKind: z.literal(GRID_BETA_FIGHTER_SOURCE_KIND),
+    fighterId: z.string().regex(GRID_BETA_FIGHTER_ID_PATTERN),
+    displayName: z.string().min(1).max(20),
+    buildProposal: machineBuildProposalSchema,
+    policy: actionPolicySchema,
+  })
+  .strict();
 
 export interface GridBetaFighterSpecV1 {
   readonly schemaVersion: "1";
@@ -168,27 +170,38 @@ function isInsideOrEqual(child: string, parent: string): boolean {
   return c.startsWith(prefix);
 }
 
-function componentsUnder(root: string, target: string): string[] {
-  const rel = resolve(target).slice(resolve(root).length);
-  const parts = rel.split(sep).filter((part) => part.length > 0);
+/** Every path from the filesystem root down to `absPath`, inclusive. */
+function ancestryPaths(absPath: string): string[] {
   const paths: string[] = [];
-  let current = resolve(root);
-  for (const part of parts) {
-    current = join(current, part);
-    paths.push(current);
+  let current = resolve(absPath);
+  for (;;) {
+    paths.unshift(current);
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
   }
   return paths;
 }
 
+/**
+ * Inspects the complete fighter-input ancestry from the filesystem root
+ * through the fighter root and every nested directory down to (but excluding)
+ * the target fighter file. `lstat` is used throughout (via `fsEntryKind`), so
+ * symbolic links and junctions are detected without ever being followed.
+ * Rejects symbolic-link or junction parents above the fighter root, a
+ * symbolic-link fighter root, symbolic-link nested directories, and
+ * non-directory or missing ancestry components. The target file itself is
+ * validated separately as a regular file.
+ */
 async function assertNoSymlinkJunctionAncestry(
   fs: CanaryFileSystem,
-  root: string,
+  _root: string,
   target: string,
 ): Promise<void> {
-  const paths = componentsUnder(root, target);
-  // The final component is the target file itself (checked separately); the
-  // fighter root itself and every directory component are validated here.
-  const ancestry = [resolve(root), ...paths.slice(0, -1)];
+  const paths = ancestryPaths(resolve(target));
+  // The final component is the target file itself (checked separately as a
+  // regular file); every component above it must be a real directory.
+  const ancestry = paths.slice(0, -1);
   for (const path of ancestry) {
     const kind = await fsEntryKind(fs, path);
     if (kind === "symbolic link") {
@@ -196,9 +209,9 @@ async function assertNoSymlinkJunctionAncestry(
         `fighter input ancestry must not contain a symbolic link or junction: ${path}`,
       );
     }
-    if (kind === "file" || kind === "other") {
+    if (kind === "file" || kind === "other" || kind === null) {
       throw new GridBetaFighterSpecError(
-        `fighter input ancestry contains a non-directory entry: ${path}`,
+        `fighter input ancestry contains a missing or non-directory entry: ${path}`,
       );
     }
   }
@@ -249,6 +262,16 @@ export async function loadGridBetaFighterSpec(
   if (Buffer.byteLength(text, "utf-8") > GRID_BETA_FIGHTER_MAX_JSON_BYTES) {
     throw new GridBetaFighterSpecError(
       `fighter spec exceeds the maximum size of ${GRID_BETA_FIGHTER_MAX_JSON_BYTES} bytes`,
+    );
+  }
+
+  // Recheck the final file entry after reading to reduce substitution races;
+  // a changed or replaced entry (including a newly introduced symbolic link)
+  // fails closed rather than being followed silently.
+  const afterReadKind = await fsEntryKind(fs, resolve(target));
+  if (afterReadKind !== "file") {
+    throw new GridBetaFighterSpecError(
+      `fighter spec changed while being read (found ${afterReadKind ?? "nothing"}): ${resolve(target)}`,
     );
   }
 

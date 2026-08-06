@@ -265,3 +265,38 @@ export function assertGridBetaLegacyIsolationPasses(
     );
   }
 }
+
+/**
+ * Exact canonical successful-preflight assertion (Milestone 0.2C Phase 3G.1,
+ * Phase 8). For a published beta match the persisted preflight must be
+ * `status: pass` with `trigger: null`, `failures: []` and every detailed
+ * boolean exactly `true`. `status: pass` with contradictory detailed values is
+ * never accepted. Used when building the selection and during bundle read-back
+ * validation.
+ */
+export function assertCanonicalGridBetaPreflightPass(
+  preflight: GridBetaLegacyIsolationPreflightV1,
+): void {
+  const allDetailedTrue =
+    preflight.protectedFilesEqualReviewedSnapshot === true &&
+    preflight.normalMatchCallsLegacyRunMatch === true &&
+    preflight.normalSeriesCallsLegacyRunMatch === true &&
+    preflight.neitherNormalPathInvokesGridOrBeta === true &&
+    preflight.globalVersions020020 === true &&
+    preflight.catalogueStill1 === true &&
+    preflight.qualificationFrozen === true &&
+    preflight.gridIdentitySeparate === true &&
+    preflight.bothCanarySourcesFrozen === true &&
+    preflight.schemaV2LegacyConversionPresent === true &&
+    preflight.schemaV3GridConversionAndReplayPresent === true;
+  if (
+    preflight.status !== "pass" ||
+    preflight.trigger !== null ||
+    preflight.failures.length !== 0 ||
+    !allDetailedTrue
+  ) {
+    throw new Error(
+      "grid beta protected-source preflight is not the canonical pass (status/trigger/failures/detailed booleans disagree)",
+    );
+  }
+}

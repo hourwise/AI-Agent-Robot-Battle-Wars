@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defaultCanaryFs } from "../../src/canary/immutable-canary-bundle.js";
 import {
   GRID_BETA_SUSPENSION_TRIGGERS,
+  GridBetaSuspensionError,
   assertSuspensionMarkerAbsent,
   createGridBetaSuspensionMarker,
   gridBetaSuspensionMarkerV1Schema,
@@ -129,16 +138,13 @@ describe("grid beta suspension switch (Phase 3G Phase 5)", () => {
     }
   });
 
-  it("fails closed on marker-write failure and on a marker appearing before rename", async () => {
+  it("fails closed on exclusive marker-write failure and never replaces a raced entry", async () => {
     const { path, cleanup } = await tempMarker();
     try {
       const failingFs = {
         ...defaultCanaryFs,
-        writeFile: async (p: string, data: string, encoding?: "utf-8") => {
-          if (p === `${path}.tmp`) {
-            throw new Error("simulated marker write failure");
-          }
-          return defaultCanaryFs.writeFile(p, data, encoding);
+        writeFileExclusive: async () => {
+          throw new Error("simulated marker exclusive write failure");
         },
       };
       await expect(
@@ -147,7 +153,27 @@ describe("grid beta suspension switch (Phase 3G Phase 5)", () => {
           message: "x",
           createdAt: "2026-08-06T00:00:00.000Z",
         }),
-      ).rejects.toThrow(/simulated marker write failure/);
+      ).rejects.toThrow(/simulated marker exclusive write failure/);
+      // An entry appearing at the exact exclusive-create moment (EEXIST) is
+      // never replaced: the exclusive write fails closed and the existing
+      // bytes stay unchanged.
+      await writeFile(path, "raced", "utf-8");
+      const existingFs = {
+        ...defaultCanaryFs,
+        writeFileExclusive: async () => {
+          const err = new Error("EEXIST") as Error & { code?: string };
+          err.code = "EEXIST";
+          throw err;
+        },
+      };
+      await expect(
+        createGridBetaSuspensionMarker(existingFs, path, {
+          trigger: "governance_anchor_failure",
+          message: "x",
+          createdAt: "2026-08-06T00:00:00.000Z",
+        }),
+      ).rejects.toThrow(/refusing to overwrite/);
+      expect(await readFile(path, "utf-8")).toBe("raced");
     } finally {
       await cleanup();
     }
@@ -163,6 +189,74 @@ describe("grid beta suspension switch (Phase 3G Phase 5)", () => {
           createdAt: "2026-08-06T00:00:00.000Z",
         }),
       ).rejects.toThrow(/not a frozen trigger code/);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it("securely creates the marker parent when missing (Phase 3G.1 Phase 3)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "beta-suspend-mkparent-"));
+    try {
+      const path = join(root, "beta", "nested", "GRID_BETA_SUSPENDED");
+      await createGridBetaSuspensionMarker(defaultCanaryFs, path, {
+        trigger: "governance_anchor_failure",
+        message: "x",
+        createdAt: "2026-08-06T00:00:00.000Z",
+      });
+      const text = await readFile(path, "utf-8");
+      const parsed = gridBetaSuspensionMarkerV1Schema.safeParse(JSON.parse(text));
+      expect(parsed.success).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a symbolic-link or junction marker parent (Phase 3G.1 Phase 3)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "beta-suspend-linkparent-"));
+    const outside = await mkdtemp(join(tmpdir(), "beta-suspend-outside-"));
+    const junctionParent = join(root, "jparent");
+    await symlink(outside, junctionParent, "junction");
+    try {
+      const path = join(junctionParent, "GRID_BETA_SUSPENDED");
+      await expect(
+        createGridBetaSuspensionMarker(defaultCanaryFs, path, {
+          trigger: "governance_anchor_failure",
+          message: "x",
+          createdAt: "2026-08-06T00:00:00.000Z",
+        }),
+      ).rejects.toThrow(GridBetaSuspensionError);
+      // The junction parent must never be followed: no marker is created.
+      expect((await readdir(outside)).includes("GRID_BETA_SUSPENDED")).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("two concurrent creators result in exactly one created marker (Phase 3G.1 Phase 3)", async () => {
+    const { path, cleanup } = await tempMarker();
+    try {
+      const results = await Promise.allSettled([
+        createGridBetaSuspensionMarker(defaultCanaryFs, path, {
+          trigger: "governance_anchor_failure",
+          message: "first",
+          createdAt: "2026-08-06T00:00:00.000Z",
+        }),
+        createGridBetaSuspensionMarker(defaultCanaryFs, path, {
+          trigger: "nondeterministic_result",
+          message: "second",
+          createdAt: "2026-08-06T00:00:00.000Z",
+        }),
+      ]);
+      const fulfilled = results.filter((r) => r.status === "fulfilled");
+      const rejected = results.filter((r) => r.status === "rejected");
+      expect(fulfilled.length).toBe(1);
+      expect(rejected.length).toBe(1);
+      // The surviving marker bytes are one complete frozen marker, never a
+      // mixture, and they are never replaced.
+      const text = await readFile(path, "utf-8");
+      const parsed = gridBetaSuspensionMarkerV1Schema.safeParse(JSON.parse(text));
+      expect(parsed.success).toBe(true);
     } finally {
       await cleanup();
     }

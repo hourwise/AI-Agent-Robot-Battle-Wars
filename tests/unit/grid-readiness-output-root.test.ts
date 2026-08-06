@@ -99,6 +99,7 @@ describe("grid readiness output-root guard (Phase 3E1)", () => {
     const fs: CanaryFileSystem = {
       mkdir: async () => undefined,
       writeFile: async () => undefined,
+      writeFileExclusive: async () => undefined,
       readFile: async () => "",
       readdir: async () => [],
       lstat: async (path: string) => {

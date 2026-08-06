@@ -699,6 +699,32 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   default; no default/public/ranked/tournament activation; no balance
   conclusion; Milestone 0.2C remains incomplete pending independent Phase 3G
   implementation review.
+- Grid-beta safety and provenance hardening (Phase 3G.1): **complete**. The
+  pre-simulation checkpoint window is closed (canonical protected-source
+  preflight → governance bytes unchanged → marker absent → synchronous
+  `runGridMatch`); the shared immutable publisher gained an optional
+  `beforeAtomicPublish` final safety hook (re-runs the preflight, governance,
+  marker and physical-root checks immediately before the atomic rename,
+  retaining the original safety trigger); suspension-marker creation is
+  genuinely exclusive (`writeFileExclusive`, `wx`) with secure marker-parent
+  creation and complete filesystem-root ancestry inspection; all beta-owned
+  machine schemas are strict (unknown `provider`/`model`/`runtime`/
+  `outputRoot`/`ranked`/`tournament`/`balanceQualified` fields reject);
+  fighter artifacts are parsed through the authoritative
+  `parseGridBetaFighterSpec` path with canonical byte serialization; the
+  complete validated build and policies are bound across the record config
+  and initial states; the complete canonical C2 metadata is bound across the
+  selection, record and record config; the persisted preflight must be the
+  exact canonical pass; the execution attestation primary checksum is bound
+  to the persisted record reconstruction; repeat inputs are independent fresh
+  graphs with mutation detection; governance inventory reading is exact
+  (dotfiles included, sorted, regular files only); fighter input ancestry is
+  inspected from the filesystem root via `lstat`; and the physical replay
+  bundle is inventory-validated before any content is read. No real beta
+  match or marker was created; no official artifact was altered; the explicit
+  internal beta command is **implemented, not yet authorised for first real
+  execution**; Milestone 0.2C remains incomplete pending independent Phase
+  3G.1 review.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

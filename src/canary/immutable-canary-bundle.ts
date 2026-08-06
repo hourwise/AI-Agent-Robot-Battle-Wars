@@ -33,6 +33,13 @@ export interface CanaryFsEntry {
 export interface CanaryFileSystem {
   mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;
   writeFile(path: string, data: string, encoding?: "utf-8"): Promise<void>;
+  /**
+   * Exclusive/no-clobber write: creates `path` only when it does not exist
+   * (equivalent to the `wx` flag) and never replaces an existing file,
+   * directory, symbolic link or any other entry. Concurrent creators result
+   * in exactly one success and one closed failure.
+   */
+  writeFileExclusive(path: string, data: string, encoding?: "utf-8"): Promise<void>;
   readFile(path: string, encoding: "utf-8"): Promise<string>;
   readdir(path: string): Promise<string[]>;
   lstat(path: string): Promise<CanaryFsEntry>;
@@ -45,6 +52,8 @@ export const defaultCanaryFs: CanaryFileSystem = {
     await mkdir(path, options);
   },
   writeFile: (path, data, encoding) => writeFile(path, data, encoding),
+  writeFileExclusive: (path, data, encoding) =>
+    writeFile(path, data, { encoding: encoding ?? "utf-8", flag: "wx" }),
   readFile: (path, encoding) => readFile(path, encoding),
   readdir: (path) => readdir(path),
   lstat: (path) => lstat(path),
@@ -144,6 +153,15 @@ export interface PublishImmutableBundleParams {
    * artifact is written. Used for the physical-root re-inspection.
    */
   afterRootCreated?: () => Promise<void>;
+  /**
+   * Optional final safety hook. Runs after all temporary artifacts have been
+   * written and the complete temporary bundle has been validated, immediately
+   * before the temporary directory is atomically renamed to the final
+   * directory. Callers that do not supply it are byte- and behaviour-
+   * compatible. If it throws, the temporary directory is cleaned up, no final
+   * directory is published, and the error is propagated unchanged.
+   */
+  beforeAtomicPublish?: () => Promise<void>;
 }
 
 /**
@@ -354,6 +372,11 @@ export async function publishImmutableBundle(
 
     // Verify the complete temporary bundle before publishing.
     await runVerification(tmpDir);
+
+    // Optional final safety hook immediately before the atomic rename. The
+    // temporary directory is still invocation-owned, so any failure here is
+    // cleaned up by the shared handler below and no final directory exists.
+    if (params.beforeAtomicPublish) await params.beforeAtomicPublish();
 
     // Atomically publish the completed temporary directory.
     await fs.rename(tmpDir, finalDir);

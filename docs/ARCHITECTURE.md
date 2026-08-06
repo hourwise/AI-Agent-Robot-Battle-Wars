@@ -1156,6 +1156,39 @@ implementation; legacy remains default; no default/public/ranked/tournament
 activation and no balance conclusion; the beta is implemented but not yet
 independently reviewed.
 
+Phase 3G.1 hardened the beta safety and provenance without running a beta
+match or altering official artifacts. The pre-simulation sequence is ordered
+so no async preflight occurs after the final governance and suspension
+checks (load fighters → collision-free identity → canonical protected-source
+preflight → governance bytes unchanged → marker absent → synchronous
+`runGridMatch`). The shared immutable publisher gained an optional
+`beforeAtomicPublish` hook (runs after temporary-bundle validation,
+immediately before the atomic rename) that the beta uses to re-run the
+complete protected-source preflight, require governance bytes unchanged,
+require the marker absent and recheck the physical output root; a typed
+`GridBetaSafetyError` retains the original trigger and the publisher cleans
+up the temporary directory. Suspension-marker creation is genuinely
+exclusive (`CanaryFileSystem.writeFileExclusive`, `wx` semantics): the final
+path is created directly, never replacing any existing entry, with secure
+marker-parent creation and complete filesystem-root ancestry inspection
+before and after. All beta-owned machine schemas are strict; fighter
+artifacts are parsed through the authoritative `parseGridBetaFighterSpec`
+path with canonical byte serialization; the complete validated build and
+policies are bound field-for-field across the record config and initial
+states; the complete canonical C2 metadata (`component-impact-c2`,
+`linear-component-impact`, `13548462df34a183`) is bound across the selection,
+record and record config; the persisted preflight must be the exact canonical
+pass; the execution attestation primary checksum is bound to the persisted
+record reconstruction and `manifest.createdAt` must equal `record.createdAt`;
+repeat executions use independent fresh input graphs with mutation
+detection; governance inventory reading lists every entry including dotfiles
+with exact sorted equality; fighter input ancestry is inspected from the
+filesystem root via `lstat` with a post-read recheck; and the physical replay
+bundle is inventory-validated (exactly ten regular files, no symlinks/hidden/
+nested entries) before any content is read. No real beta match or marker was
+created; the beta is implemented but not yet authorised for its first real
+execution.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

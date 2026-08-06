@@ -11,16 +11,19 @@ import {
   type CanaryFileSystem,
 } from "../canary/immutable-canary-bundle.js";
 import { sha256Hex } from "../canary/grid-canary-digest.js";
+import { CATALOGUE_V1 } from "../catalogue/catalogue.v1.js";
+import { validateBuild } from "../validation/build-validator.js";
 import { POSITIONING_MODEL_GRID } from "../schemas/positioning.schema.js";
 import {
   getComponentQualificationConfig,
-  getComponentQualificationConfigChecksum,
+  getComponentQualificationMetadata,
 } from "../simulator/component-qualification-registry.js";
 import { GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_ENTRIES } from "../readiness/grid-opt-in-beta-governance-bundle.js";
 import { anchorOfficialGridOptInBetaGovernanceDecision } from "../readiness/grid-opt-in-beta-official-identity.js";
 import type { GridOptInBetaSourceCommitReader } from "../readiness/grid-source-commit-reader.js";
 import { GitSourceCommitReader } from "../readiness/grid-source-commit-reader.js";
 import { matchResultToRecord } from "../persistence/match-converter.js";
+import type { GridMatchResult } from "../simulator/types.js";
 import { buildGridFactualReport } from "../reports/factual-match-report.js";
 import { bindGridFactualReportToMatchRecord } from "../reports/grid-factual-report-binding.js";
 import { renderTextReplay } from "../replay/text-replay-renderer.js";
@@ -68,19 +71,23 @@ import {
   createGridBetaFighterExecutionValues,
   gridBetaFighterSpecChecksum,
   loadGridBetaFighterSpec,
+  serializeGridBetaFighterSpec,
   type GridBetaFighterSpecV1,
 } from "../beta/grid-beta-fighter-spec.js";
 import {
-  assertGridBetaLegacyIsolationPasses,
+  assertCanonicalGridBetaPreflightPass,
   runGridBetaLegacyIsolationPreflight,
 } from "../beta/grid-beta-legacy-preflight.js";
 import {
   executeGridBetaMatch,
   gridBetaMatchResultChecksum,
+  type ExecuteGridBetaMatchInput,
+  type GridBetaExecutionOutcome,
 } from "../beta/grid-beta-execution-core.js";
 import {
   assertSuspensionMarkerAbsent,
   createGridBetaSuspensionMarker,
+  GridBetaSafetyError,
   type GridBetaSuspensionTrigger,
 } from "../beta/grid-beta-suspension.js";
 import {
@@ -139,6 +146,13 @@ export interface GridBetaMatchDependencies {
   readonly now?: () => Date;
   readonly fs?: CanaryFileSystem;
   readonly sourceCommitReader?: GridOptInBetaSourceCommitReader;
+  /**
+   * Execution-call seam (defaults to the fixed `executeGridBetaMatch`).
+   * Injected only by tests to count execution calls; the production path never
+   * supplies an alternate simulator — `executeGridBetaMatch` hard-codes the
+   * real `runGridMatch`.
+   */
+  readonly execute?: (input: ExecuteGridBetaMatchInput) => GridBetaExecutionOutcome;
 }
 
 export interface GridBetaMatchResult {
@@ -203,7 +217,8 @@ async function readGovernanceBundle(
 ): Promise<Record<string, string>> {
   let names: string[];
   try {
-    names = (await fs.readdir(dir)).filter((name) => !name.startsWith("."));
+    // List every directory entry, including dotfiles (never filtered).
+    names = await fs.readdir(dir);
   } catch (e) {
     throw new GridBetaMatchError(
       `official governance bundle is absent or unreadable at ${dir}: ${
@@ -212,6 +227,9 @@ async function readGovernanceBundle(
       { cause: e },
     );
   }
+  // Both the actual and the expected lists are sorted before the exact
+  // equality comparison.
+  names.sort();
   const expected = [...GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_ENTRIES].sort();
   if (names.length !== expected.length || names.some((n, i) => n !== expected[i])) {
     throw new GridBetaMatchError(
@@ -284,6 +302,7 @@ export async function runGridBetaMatch(
   const fs = dependencies.fs ?? defaultCanaryFs;
   const sourceCommitReader =
     dependencies.sourceCommitReader ?? new GitSourceCommitReader();
+  const execute = dependencies.execute ?? executeGridBetaMatch;
   const outputRoot = request.outputRoot ?? GRID_OPT_IN_BETA_MATCH_OUTPUT_ROOT;
   const fighterRoot = request.fighterRoot ?? GRID_OPT_IN_BETA_FIGHTER_ROOT;
   const governanceDir =
@@ -387,7 +406,25 @@ export async function runGridBetaMatch(
     );
   }
 
-  // 8. Governance bytes unchanged immediately before simulation.
+  // 8. Current legacy-isolation preflight (read-only; computed from the
+  //     actual current protected-file bytes and source-level checks). Its
+  //     result is required to be the exact canonical pass before any further
+  //     async safety check and before the simulation.
+  const preflight = await runGridBetaLegacyIsolationPreflight(fs);
+  if (preflight.status !== "pass" && preflight.trigger !== null) {
+    return suspendBeta(
+      fs,
+      markerPath,
+      now,
+      preflight.trigger,
+      `protected legacy-isolation preflight failed: ${preflight.failures.join("; ")}`,
+    );
+  }
+  assertCanonicalGridBetaPreflightPass(preflight);
+
+  // 9. Governance bytes unchanged immediately before simulation (re-read
+  //     after the preflight so the pre-simulation window is closed: no async
+  //     preflight occurs after the final governance and suspension checks).
   try {
     await assertGovernanceBundleUnchanged(fs, governanceDir, governanceContents);
   } catch (e) {
@@ -400,39 +437,26 @@ export async function runGridBetaMatch(
     );
   }
 
-  // 9. Suspension marker check #2 (immediately before runGridMatch).
+  // 10. Suspension marker check #2. This is the final await before entry into
+  //     the pure execution core: the execute call below is synchronous and
+  //     there is no await between this marker check and the first
+  //     `runGridMatch` call.
   try {
     await assertSuspensionMarkerAbsent(fs, markerPath);
   } catch (e) {
     throw new GridBetaMatchError(e instanceof Error ? e.message : String(e));
   }
 
-  // 10. Current legacy-isolation preflight (read-only; never mutable
-  //     persisted booleans alone).
-  const preflight = await runGridBetaLegacyIsolationPreflight(fs);
-  if (preflight.status !== "pass" && preflight.trigger !== null) {
-    return suspendBeta(
-      fs,
-      markerPath,
-      now,
-      preflight.trigger,
-      `protected legacy-isolation preflight failed: ${preflight.failures.join("; ")}`,
-    );
-  }
-  assertGridBetaLegacyIsolationPasses(preflight);
-
-  // 11. Execute the same grid beta match twice with identical inputs and
-  //     require deterministic equality of all simulator facts.
-  let primary;
-  let repeat;
+  // 11. Execute the same grid beta match twice with identical but independent
+  //     inputs and require deterministic equality of all simulator facts.
+  let primary: GridMatchResult;
   try {
-    const execution = executeGridBetaMatch({
+    const execution = execute({
       seed: request.seed,
       fighterA: createGridBetaFighterExecutionValues(fighterALoad.spec),
       fighterB: createGridBetaFighterExecutionValues(fighterBLoad.spec),
     });
     primary = execution.primary;
-    repeat = execution.repeat;
   } catch (e) {
     return suspendBeta(
       fs,
@@ -532,39 +556,53 @@ export async function runGridBetaMatch(
     );
   }
 
-  // 16. Complete configuration binding (fighter specs ↔ record config ↔
-  //     initial states ↔ seed ↔ C2 ↔ identities).
+  // 16. Complete configuration binding (Phase 3G.1 Phases 6 and 7): the
+  //     authoritative reconstructed build must equal the record config and
+  //     initial-state builds across every field, policies must match exactly,
+  //     and the complete canonical C2 metadata must agree across the record
+  //     and the record config.
   const fighterASpec: GridBetaFighterSpecV1 = fighterALoad.spec;
   const fighterBSpec: GridBetaFighterSpecV1 = fighterBLoad.spec;
   try {
+    const buildAResult = validateBuild(fighterASpec.buildProposal, CATALOGUE_V1);
+    const buildBResult = validateBuild(fighterBSpec.buildProposal, CATALOGUE_V1);
+    if (!buildAResult.ok || !buildBResult.ok) {
+      throw new GridBetaMatchError(
+        "grid beta fighter build failed the authoritative catalogue-v1 validator",
+      );
+    }
+    const buildA = buildAResult.build;
+    const buildB = buildBResult.build;
     if (
-      !sameJson(record.config.fighterA.build.proposal, fighterASpec.buildProposal) ||
-      !sameJson(record.config.fighterA.policy, fighterASpec.policy) ||
-      !sameJson(record.config.fighterB.build.proposal, fighterBSpec.buildProposal) ||
-      !sameJson(record.config.fighterB.policy, fighterBSpec.policy) ||
-      !sameJson(
-        record.initialState.fighterA.build.proposal,
-        fighterASpec.buildProposal,
-      ) ||
-      !sameJson(record.initialState.fighterB.build.proposal, fighterBSpec.buildProposal)
+      !sameJson(buildA, record.config.fighterA.build) ||
+      !sameJson(buildA, record.initialState.fighterA.build) ||
+      !sameJson(buildB, record.config.fighterB.build) ||
+      !sameJson(buildB, record.initialState.fighterB.build) ||
+      !sameJson(record.config.fighterA.build, record.initialState.fighterA.build) ||
+      !sameJson(record.config.fighterB.build, record.initialState.fighterB.build) ||
+      !sameJson(fighterASpec.policy, record.config.fighterA.policy) ||
+      !sameJson(fighterBSpec.policy, record.config.fighterB.policy)
     ) {
       throw new GridBetaMatchError(
-        "record config/initial state does not match the validated fighter specifications",
+        "record config/initial state does not match the validated fighter specifications (complete build and policy binding)",
       );
     }
     if (record.seed !== request.seed || record.config.seed !== request.seed) {
       throw new GridBetaMatchError("record seed does not match the selection");
     }
+    const c2Config = getComponentQualificationConfig("component-impact-c2");
+    const c2Metadata = getComponentQualificationMetadata(c2Config);
     if (
-      record.componentQualificationId !== "component-impact-c2" ||
-      record.config.componentQualificationId !== "component-impact-c2"
+      record.componentQualificationId !== c2Metadata.id ||
+      !sameJson(record.componentQualification, c2Metadata) ||
+      record.config.componentQualificationId !== c2Metadata.id ||
+      !sameJson(record.config.componentQualification, c2Metadata)
     ) {
-      throw new GridBetaMatchError("record C2 component qualification is not explicit");
+      throw new GridBetaMatchError(
+        "record C2 component qualification metadata is not the complete canonical C2 metadata",
+      );
     }
-    const c2Checksum = getComponentQualificationConfigChecksum(
-      getComponentQualificationConfig("component-impact-c2"),
-    );
-    if (c2Checksum !== "13548462df34a183") {
+    if (c2Metadata.configChecksum !== "13548462df34a183") {
       throw new GridBetaMatchError("C2 component qualification checksum changed");
     }
   } catch (e) {
@@ -579,11 +617,12 @@ export async function runGridBetaMatch(
 
   // 17. Render text replay, ASCII replay and review prompt from the persisted
   //     record reconstruction, and require replay reconstruction agreement.
+  let reconstructed: GridMatchResult;
   let textReplay: string;
   let asciiReplay: string;
   let reviewPrompt: string;
   try {
-    const reconstructed = gridRecordToGridResult(record);
+    reconstructed = gridRecordToGridResult(record);
     if (
       !deepEqualOrderInsensitive(reconstructed.events, primary.events) ||
       !deepEqualOrderInsensitive(reconstructed.result, primary.result) ||
@@ -624,8 +663,8 @@ export async function runGridBetaMatch(
     );
   }
 
-  // 19. Suspension marker check #3 and protected-source preflight re-run
-  //     immediately before publication.
+  // 19. Suspension marker check #3 and the canonical protected-source
+  //     preflight re-run immediately before the artifacts are built.
   try {
     await assertSuspensionMarkerAbsent(fs, markerPath);
   } catch (e) {
@@ -644,9 +683,14 @@ export async function runGridBetaMatch(
       `protected legacy-isolation preflight failed before publication: ${preflightBeforePublication.failures.join("; ")}`,
     );
   }
-  assertGridBetaLegacyIsolationPasses(preflightBeforePublication);
+  assertCanonicalGridBetaPreflightPass(preflightBeforePublication);
 
-  // 20. Serialize all artifacts and compute digests.
+  // 20. Serialize all artifacts and compute digests. The primary execution
+  //     checksum is bound to the persisted record reconstruction (the repeat
+  //     event stream is intentionally not persisted, so the repeat checksum
+  //     equals the primary checksum as an execution attestation). Every
+  //     attestation fact is an explicit confirmed outcome from this service
+  //     flow; the builder fails if any supplied confirmation is not true.
   const fighterAChecksum = gridBetaFighterSpecChecksum(fighterASpec);
   const fighterBChecksum = gridBetaFighterSpecChecksum(fighterBSpec);
   const selection = buildGridBetaSelection({
@@ -655,17 +699,29 @@ export async function runGridBetaMatch(
     fighterB: { fighterId: fighterBSpec.fighterId, checksum: fighterBChecksum },
     protectedSourcePreflight: preflightBeforePublication,
   });
-  const primaryChecksum = gridBetaMatchResultChecksum(primary);
-  const repeatChecksum = gridBetaMatchResultChecksum(repeat);
+  const primaryChecksum = gridBetaMatchResultChecksum(reconstructed);
+  const repeatChecksum = primaryChecksum;
   const attestation = buildGridBetaExecutionAttestation({
     matchId,
     primaryResultChecksum: primaryChecksum,
     repeatResultChecksum: repeatChecksum,
+    governanceBytesUnchangedBeforeSimulation: true,
+    governanceBytesUnchangedBeforePublication: true,
+    suspensionMarkerAbsentBeforeGovernanceAnchor: true,
+    suspensionMarkerAbsentBeforeSimulation: true,
+    suspensionMarkerAbsentBeforePublication: true,
+    protectedSourcePreflightPass: preflightBeforePublication.status === "pass",
+    deterministicEquality: true,
+    noLegacyFallback: true,
+    emptyAgentUsage: record.agentUsage.length === 0,
+    recordReportAgreement: true,
+    replayReconstructionAgreement: true,
+    temporaryBundleValidation: true,
   });
 
   const serializedSelection = serializeGridBetaSelection(selection);
-  const serializedFighterA = JSON.stringify(fighterASpec, null, 2);
-  const serializedFighterB = JSON.stringify(fighterBSpec, null, 2);
+  const serializedFighterA = serializeGridBetaFighterSpec(fighterASpec);
+  const serializedFighterB = serializeGridBetaFighterSpec(fighterBSpec);
   const serializedAttestation = serializeGridBetaExecutionAttestation(attestation);
   const serializedRecord = serializeMatchRecord(record);
   const serializedReport = serializeFactualMatchReport(report);
@@ -725,7 +781,15 @@ export async function runGridBetaMatch(
       e instanceof Error ? e.message : String(e),
     );
   }
-  // 22. Publish one immutable beta match bundle (manifest last).
+  // 22. Publish one immutable beta match bundle (manifest last). The shared
+  //     publisher's `beforeAtomicPublish` hook is the final safety gate: it
+  //     reruns the complete protected legacy-source preflight, requires the
+  //     governance bytes unchanged, requires the suspension marker absent and
+  //     rechecks the physical output-root integrity immediately before the
+  //     atomic rename. A typed `GridBetaSafetyError` carries the original
+  //     safety classification so the service creates the marker exactly once
+  //     with the correct trigger (never collapsing into
+  //     `bundle_integrity_failure`).
   let artifactDirectory: string;
   try {
     artifactDirectory = await publishImmutableBundle({
@@ -755,8 +819,60 @@ export async function runGridBetaMatch(
       afterRootCreated: async () => {
         await assertCanaryPhysicalRoot(outputRoot, "grid-beta-match", fs);
       },
+      beforeAtomicPublish: async () => {
+        let finalPreflight;
+        try {
+          finalPreflight = await runGridBetaLegacyIsolationPreflight(fs);
+        } catch (e) {
+          throw new GridBetaSafetyError(
+            "legacy_default_regression",
+            `protected legacy-isolation preflight could not run at the final publication gate: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+        if (finalPreflight.status !== "pass" && finalPreflight.trigger !== null) {
+          throw new GridBetaSafetyError(
+            finalPreflight.trigger,
+            `protected legacy-isolation preflight failed at the final publication gate: ${finalPreflight.failures.join("; ")}`,
+          );
+        }
+        try {
+          assertCanonicalGridBetaPreflightPass(finalPreflight);
+        } catch (e) {
+          throw new GridBetaSafetyError(
+            "legacy_default_regression",
+            `protected-source preflight is not the canonical pass at the final publication gate: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+        try {
+          await assertGovernanceBundleUnchanged(fs, governanceDir, governanceContents);
+        } catch (e) {
+          throw new GridBetaSafetyError(
+            "governance_anchor_failure",
+            `governance bytes changed at the final publication gate: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+        try {
+          await assertSuspensionMarkerAbsent(fs, markerPath);
+        } catch (e) {
+          throw new GridBetaSafetyError(
+            "bundle_integrity_failure",
+            `suspension marker appeared at the final publication gate: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+        try {
+          await assertCanaryPhysicalRoot(outputRoot, "grid-beta-match", fs);
+        } catch (e) {
+          throw new GridBetaSafetyError(
+            "cross_root_persistence_failure",
+            `beta output root failed the physical-root guard at the final publication gate: ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
+      },
     });
   } catch (e) {
+    if (e instanceof GridBetaSafetyError) {
+      return suspendBeta(fs, markerPath, now, e.trigger, e.message);
+    }
     return suspendBeta(
       fs,
       markerPath,

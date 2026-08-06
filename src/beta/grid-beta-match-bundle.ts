@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { sha256Hex } from "../canary/grid-canary-digest.js";
+import { CATALOGUE_V1 } from "../catalogue/catalogue.v1.js";
 import { buildReviewUserPrompt } from "../prompts/review-prompt.v1.js";
 import { GRID_OPT_IN_BETA_REVIEWED_SOURCE_COMMIT } from "../readiness/grid-opt-in-beta-source-snapshot.js";
+import { validateBuild } from "../validation/build-validator.js";
+import type { ValidatedBuild } from "../validation/validation.types.js";
+import {
+  getComponentQualificationConfig,
+  getComponentQualificationMetadata,
+} from "../simulator/component-qualification-registry.js";
 import {
   assertGridReadinessRecordReportFinalAgreement,
   gridRecordToGridResult,
@@ -38,11 +45,15 @@ import {
 } from "./grid-beta-identity.js";
 import {
   GRID_BETA_FIGHTER_ID_PATTERN,
-  gridBetaFighterSpecChecksum,
-  gridBetaFighterSpecV1Schema,
+  parseGridBetaFighterSpec,
+  serializeGridBetaFighterSpec,
   type GridBetaFighterSpecV1,
 } from "./grid-beta-fighter-spec.js";
-import type { GridBetaLegacyIsolationPreflightV1 } from "./grid-beta-legacy-preflight.js";
+import {
+  assertCanonicalGridBetaPreflightPass,
+  type GridBetaLegacyIsolationPreflightV1,
+} from "./grid-beta-legacy-preflight.js";
+import { gridBetaMatchResultChecksum } from "./grid-beta-execution-core.js";
 import {
   isGridBetaSuspensionTrigger,
   type GridBetaSuspensionTrigger,
@@ -95,56 +106,66 @@ export const GRID_BETA_MATCH_NON_MANIFEST_ARTIFACTS: readonly string[] = Object.
 
 // ── Selection v1 ────────────────────────────────────────────────────────────
 
-export const gridBetaLegacyIsolationPreflightSchema = z.object({
-  status: z.enum(["pass", "fail"]),
-  trigger: z.custom<GridBetaSuspensionTrigger | null>(
-    (value) => value === null || isGridBetaSuspensionTrigger(value),
-  ),
-  failures: z.array(z.string()),
-  protectedFilesEqualReviewedSnapshot: z.boolean(),
-  normalMatchCallsLegacyRunMatch: z.boolean(),
-  normalSeriesCallsLegacyRunMatch: z.boolean(),
-  neitherNormalPathInvokesGridOrBeta: z.boolean(),
-  globalVersions020020: z.boolean(),
-  catalogueStill1: z.boolean(),
-  qualificationFrozen: z.boolean(),
-  gridIdentitySeparate: z.boolean(),
-  bothCanarySourcesFrozen: z.boolean(),
-  schemaV2LegacyConversionPresent: z.boolean(),
-  schemaV3GridConversionAndReplayPresent: z.boolean(),
-});
+export const gridBetaLegacyIsolationPreflightSchema = z
+  .object({
+    status: z.enum(["pass", "fail"]),
+    trigger: z.custom<GridBetaSuspensionTrigger | null>(
+      (value) => value === null || isGridBetaSuspensionTrigger(value),
+    ),
+    failures: z.array(z.string()),
+    protectedFilesEqualReviewedSnapshot: z.boolean(),
+    normalMatchCallsLegacyRunMatch: z.boolean(),
+    normalSeriesCallsLegacyRunMatch: z.boolean(),
+    neitherNormalPathInvokesGridOrBeta: z.boolean(),
+    globalVersions020020: z.boolean(),
+    catalogueStill1: z.boolean(),
+    qualificationFrozen: z.boolean(),
+    gridIdentitySeparate: z.boolean(),
+    bothCanarySourcesFrozen: z.boolean(),
+    schemaV2LegacyConversionPresent: z.boolean(),
+    schemaV3GridConversionAndReplayPresent: z.boolean(),
+  })
+  .strict();
 
-export const gridBetaSelectionV1Schema = z.object({
-  schemaVersion: z.literal("1"),
-  kind: z.literal("grid-beta-selection"),
-  implementationId: z.literal(GRID_OPT_IN_BETA_MATCH_IMPLEMENTATION_ID),
-  contractId: z.literal(GRID_OPT_IN_BETA_CONTRACT_ID),
-  contractChecksum: z.literal(GRID_OPT_IN_BETA_CONTRACT_CHECKSUM),
-  governanceDecisionId: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_DECISION_ID),
-  governanceOutcome: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_OUTCOME),
-  governanceArtifactHashes: z.record(z.string(), z.string().regex(/^[0-9a-f]{64}$/)),
-  command: z.literal(GRID_OPT_IN_BETA_MATCH_COMMAND),
-  acknowledgement: z.literal(true),
-  seed: z.number().int().nonnegative(),
-  fighterA: z.object({
-    fighterId: z.string().regex(GRID_BETA_FIGHTER_ID_PATTERN),
-    checksum: z.string().regex(/^[0-9a-f]{64}$/),
-  }),
-  fighterB: z.object({
-    fighterId: z.string().regex(GRID_BETA_FIGHTER_ID_PATTERN),
-    checksum: z.string().regex(/^[0-9a-f]{64}$/),
-  }),
-  runtimeIdentity: z.object({
-    simulatorVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.simulatorVersion),
-    positioningModel: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.positioningModel),
-    rulesetVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.rulesetVersion),
-    catalogueVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.catalogueVersion),
-  }),
-  componentQualificationId: z.literal(GRID_OPT_IN_BETA_COMPONENT_QUALIFICATION_ID),
-  componentQualificationChecksum: z.literal("13548462df34a183"),
-  protectedSourcePreflight: gridBetaLegacyIsolationPreflightSchema,
-  disclaimer: z.literal(GRID_OPT_IN_BETA_DISCLAIMER),
-});
+export const gridBetaSelectionV1Schema = z
+  .object({
+    schemaVersion: z.literal("1"),
+    kind: z.literal("grid-beta-selection"),
+    implementationId: z.literal(GRID_OPT_IN_BETA_MATCH_IMPLEMENTATION_ID),
+    contractId: z.literal(GRID_OPT_IN_BETA_CONTRACT_ID),
+    contractChecksum: z.literal(GRID_OPT_IN_BETA_CONTRACT_CHECKSUM),
+    governanceDecisionId: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_DECISION_ID),
+    governanceOutcome: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_OUTCOME),
+    governanceArtifactHashes: z.record(z.string(), z.string().regex(/^[0-9a-f]{64}$/)),
+    command: z.literal(GRID_OPT_IN_BETA_MATCH_COMMAND),
+    acknowledgement: z.literal(true),
+    seed: z.number().int().nonnegative(),
+    fighterA: z
+      .object({
+        fighterId: z.string().regex(GRID_BETA_FIGHTER_ID_PATTERN),
+        checksum: z.string().regex(/^[0-9a-f]{64}$/),
+      })
+      .strict(),
+    fighterB: z
+      .object({
+        fighterId: z.string().regex(GRID_BETA_FIGHTER_ID_PATTERN),
+        checksum: z.string().regex(/^[0-9a-f]{64}$/),
+      })
+      .strict(),
+    runtimeIdentity: z
+      .object({
+        simulatorVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.simulatorVersion),
+        positioningModel: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.positioningModel),
+        rulesetVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.rulesetVersion),
+        catalogueVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.catalogueVersion),
+      })
+      .strict(),
+    componentQualificationId: z.literal(GRID_OPT_IN_BETA_COMPONENT_QUALIFICATION_ID),
+    componentQualificationChecksum: z.literal("13548462df34a183"),
+    protectedSourcePreflight: gridBetaLegacyIsolationPreflightSchema,
+    disclaimer: z.literal(GRID_OPT_IN_BETA_DISCLAIMER),
+  })
+  .strict();
 
 export interface GridBetaSelectionV1 {
   readonly schemaVersion: "1";
@@ -182,6 +203,10 @@ export interface BuildGridBetaSelectionInput {
 export function buildGridBetaSelection(
   input: BuildGridBetaSelectionInput,
 ): GridBetaSelectionV1 {
+  // The persisted preflight must be the exact canonical pass (Phase 3G.1
+  // Phase 8): `status: pass`, `trigger: null`, `failures: []` and every
+  // detailed boolean exactly `true`.
+  assertCanonicalGridBetaPreflightPass(input.protectedSourcePreflight);
   const selection: GridBetaSelectionV1 = {
     schemaVersion: "1",
     kind: "grid-beta-selection",
@@ -229,24 +254,26 @@ export function deserializeGridBetaSelection(
 
 // ── Execution attestation v1 ────────────────────────────────────────────────
 
-export const gridBetaExecutionAttestationV1Schema = z.object({
-  schemaVersion: z.literal("1"),
-  kind: z.literal("grid-beta-execution-attestation"),
-  matchId: z.string().uuid(),
-  primaryResultChecksum: z.string().regex(/^[0-9a-f]{64}$/),
-  repeatResultChecksum: z.string().regex(/^[0-9a-f]{64}$/),
-  deterministicEquality: z.literal(true),
-  noLegacyFallback: z.literal(true),
-  emptyAgentUsage: z.literal(true),
-  governanceBytesUnchangedBeforeSimulation: z.literal(true),
-  governanceBytesUnchangedBeforePublication: z.literal(true),
-  suspensionMarkerAbsentBeforeGovernanceAnchor: z.literal(true),
-  suspensionMarkerAbsentBeforeSimulation: z.literal(true),
-  suspensionMarkerAbsentBeforePublication: z.literal(true),
-  recordReportAgreement: z.literal(true),
-  replayReconstructionAgreement: z.literal(true),
-  bundleValidationStatus: z.literal("validated"),
-});
+export const gridBetaExecutionAttestationV1Schema = z
+  .object({
+    schemaVersion: z.literal("1"),
+    kind: z.literal("grid-beta-execution-attestation"),
+    matchId: z.string().uuid(),
+    primaryResultChecksum: z.string().regex(/^[0-9a-f]{64}$/),
+    repeatResultChecksum: z.string().regex(/^[0-9a-f]{64}$/),
+    deterministicEquality: z.literal(true),
+    noLegacyFallback: z.literal(true),
+    emptyAgentUsage: z.literal(true),
+    governanceBytesUnchangedBeforeSimulation: z.literal(true),
+    governanceBytesUnchangedBeforePublication: z.literal(true),
+    suspensionMarkerAbsentBeforeGovernanceAnchor: z.literal(true),
+    suspensionMarkerAbsentBeforeSimulation: z.literal(true),
+    suspensionMarkerAbsentBeforePublication: z.literal(true),
+    recordReportAgreement: z.literal(true),
+    replayReconstructionAgreement: z.literal(true),
+    bundleValidationStatus: z.literal("validated"),
+  })
+  .strict();
 
 export interface GridBetaExecutionAttestationV1 {
   readonly schemaVersion: "1";
@@ -271,11 +298,61 @@ export interface BuildGridBetaExecutionAttestationInput {
   readonly matchId: string;
   readonly primaryResultChecksum: string;
   readonly repeatResultChecksum: string;
+  /** Confirmed outcome supplied by the service; the builder fails if false. */
+  readonly governanceBytesUnchangedBeforeSimulation: boolean;
+  readonly governanceBytesUnchangedBeforePublication: boolean;
+  readonly suspensionMarkerAbsentBeforeGovernanceAnchor: boolean;
+  readonly suspensionMarkerAbsentBeforeSimulation: boolean;
+  readonly suspensionMarkerAbsentBeforePublication: boolean;
+  readonly protectedSourcePreflightPass: boolean;
+  readonly deterministicEquality: boolean;
+  readonly noLegacyFallback: boolean;
+  readonly emptyAgentUsage: boolean;
+  readonly recordReportAgreement: boolean;
+  readonly replayReconstructionAgreement: boolean;
+  readonly temporaryBundleValidation: boolean;
 }
 
 export function buildGridBetaExecutionAttestation(
   input: BuildGridBetaExecutionAttestationInput,
 ): GridBetaExecutionAttestationV1 {
+  const confirmations: ReadonlyArray<[string, boolean]> = [
+    [
+      "governance bytes unchanged before simulation",
+      input.governanceBytesUnchangedBeforeSimulation,
+    ],
+    [
+      "governance bytes unchanged before publication",
+      input.governanceBytesUnchangedBeforePublication,
+    ],
+    [
+      "suspension marker absent before governance anchor",
+      input.suspensionMarkerAbsentBeforeGovernanceAnchor,
+    ],
+    [
+      "suspension marker absent before simulation",
+      input.suspensionMarkerAbsentBeforeSimulation,
+    ],
+    [
+      "suspension marker absent before publication",
+      input.suspensionMarkerAbsentBeforePublication,
+    ],
+    ["protected-source preflight pass", input.protectedSourcePreflightPass],
+    ["deterministic equality", input.deterministicEquality],
+    ["no legacy fallback", input.noLegacyFallback],
+    ["empty agent usage", input.emptyAgentUsage],
+    ["record/report agreement", input.recordReportAgreement],
+    ["replay reconstruction agreement", input.replayReconstructionAgreement],
+    ["temporary bundle validation", input.temporaryBundleValidation],
+  ];
+  const unconfirmed = confirmations
+    .filter(([, confirmed]) => confirmed !== true)
+    .map(([label]) => label);
+  if (unconfirmed.length > 0) {
+    throw new Error(
+      `Grid beta execution attestation cannot be built: unconfirmed safety outcomes: ${unconfirmed.join(", ")}`,
+    );
+  }
   const attestation: GridBetaExecutionAttestationV1 = {
     schemaVersion: "1",
     kind: "grid-beta-execution-attestation",
@@ -325,55 +402,69 @@ export function deserializeGridBetaExecutionAttestation(
 
 // ── Manifest v1 ─────────────────────────────────────────────────────────────
 
-export const gridBetaMatchManifestV1Schema = z.object({
-  schemaVersion: z.literal("1"),
-  kind: z.literal("grid-beta-match-manifest"),
-  matchId: z.string().uuid(),
-  createdAt: z.string().datetime(),
-  implementationId: z.literal(GRID_OPT_IN_BETA_MATCH_IMPLEMENTATION_ID),
-  contractId: z.literal(GRID_OPT_IN_BETA_CONTRACT_ID),
-  contractChecksum: z.literal(GRID_OPT_IN_BETA_CONTRACT_CHECKSUM),
-  governanceDecisionId: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_DECISION_ID),
-  governanceOutcome: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_OUTCOME),
-  reviewedSourceCommit: z.literal(GRID_OPT_IN_BETA_REVIEWED_SOURCE_COMMIT),
-  runtimeIdentity: z.object({
-    simulatorVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.simulatorVersion),
-    positioningModel: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.positioningModel),
-    rulesetVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.rulesetVersion),
-    catalogueVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.catalogueVersion),
-  }),
-  schemaVersions: z.object({
-    record: z.literal("3"),
-    report: z.literal("2"),
-  }),
-  result: z.object({
-    winner: z.string().nullable(),
-    method: z.string(),
-    rounds: z.number().int().nonnegative(),
-  }),
-  artifacts: z.object({
-    manifest: z.literal(GRID_BETA_MATCH_MANIFEST_FILE),
-    selection: z.literal(GRID_BETA_MATCH_SELECTION_ARTIFACT),
-    fighterA: z.literal(GRID_BETA_MATCH_FIGHTER_A_ARTIFACT),
-    fighterB: z.literal(GRID_BETA_MATCH_FIGHTER_B_ARTIFACT),
-    executionAttestation: z.literal(GRID_BETA_MATCH_EXECUTION_ATTESTATION_ARTIFACT),
-    match: z.literal(GRID_BETA_MATCH_RECORD_ARTIFACT),
-    factualReport: z.literal(GRID_BETA_MATCH_FACTUAL_REPORT_ARTIFACT),
-    textReplay: z.literal(GRID_BETA_MATCH_TEXT_REPLAY_ARTIFACT),
-    asciiReplay: z.literal(GRID_BETA_MATCH_ASCII_REPLAY_ARTIFACT),
-    reviewPrompt: z.literal(GRID_BETA_MATCH_REVIEW_PROMPT_ARTIFACT),
-  }),
-  digests: z.record(z.string(), z.string().regex(/^[0-9a-f]{64}$/)),
-  fighterChecksums: z.object({
-    fighterA: z.string().regex(/^[0-9a-f]{64}$/),
-    fighterB: z.string().regex(/^[0-9a-f]{64}$/),
-  }),
-  safety: z.object({
-    protectedSourcePreflightStatus: z.enum(["pass", "fail"]),
-    suspensionStatus: z.enum(["active", "clear"]),
-  }),
-  disclaimer: z.literal(GRID_OPT_IN_BETA_DISCLAIMER),
-});
+export const gridBetaMatchManifestV1Schema = z
+  .object({
+    schemaVersion: z.literal("1"),
+    kind: z.literal("grid-beta-match-manifest"),
+    matchId: z.string().uuid(),
+    createdAt: z.string().datetime(),
+    implementationId: z.literal(GRID_OPT_IN_BETA_MATCH_IMPLEMENTATION_ID),
+    contractId: z.literal(GRID_OPT_IN_BETA_CONTRACT_ID),
+    contractChecksum: z.literal(GRID_OPT_IN_BETA_CONTRACT_CHECKSUM),
+    governanceDecisionId: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_DECISION_ID),
+    governanceOutcome: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_OUTCOME),
+    reviewedSourceCommit: z.literal(GRID_OPT_IN_BETA_REVIEWED_SOURCE_COMMIT),
+    runtimeIdentity: z
+      .object({
+        simulatorVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.simulatorVersion),
+        positioningModel: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.positioningModel),
+        rulesetVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.rulesetVersion),
+        catalogueVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.catalogueVersion),
+      })
+      .strict(),
+    schemaVersions: z
+      .object({
+        record: z.literal("3"),
+        report: z.literal("2"),
+      })
+      .strict(),
+    result: z
+      .object({
+        winner: z.string().nullable(),
+        method: z.string(),
+        rounds: z.number().int().nonnegative(),
+      })
+      .strict(),
+    artifacts: z
+      .object({
+        manifest: z.literal(GRID_BETA_MATCH_MANIFEST_FILE),
+        selection: z.literal(GRID_BETA_MATCH_SELECTION_ARTIFACT),
+        fighterA: z.literal(GRID_BETA_MATCH_FIGHTER_A_ARTIFACT),
+        fighterB: z.literal(GRID_BETA_MATCH_FIGHTER_B_ARTIFACT),
+        executionAttestation: z.literal(GRID_BETA_MATCH_EXECUTION_ATTESTATION_ARTIFACT),
+        match: z.literal(GRID_BETA_MATCH_RECORD_ARTIFACT),
+        factualReport: z.literal(GRID_BETA_MATCH_FACTUAL_REPORT_ARTIFACT),
+        textReplay: z.literal(GRID_BETA_MATCH_TEXT_REPLAY_ARTIFACT),
+        asciiReplay: z.literal(GRID_BETA_MATCH_ASCII_REPLAY_ARTIFACT),
+        reviewPrompt: z.literal(GRID_BETA_MATCH_REVIEW_PROMPT_ARTIFACT),
+      })
+      .strict(),
+    digests: z.record(z.string(), z.string().regex(/^[0-9a-f]{64}$/)),
+    fighterChecksums: z
+      .object({
+        fighterA: z.string().regex(/^[0-9a-f]{64}$/),
+        fighterB: z.string().regex(/^[0-9a-f]{64}$/),
+      })
+      .strict(),
+    safety: z
+      .object({
+        protectedSourcePreflightStatus: z.enum(["pass", "fail"]),
+        suspensionStatus: z.enum(["active", "clear"]),
+      })
+      .strict(),
+    disclaimer: z.literal(GRID_OPT_IN_BETA_DISCLAIMER),
+  })
+  .strict();
 
 export type GridBetaMatchManifestV1 = z.infer<typeof gridBetaMatchManifestV1Schema>;
 
@@ -548,8 +639,13 @@ export function validateGridBetaMatchBundle(
     "beta bundle digests do not match the manifest",
   );
 
-  // 3. Fighter artifacts: strict schema, catalogue-valid build, valid policy,
-  //    identifier/checksum binding.
+  // 3. Fighter artifacts: parsed through the same authoritative path used by
+  //    live loading (`parseGridBetaFighterSpec`), so strict fighter schema,
+  //    identifier agreement, display-name sanitisation, display-name/machine-
+  //    name agreement, catalogue-v1 build validation, policy validation,
+  //    canonical byte serialization and the deterministic checksum are all
+  //    enforced here. The authoritative reconstructed build is retained for
+  //    the complete build binding below.
   const fighterA = parseFighterArtifact(
     contents[GRID_BETA_MATCH_FIGHTER_A_ARTIFACT],
     selection.fighterA.fighterId,
@@ -630,12 +726,28 @@ export function validateGridBetaMatchBundle(
     check(record.agentUsage.length === 0, "record agent usage must be empty");
   }
 
-  // 9. Exact seed and C2 qualification.
+  // 9. Exact seed and complete C2 metadata binding (Phase 3G.1 Phase 7). The
+  //    canonical C2 metadata is derived from the authoritative registry and
+  //    must agree exactly across the selection, the record and the record
+  //    config: `id` component-impact-c2, `model` linear-component-impact,
+  //    `configChecksum` 13548462df34a183. A record that retains the C2 ID while
+  //    changing the model or checksum is rejected.
+  const c2Config = getComponentQualificationConfig("component-impact-c2");
+  const c2Metadata = getComponentQualificationMetadata(c2Config);
   check(selection.seed === record?.seed, "selection seed disagrees with the record");
   check(
-    record?.componentQualificationId === "component-impact-c2" &&
-      record?.config.componentQualificationId === "component-impact-c2",
-    "record C2 component qualification is not explicit",
+    selection.componentQualificationId === c2Metadata.id &&
+      selection.componentQualificationChecksum === c2Metadata.configChecksum,
+    "selection C2 component qualification metadata is not the complete canonical C2 metadata",
+  );
+  check(
+    record?.componentQualificationId === c2Metadata.id &&
+      record.componentQualification !== undefined &&
+      sameJson(record.componentQualification, c2Metadata) &&
+      record?.config.componentQualificationId === c2Metadata.id &&
+      record.config.componentQualification !== undefined &&
+      sameJson(record.config.componentQualification, c2Metadata),
+    "record C2 component qualification metadata is not the complete canonical C2 metadata",
   );
 
   // 10. Exact runtime identity.
@@ -647,33 +759,26 @@ export function validateGridBetaMatchBundle(
     "record does not carry the exact frozen grid runtime identity",
   );
 
-  // 11. Record config and initial state match the fighter artifacts.
+  // 11. Complete validated-build binding (Phase 3G.1 Phase 6): the complete
+  //     authoritative reconstructed build must equal the record config and
+  //     initial-state builds across every field (proposal, total cost, armour
+  //     cost, total armour points, catalogue version). Record config and
+  //     initial-state builds must match one another completely, not only
+  //     through their proposals. Policies must match exactly.
   if (record && fighterA && fighterB) {
     check(
-      sameJson(record.config.fighterA.build.proposal, fighterA.spec.buildProposal) &&
-        sameJson(record.config.fighterA.policy, fighterA.spec.policy) &&
-        sameJson(
-          record.initialState.fighterA.build.proposal,
-          fighterA.spec.buildProposal,
-        ) &&
-        sameJson(record.config.fighterB.build.proposal, fighterB.spec.buildProposal) &&
-        sameJson(record.config.fighterB.policy, fighterB.spec.policy) &&
-        sameJson(
-          record.initialState.fighterB.build.proposal,
-          fighterB.spec.buildProposal,
-        ),
-      "record config/initial state does not match the fighter artifacts",
+      sameJson(fighterA.build, record.config.fighterA.build) &&
+        sameJson(fighterA.build, record.initialState.fighterA.build) &&
+        sameJson(fighterB.build, record.config.fighterB.build) &&
+        sameJson(fighterB.build, record.initialState.fighterB.build) &&
+        sameJson(record.config.fighterA.build, record.initialState.fighterA.build) &&
+        sameJson(record.config.fighterB.build, record.initialState.fighterB.build),
+      "record config/initial-state builds do not match the authoritative reconstructed builds",
     );
     check(
-      sameJson(
-        record.initialState.fighterA.build.proposal,
-        record.config.fighterA.build.proposal,
-      ) &&
-        sameJson(
-          record.initialState.fighterB.build.proposal,
-          record.config.fighterB.build.proposal,
-        ),
-      "record initial-state builds do not match the record config builds",
+      sameJson(fighterA.spec.policy, record.config.fighterA.policy) &&
+        sameJson(fighterB.spec.policy, record.config.fighterB.policy),
+      "record config policies do not match the fighter artifact policies",
     );
   }
 
@@ -695,10 +800,15 @@ export function validateGridBetaMatchBundle(
     );
   }
 
-  // 13. Manifest identity, result summary, safety, disclaimer, attestation.
+  // 13. Manifest identity, result summary, safety, disclaimer, attestation,
+  //     primary execution checksum binding and exact match-identity agreement.
   check(
     manifest.matchId === record?.matchId && manifest.matchId === attestation.matchId,
     "manifest/attestation match ID does not agree with the record",
+  );
+  check(
+    manifest.createdAt === record?.createdAt,
+    "manifest createdAt does not agree with the record createdAt",
   );
   check(
     manifest.result.winner === record?.result.winner &&
@@ -706,10 +816,23 @@ export function validateGridBetaMatchBundle(
       manifest.result.rounds === record?.rounds,
     "manifest result summary does not agree with the record",
   );
+  // Canonical successful preflight (Phase 8): status pass, trigger null,
+  // failures empty and every detailed boolean exactly true. A `status: pass`
+  // with contradictory detailed values is rejected.
+  let canonicalPreflight = true;
+  try {
+    assertCanonicalGridBetaPreflightPass(selection.protectedSourcePreflight);
+  } catch {
+    canonicalPreflight = false;
+  }
+  check(
+    canonicalPreflight,
+    "selection protected-source preflight is not the canonical pass",
+  );
   check(
     manifest.safety.protectedSourcePreflightStatus === "pass" &&
-      selection.protectedSourcePreflight.status === "pass",
-    "protected-source preflight must pass",
+      manifest.safety.suspensionStatus === "clear",
+    "manifest safety must be protected-source preflight pass with a clear suspension status",
   );
   check(
     manifest.disclaimer === GRID_OPT_IN_BETA_DISCLAIMER &&
@@ -729,6 +852,18 @@ export function validateGridBetaMatchBundle(
     attestation.primaryResultChecksum === attestation.repeatResultChecksum,
     "execution attestation primary/repeat checksums must be equal (deterministic)",
   );
+  // Primary execution checksum binding (Phase 9): the attestation primary
+  // checksum must equal the deterministic checksum of the grid match result
+  // reconstructed from the persisted record (match.json). The repeat event
+  // stream is intentionally not persisted, so the repeat checksum equals the
+  // primary checksum as an execution attestation.
+  if (record) {
+    check(
+      attestation.primaryResultChecksum ===
+        gridBetaMatchResultChecksum(gridRecordToGridResult(record)),
+      "execution attestation primary checksum does not bind to the persisted record reconstruction",
+    );
+  }
   check(
     attestation.governanceBytesUnchangedBeforeSimulation === true &&
       attestation.governanceBytesUnchangedBeforePublication === true,
@@ -768,37 +903,41 @@ function parseFighterArtifact(
   expectedFighterId: string,
   check: (ok: boolean, message: string) => void,
   label: string,
-): { spec: GridBetaFighterSpecV1; checksum: string } | null {
+): { spec: GridBetaFighterSpecV1; checksum: string; build: ValidatedBuild } | null {
   if (typeof json !== "string") {
     check(false, `${label} artifact is missing`);
     return null;
   }
-  let parsed: unknown;
+  let raw: unknown;
   try {
-    parsed = JSON.parse(json);
+    raw = JSON.parse(json);
   } catch {
     check(false, `${label} artifact is not valid JSON`);
     return null;
   }
-  const schemaResult = gridBetaFighterSpecV1Schema.safeParse(parsed);
-  if (!schemaResult.success) {
+  let parsed: { spec: GridBetaFighterSpecV1; checksum: string };
+  try {
+    parsed = parseGridBetaFighterSpec(raw, expectedFighterId);
+  } catch (e) {
     check(
       false,
-      `${label} spec failed its authoritative schema: ${schemaResult.error.message}`,
+      `${label} failed authoritative fighter validation: ${e instanceof Error ? e.message : String(e)}`,
     );
     return null;
   }
-  const spec: GridBetaFighterSpecV1 = {
-    schemaVersion: "1",
-    sourceKind: "local-scripted",
-    fighterId: schemaResult.data.fighterId,
-    displayName: schemaResult.data.displayName,
-    buildProposal: schemaResult.data.buildProposal,
-    policy: schemaResult.data.policy,
-  };
+  // Canonical byte serialization: the artifact bytes must be exactly the
+  // canonical fighter serialization of the parsed spec.
   check(
-    spec.fighterId === expectedFighterId,
-    `${label} fighterId does not match the selection`,
+    json === serializeGridBetaFighterSpec(parsed.spec),
+    `${label} artifact bytes are not the canonical fighter serialization`,
   );
-  return { spec, checksum: gridBetaFighterSpecChecksum(spec) };
+  // Reconstruct the authoritative ValidatedBuild with the existing catalogue
+  // validator (never duplicating budget calculations) for the complete build
+  // binding.
+  const buildResult = validateBuild(parsed.spec.buildProposal, CATALOGUE_V1);
+  if (!buildResult.ok) {
+    check(false, `${label} build failed the authoritative catalogue-v1 validator`);
+    return null;
+  }
+  return { spec: parsed.spec, checksum: parsed.checksum, build: buildResult.build };
 }
