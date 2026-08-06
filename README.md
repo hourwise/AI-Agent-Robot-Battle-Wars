@@ -120,6 +120,16 @@ A deterministic text-based robot combat arena where an AI agent designs, builds 
   grapple repositioning in both fighter slots (`coverage_confirmed`), giving
   a combined readiness classification of `ready_for_opt_in_beta_review`,
   which still is not an activation decision.
+  Phase 3F added the **bounded opt-in beta governance decision**
+  (`readiness:grid:governance`): a non-activating, no-simulation governance
+  review that validates and anchors the official v3 evaluation and the
+  official supplement, runs a read-only static isolation preflight, applies
+  the frozen `grid-opt-in-beta-contract-v1` policy contract and a pure
+  criteria function, and publishes an immutable seven-file governance bundle
+  under `data/readiness/grid-governance/`. The official decision was
+  `approved_for_bounded_opt_in_beta_implementation` — authorising at most
+  implementation of a bounded, explicitly selected grid beta in a later,
+  separately reviewed phase; no runtime was enabled.
   The live
   five-zone simulator is unchanged: the normal application still uses
   `runMatch` (legacy `0.2.0`) and emits schema v2, and `runGridMatch` is not
@@ -367,6 +377,55 @@ the official v3 base hashes (manifest/decision/metrics) are pinned to frozen
 values and re-checked byte-for-byte immediately before publication. The
 official supplement still passes the strengthened validator unchanged
 (480/204/276, 8 valid repositions, 186 same-cell, 0 malformed).
+
+#### Grid opt-in beta governance
+
+```bash
+npm run readiness:grid:governance   # Bounded opt-in beta governance decision (no arguments)
+```
+
+Phase 3F performs the separately governed opt-in beta review of the grid
+runtime. It reads the official v3 readiness evaluation
+(`data/readiness/grid/0d8487a8-.../`) and the official supplemental grapple
+evidence (`data/readiness/grid-supplements/4eca43e2-.../`), validates and
+anchors both with the production validators and anchors (never modifying
+them), snapshots all nineteen files, runs a read-only static isolation
+preflight, derives the governance outcome by a pure criteria function over the
+frozen evidence facts, and publishes an immutable seven-file governance bundle
+under `data/readiness/grid-governance/<decisionId>/` (`manifest.json`,
+`source-state.json`, `base-evidence-reference.json`,
+`supplement-evidence-reference.json`, `beta-contract.json`, `decision.json`,
+`report.txt`). The root guard rejects the official readiness and supplement
+roots, normal match/series storage, both canary roots, other in-repository
+data roots, descendants, symlink or junction ancestry and external symlink
+roots.
+
+The bounded-beta policy contract `grid-opt-in-beta-contract-v1` (checksum
+`5f345ce4...`) binds any later implementation: explicit beta-labelled
+selection only (absence → legacy; invalid selection fails closed), legacy
+default isolation with no silent grid/legacy fallback, internal/development
+single-match scope with schema-v3 persistence and the complete frozen grid
+identity, user/operator clarity, one immediate deterministic kill switch,
+migration-free rollback and frozen suspension triggers. Possible outcomes are
+`approved_for_bounded_opt_in_beta_implementation`, `deferred` and `rejected`;
+approval authorises at most implementation of a bounded and explicitly
+selected grid beta in a later, separately reviewed phase — it is not runtime
+activation.
+
+Official Phase 3F governance decision:
+**`approved_for_bounded_opt_in_beta_implementation`** (decision ID
+`58e8cd87-504e-4b5f-9bac-f6b81d82377b`, bundle under
+`data/readiness/grid-governance/58e8cd87-504e-4b5f-9bac-f6b81d82377b/`) —
+every criterion
+passed (official v3 and supplement validated and anchored exactly; all hard
+readiness gates passed; C04 the sole base non-pass gate; supplement
+`coverage_confirmed`; combined `ready_for_opt_in_beta_review`; both attacker
+slots and distinct seeds produced causal grapple reposition; legacy remains
+the active default; complete contract and safeguards; no default/public
+activation; no forbidden claims; frozen constraints unchanged). No runtime was
+enabled, legacy remains default, no beta implementation started, no public
+rollout and no balance claim are authorised, and Milestone 0.2C remains
+incomplete pending a separately reviewed bounded opt-in implementation.
 
 ### Replay
 

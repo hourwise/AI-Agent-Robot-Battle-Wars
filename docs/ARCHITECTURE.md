@@ -769,12 +769,14 @@ permission to activate grid.
   other. Individual replay text is never included. Historical v1 and v2
   artifacts parse but are rejected as current readiness evidence.
 - `src/canary/canary-output-root.ts` — the kind-aware root guard now includes
-  `grid-readiness → data/readiness/grid` and `grid-readiness-supplement →
-data/readiness/grid-supplements`; the readiness service rejects normal
+  `grid-readiness → data/readiness/grid`, `grid-readiness-supplement →
+data/readiness/grid-supplements` and `grid-readiness-governance →
+data/readiness/grid-governance`; the readiness service rejects normal
   match/series storage, both canary roots, every other in-repository data
   root, canonical-root descendants, symlink/junction ancestry and external
-  symlink roots, and the supplement service additionally rejects the official
-  readiness root.
+  symlink roots, the supplement service additionally rejects the official
+  readiness root, and the governance service additionally rejects both the
+  official readiness root and the official supplement root.
 - `src/app/grid-activation-readiness.ts` — `runGridActivationReadiness`
   orchestrates the lexical/physical root guards, fixed registries, 312-run
   plan, injected evaluation/match UUIDs and timestamp, publication preflight,
@@ -867,6 +869,52 @@ DEVELOPMENT-ONLY / ADDITIVE / NON-ACTIVATING` banner. Accepts no arguments;
   a completed `coverage_confirmed`, `inconclusive` or `not_ready` result exits
   zero; it exits nonzero only for an operational failure that prevents
   producing a validated supplement bundle.
+- `src/readiness/grid-opt-in-beta-contract.ts` — the versioned bounded-beta
+  policy contract `grid-opt-in-beta-contract-v1` (purpose
+  `internal-bounded-grid-beta-implementation`, deterministic checksum
+  `5f345ce4...`): explicit selection, legacy default isolation, internal
+  single-match beta scope, schema-v3 persistence with the complete frozen grid
+  identity, user/operator clarity, one immediate deterministic kill switch,
+  migration-free rollback, forbidden scopes and frozen suspension triggers,
+  with `isGridOptInBetaContractComplete` as the authoritative completeness
+  check.
+- `src/readiness/grid-opt-in-beta-governance.ts` —
+  `GridOptInBetaGovernanceDecisionV1` (`approved_for_bounded_opt_in_beta_implementation`
+  / `deferred` / `rejected`), the frozen official evidence references,
+  authorised/forbidden scope, required safeguards, rollback/suspension
+  triggers, unresolved risks, the mandatory non-activating disclaimer, and the
+  pure `deriveGridOptInBetaGovernanceOutcome` criteria function (rejection
+  wins, then deferral, then approval — never hard-coded independently of the
+  evidence facts).
+- `src/readiness/grid-opt-in-beta-governance-bundle.ts` — the immutable
+  governance bundle: the frozen official base and supplement evidence
+  references, the seven-file inventory (`manifest.json`, `source-state.json`,
+  `base-evidence-reference.json`, `supplement-evidence-reference.json`,
+  `beta-contract.json`, `decision.json`, `report.txt`), the read-only static
+  isolation preflight and source-state artifact bound to the exact authorised
+  source commit, evidence-reference builders that validate and anchor the
+  official directories, the manifest v1, and
+  `validateGridOptInBetaGovernanceBundle` which cross-validates source-commit
+  binding, manifest identity, the frozen contract and contract checksum,
+  frozen evidence references, an independent complete decision rebuild equal
+  to the persisted decision, byte-for-byte report regeneration and coherent
+  digests.
+- `src/readiness/grid-opt-in-beta-report.ts` — the governance human-readable
+  report (evidence-based, non-activating, no simulation; byte-for-byte
+  regenerable).
+- `src/app/grid-opt-in-beta-governance.ts` —
+  `runGridOptInBetaGovernanceDecision` orchestrates the root guards, the
+  read/validate/anchor of both official evidence directories (never modified,
+  with a pre-publication immutability re-check), the decision ID and
+  timestamp, the static preflight, the pure criteria derivation, the decision,
+  report, digests, manifest, shared immutable publish and read-back.
+- `src/app/run-grid-opt-in-beta-governance.ts` — the
+  `readiness:grid:governance` command under the
+  `FORGE ARENA — GRID OPT-IN BETA GOVERNANCE /
+EVIDENCE-BASED / NON-ACTIVATING / NO SIMULATION` banner. Accepts no
+  arguments; a completed `approved_for_bounded_opt_in_beta_implementation`,
+  `deferred` or `rejected` decision exits zero; it exits nonzero only for an
+  operational failure that prevents creating a validated governance bundle.
 
 The readiness evaluation imports no benchmark module, reads no benchmark seed
 file, uses no `--partition held-out`/`--partition all`, never calls
@@ -1014,6 +1062,39 @@ rejected by their intended provenance rule. The official supplement
 same-cell; 0 wrong-fighter; 0 malformed). No official rerun, benchmark, seed
 bank, provider call, tuning, opt-in beta decision or default activation
 occurred; held-out/all remain sealed; Milestone 0.2C remains incomplete.
+
+Phase 3F performed the bounded opt-in beta governance decision (the official
+v3 evaluation and the official Phase 3E2 supplement remain unchanged and
+still validate). `runGridOptInBetaGovernanceDecision` reads the nine official
+v3 artifacts and the ten official supplemental artifacts, validates and
+anchors both with the production validators and anchors, snapshots all
+nineteen files and requires no changes before publication. The versioned
+policy contract `grid-opt-in-beta-contract-v1` binds any later implementation
+to explicit beta-labelled selection, legacy default isolation, an
+internal/development single-match scope, schema-v3 persistence with the
+complete frozen grid identity, user/operator clarity, one immediate
+deterministic kill switch, migration-free rollback and frozen suspension
+triggers. The pure criteria function `deriveGridOptInBetaGovernanceOutcome`
+rejects, defers or approves from explicit governance inputs over the frozen
+evidence facts (approval is never hard-coded independently of those facts).
+The read-only static isolation preflight proves legacy default `runMatch`,
+grid entered only through explicit `runGridMatch`, no normal command importing
+the governance service, global constants `0.2.0 / 0.2.0`, catalogue `1`,
+frozen grid identity, schema-v3 converter/replay support, unchanged schema-v2
+legacy persistence, unchanged canary checks and no benchmark/provider
+dependency in the governance module. Each official decision publishes an
+immutable seven-file bundle under `data/readiness/grid-governance/<decisionId>/`
+with manifest-last publication, exact inventory, digests, source-commit
+binding to `5173fd0f287465e1181969dbad2f37cee10fd47e`, frozen evidence
+references, complete decision reconstruction and byte-for-byte report
+regeneration. The official governance outcome was
+**`approved_for_bounded_opt_in_beta_implementation`** — authorising at most
+implementation of a bounded, explicitly selected, internal/development grid
+beta in a later, separately reviewed phase. No runtime was enabled, legacy
+remains default, C2 remains the experimental default, no beta implementation
+started, no public rollout and no balance claim are authorised, no evaluation
+was rerun, and Milestone 0.2C remains incomplete until a separately reviewed
+bounded opt-in implementation is completed.
 
 ### Agent usage tracking
 

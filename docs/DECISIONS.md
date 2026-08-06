@@ -1571,6 +1571,98 @@ hardening **complete**; official supplement under the stronger validator
 **`ready_for_opt_in_beta_review`**; opt-in beta decision **not performed**;
 default grid activation **not performed**; Milestone 0.2C **not complete**.
 
+## D52: Bounded opt-in beta governance decision (Phase 3F, 2026-08-03)
+
+Phase 3F performs the separately governed opt-in beta review of the grid
+runtime using the frozen official evidence. The official v3 readiness
+evaluation and the official supplemental grapple evidence were read,
+validated, anchored and snapshotted — **not** altered, replaced,
+reinterpreted or rerun. No simulation ran, no benchmark ran, no seed bank was
+opened and no provider or external API call occurred.
+
+- **Evidence reviewed.** Official v3 evaluation
+  `0d8487a8-939d-4f9a-a16a-544b71eaa869` (suite
+  `grid-activation-readiness-v3`, checksum
+  `c3b8a16d407891d0a92966fb9d6ed20fe5e11776bf545624fb3dbcadb4e2503c`,
+  classification `inconclusive`, only non-pass gate C04; all hard, slot-order,
+  progress and other coverage gates passed; frozen base hashes manifest
+  `46b1b888…`, decision `d4bf61e1…`, metrics `113bfa2c…`). Official supplement
+  `4eca43e2-cc3d-41ee-bfad-73e18238ff61` (suite
+  `grid-grapple-coverage-supplement-v1`, scenario-registry checksum
+  `1aba546d…`, plan checksum `e30dda08…`, decision `coverage_confirmed`,
+  combined `ready_for_opt_in_beta_review`; frozen hashes manifest `a9220d52…`,
+  base-reference `c2830114…`, metrics `76d1290f…`, decision `7da3d619…`,
+  report `5569aecb…`). The supplement confirmed 48 deterministic matches, 480
+  Grappler attempts / 204 hits / 276 misses, 8 valid grapple-reposition events
+  (4 per fighter slot, 4 distinct seeds each), 186 same-cell hits without
+  reposition, 0 wrong-fighter and 0 malformed/resolver-disagreeing events.
+- **Bounded-beta policy contract.** The frozen versioned contract
+  `grid-opt-in-beta-contract-v1` (checksum
+  `5f345ce4e933a4cc1f9db7633c1e03d21e8b323d65d36eb7f52ef5251953fff6`, purpose
+  `internal-bounded-grid-beta-implementation`) binds any later implementation:
+  explicit beta-labelled selection only (absence → legacy; invalid selection
+  fails closed), legacy default isolation with no silent grid/legacy fallback,
+  internal/development single-match scope with schema-v3 persistence and the
+  complete frozen grid identity, user/operator clarity banners, one immediate
+  deterministic kill switch, migration-free rollback, and frozen suspension
+  triggers (nondeterminism, schema-v3 failure, record/report disagreement,
+  replay disagreement, wrong runtime identity, legacy-default regression,
+  cross-root isolation failure, silent fallback, corrupt/unreplayable v3
+  record, canary regression, evidence-anchor failure).
+- **Actual governance decision.** One official governance decision executed
+  (`decisionId 58e8cd87-504e-4b5f-9bac-f6b81d82377b`, immutable bundle under
+  `data/readiness/grid-governance/58e8cd87-504e-4b5f-9bac-f6b81d82377b/`;
+  source commit
+  `5173fd0f287465e1181969dbad2f37cee10fd47e`). Every governance criterion
+  passed (official v3 and supplement validated and anchored exactly; all hard
+  readiness gates passed; C04 the sole base non-pass gate; supplement
+  `coverage_confirmed`; combined `ready_for_opt_in_beta_review`; both attacker
+  slots and distinct seeds produced causal grapple reposition; legacy remains
+  the active default; schema-v3 persistence/replay available; deterministic
+  rollback possible; complete contract and safeguards; no default/public
+  activation requested; no forbidden claims; frozen constraints unchanged).
+  Governance outcome: **`approved_for_bounded_opt_in_beta_implementation`**.
+- **Exact authorised scope.** A positive decision authorises at most
+  implementation of a bounded, explicitly selected, internal/development grid
+  beta: explicitly beta-labelled single matches, deterministic local scripted
+  fighters, schema-v3 persistence with the complete frozen grid identity, and
+  existing grid text/ASCII replay, factual reports and review prompts.
+- **Explicitly forbidden scope.** Public default selection, ranked matches,
+  prizes/rewards/monetised outcomes, tournaments, adaptation evaluation,
+  held-out evaluation, mixed-runtime series, automatic migration of legacy
+  matches, provider-driven autonomous runtime selection, production
+  matchmaking, balance claims, public rollout, default activation and changing
+  the default runtime.
+- **Kill switch and rollback.** Any later implementation must include one
+  immediate deterministic kill switch that prevents new grid-beta matches
+  without affecting legacy matches, without deleting existing v3 records and
+  with existing v3 replay remaining available; rollback must require no data
+  migration and no change to legacy records.
+- **Unresolved risks.** Combat balance of the grid runtime is not evaluated
+  and not claimed; the beta surface, CLI and selection contract are not
+  implemented in this phase; long-running v3 persistence/replay/mixed-storage
+  behaviour is not production-observed; performance observations are
+  development-only and may trigger review without changing gameplay or
+  evidence thresholds. None of these blocks the bounded internal
+  implementation approval.
+- **No implementation, no activation.** C2 remains the experimental
+  component-qualification default; no runtime selector, beta surface or
+  grid wiring was added to any normal command; legacy remains default
+  (`0.2.0 / 0.2.0`, catalogue `1`); grid identity remains
+  `0.3.0 / grid-3x3-v1 / 0.2.0 / 1`; both canaries and legacy match/series
+  are unchanged; no balance claim is authorised; no default activation; no
+  public rollout; no evaluation rerun; Milestone 0.2C remains incomplete
+  until a separately reviewed bounded opt-in implementation is completed.
+
+Status: Official v3 readiness evidence **complete and unchanged**; Official
+grapple supplement **complete and unchanged**; Phase 3E2.1 provenance
+hardening **complete**; Phase 3F governance tooling **complete**; Phase 3F
+official governance decision **complete**; governance outcome
+**`approved_for_bounded_opt_in_beta_implementation`**; bounded opt-in beta
+implementation **not started**; grid runtime enabled **no**; legacy default
+**yes**; public rollout **not authorised**; balance qualification **not
+performed**; Milestone 0.2C **not complete**.
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

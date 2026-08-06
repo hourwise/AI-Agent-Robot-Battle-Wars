@@ -23,6 +23,12 @@ import { fsEntryKind } from "./immutable-canary-bundle.js";
  *     (`data/readiness/grid`) and every other in-repository data root, and
  *     descendants of the canonical supplement root are never valid service
  *     roots;
+ *   - the grid-readiness-governance service must reject normal match/series
+ *     storage, both canary roots, the official readiness root
+ *     (`data/readiness/grid`), the official supplement root
+ *     (`data/readiness/grid-supplements`) and every other in-repository data
+ *     root, and descendants of the canonical governance root are never valid
+ *     service roots;
  *   - `data/matches`, `data/series` and every descendant, the `data` root and
  *     every other in-repository data path are rejected;
  *   - external temporary roots outside the repository remain allowed.
@@ -46,13 +52,18 @@ import { fsEntryKind } from "./immutable-canary-bundle.js";
  * also runs after the output root is created and before any artifact write.
  */
 export type CanaryRootKind =
-  "grid-match" | "grid-series" | "grid-readiness" | "grid-readiness-supplement";
+  | "grid-match"
+  | "grid-series"
+  | "grid-readiness"
+  | "grid-readiness-supplement"
+  | "grid-readiness-governance";
 
 const CANONICAL_ROOT_SEGMENTS: Record<CanaryRootKind, readonly string[]> = {
   "grid-match": ["canary", "grid-match"],
   "grid-series": ["canary", "grid-series"],
   "grid-readiness": ["readiness", "grid"],
   "grid-readiness-supplement": ["readiness", "grid-supplements"],
+  "grid-readiness-governance": ["readiness", "grid-governance"],
 };
 
 export class GridCanaryOutputRootError extends Error {
@@ -90,6 +101,12 @@ function getKindProtectedRoots(kind: CanaryRootKind): string[] {
   }
   if (kind === "grid-readiness-supplement") {
     roots.push(getCanaryCanonicalOutputRoot("grid-readiness"));
+  }
+  if (kind === "grid-readiness-governance") {
+    roots.push(getCanaryCanonicalOutputRoot("grid-match"));
+    roots.push(getCanaryCanonicalOutputRoot("grid-series"));
+    roots.push(getCanaryCanonicalOutputRoot("grid-readiness"));
+    roots.push(getCanaryCanonicalOutputRoot("grid-readiness-supplement"));
   }
   return roots;
 }

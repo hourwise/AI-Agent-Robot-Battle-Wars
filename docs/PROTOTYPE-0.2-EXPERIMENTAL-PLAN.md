@@ -139,7 +139,16 @@ independent decision/addendum reconstruction with full payload equality,
 pinned frozen official base hashes, a pre-publication base immutability
 re-check, and fully coherent corruption-test coverage, with the official
 supplement still passing the stronger validator unchanged) is implemented by
-the `agent/0.2c-grid-grapple-provenance-hardening` task. The authoritative
+the `agent/0.2c-grid-grapple-provenance-hardening` task. Phase 3F (bounded
+opt-in beta governance decision — a `GridOptInBetaGovernanceDecisionV1`
+contract with `approved_for_bounded_opt_in_beta_implementation` / `deferred` /
+`rejected` outcomes, the versioned `grid-opt-in-beta-contract-v1` bounded-beta
+policy contract, frozen official evidence validation and anchoring, a pure
+criteria derivation, a read-only static isolation preflight, a source-state
+artifact bound to the exact authorised commit, an immutable seven-file
+governance bundle under `data/readiness/grid-governance/`, and the
+`readiness:grid:governance` command) is implemented by the
+`agent/0.2c-grid-opt-in-beta-governance` task. The authoritative
 runtime migration and live grid match production remain future, separately
 authorised phases.
 
@@ -609,6 +618,46 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   rerun, benchmark, seed bank, provider call, tuning, opt-in beta decision or
   default activation occurred; held-out/all remain sealed; Milestone 0.2C
   remains incomplete.
+- Phase 3F — bounded opt-in beta governance decision: **complete; official
+  governance decision complete; governance outcome
+  `approved_for_bounded_opt_in_beta_implementation`**. Phase 3F performs the
+  separately governed opt-in beta review without implementing the beta,
+  activating grid, changing defaults or rerunning evidence. The service reads
+  the nine official v3 artifacts and the ten official supplemental artifacts,
+  validates and anchors both with the production validators/anchors (never
+  modifying them), snapshots all nineteen files and requires no changes before
+  publication. The versioned policy contract `grid-opt-in-beta-contract-v1`
+  (purpose `internal-bounded-grid-beta-implementation`, checksum
+  `5f345ce4...`) binds any later implementation to explicit beta-labelled
+  selection, legacy default isolation, an internal/development single-match
+  scope, schema-v3 persistence with the complete frozen grid identity,
+  user/operator clarity, one immediate deterministic kill switch,
+  migration-free rollback and frozen suspension triggers. The pure criteria
+  function `deriveGridOptInBetaGovernanceOutcome` rejects, defers or approves
+  from explicit governance inputs (never hard-coded independently of the
+  evidence facts). The read-only static isolation preflight proves the current
+  repository state still has legacy default `runMatch`, grid entered only
+  through explicit `runGridMatch`, no normal command importing the governance
+  service, global constants `0.2.0 / 0.2.0`, catalogue `1`, frozen grid
+  identity, schema-v3 converter/replay support, unchanged schema-v2 legacy
+  persistence, unchanged canary checks and no benchmark/provider dependency in
+  the governance module. Each official decision publishes an immutable
+  seven-file bundle under `data/readiness/grid-governance/<decisionId>/`
+  (`manifest.json`, `source-state.json`, `base-evidence-reference.json`,
+  `supplement-evidence-reference.json`, `beta-contract.json`, `decision.json`,
+  `report.txt`) with manifest-last publication, exact inventory, digests,
+  source-commit binding, frozen evidence references, complete decision
+  reconstruction and byte-for-byte report regeneration. Exactly one official
+  governance decision executed (source commit
+  `5173fd0f287465e1181969dbad2f37cee10fd47e`): every criterion passed and the
+  outcome was **`approved_for_bounded_opt_in_beta_implementation`** —
+  authorising at most implementation of a bounded, explicitly selected,
+  internal/development grid beta in a later, separately reviewed phase. No
+  runtime was enabled, legacy remains default, C2 remains the experimental
+  default, no beta implementation started, no public rollout and no balance
+  claim are authorised, no evaluation was rerun, and Milestone 0.2C remains
+  incomplete until a separately reviewed bounded opt-in implementation is
+  completed.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

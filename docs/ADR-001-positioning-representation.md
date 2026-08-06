@@ -2047,6 +2047,97 @@ reinterpreted or rerun).
   call; no tuning; no opt-in beta decision; no default activation; Milestone
   0.2C remains incomplete.
 
+### 9.26 Phase 3F — bounded opt-in beta governance decision (2026-08-03)
+
+Phase 3F performs the separately governed opt-in beta review of the grid
+runtime using the frozen official evidence. It is an engineering-governance
+and implementation-authorisation phase: it produces a validated evidence
+reference, a bounded-beta policy contract, a decision artifact and an
+immutable governance bundle. It never wires grid into a normal command, adds
+no runtime selector, exposes nothing to users, changes no default, runs no
+match, reruns neither official evaluation, runs no benchmark, performs no
+balance tuning and does not begin Milestone 0.2D.
+
+- **Evidence reviewed and unchanged.** The service reads (without modifying)
+  the nine official v3 artifacts at
+  `data/readiness/grid/0d8487a8-.../` and the ten official supplemental
+  artifacts at `data/readiness/grid-supplements/4eca43e2-.../`, validates
+  each with the production validators
+  (`validateGridActivationReadinessBundle`,
+  `validateGridGrappleCoverageSupplementBundle`), anchors each with
+  `anchorGridGrappleCoverageBaseV3` / `anchorOfficialGridGrappleCoverageSupplement`,
+  requires every frozen hash, snapshots all nineteen files and requires no
+  file changes before governance publication. Absent or invalid evidence is
+  never recreated.
+- **Governance decision contract.** `GridOptInBetaGovernanceDecisionV1` with
+  outcomes `approved_for_bounded_opt_in_beta_implementation`, `deferred` and
+  `rejected` (never `activated`, `enabled`, `released` or `production_ready`).
+  It records the source commit, official v3 and supplement identity and frozen
+  hashes, evidence validation status, every governance criterion, the exact
+  authorised and forbidden scope, required safeguards, rollback/suspension
+  triggers, unresolved risks, the outcome and the mandatory disclaimer
+  (authorises at most implementation of a bounded and explicitly selected grid
+  beta; does not enable the grid runtime, change the default runtime, qualify
+  combat balance, authorise a public rollout or begin Milestone 0.2D).
+- **Bounded-beta policy contract.** `grid-opt-in-beta-contract-v1` (purpose
+  `internal-bounded-grid-beta-implementation`, deterministic checksum
+  `5f345ce4e933a4cc1f9db7633c1e03d21e8b323d65d36eb7f52ef5251953fff6`) binds any
+  later implementation: explicit beta-labelled selection only (absence →
+  legacy; invalid selection fails closed), legacy default isolation with no
+  silent grid/legacy fallback, internal/development single-match scope,
+  schema-v3 persistence with the complete frozen grid identity, user/operator
+  clarity banners, one immediate deterministic kill switch, migration-free
+  rollback and frozen suspension triggers (nondeterminism, schema-v3 failure,
+  record/report disagreement, replay disagreement, wrong runtime identity,
+  legacy-default regression, cross-root isolation failure, silent fallback,
+  corrupt/unreplayable v3 record, canary regression, evidence-anchor failure).
+- **Pure criteria derivation.** `deriveGridOptInBetaGovernanceOutcome` rejects
+  on any evidence/anchor failure, hard-gate failure, `not_ready` supplement or
+  combined classification, broken legacy default, unavailable schema-v3
+  persistence/replay, impossible deterministic rollback, requested default or
+  public activation, contract permitting balance/ranked/tournament/held-out
+  claims, or any changed frozen constraint; defers when evidence validates but
+  the combined classification is not `ready_for_opt_in_beta_review`, the
+  supplement is inconclusive, the contract or safeguards are incomplete, or an
+  unresolved risk blocks approval; approves only when every approval criterion
+  holds (frozen evidence anchors exactly, hard gates passed, C04 sole base
+  non-pass, `coverage_confirmed`, `ready_for_opt_in_beta_review`, both slots
+  and distinct seeds reposition, legacy default, complete contract and
+  safeguards, no default/public activation, no forbidden claims).
+- **Static isolation preflight.** Read-only source-level checks prove the
+  current repository state still has normal match paths calling legacy
+  `runMatch`, grid entered only through explicit `runGridMatch`, no normal
+  command importing or invoking the governance service, global constants
+  `0.2.0 / 0.2.0`, catalogue `1`, the grid identity frozen separately,
+  schema-v3 converter and replay support present, schema-v2 legacy persistence
+  unchanged, both canary checks unchanged and no benchmark/provider
+  dependency in the governance module. These are explicit governance inputs;
+  a failing preflight forces `rejected`.
+- **Immutable governance bundle.** The root guard now includes
+  `grid-readiness-governance → data/readiness/grid-governance` and rejects the
+  official readiness root, the official supplement root, normal match/series
+  storage, both canary roots, other in-repository data roots, descendants,
+  symlink/junction ancestry and external symlink roots. Each official
+  governance decision publishes exactly seven regular files (`manifest.json`,
+  `source-state.json`, `base-evidence-reference.json`,
+  `supplement-evidence-reference.json`, `beta-contract.json`, `decision.json`,
+  `report.txt`) with manifest-last immutable publication, complete read-back,
+  exact inventory, SHA-256 digests, schema round trips, exact cross-artifact
+  validation (source-commit binding, frozen evidence references, frozen
+  contract, complete decision reconstruction, byte-for-byte report
+  regeneration) and no simulation/replay output persisted.
+- **Actual official decision.** One official governance decision executed
+  (source commit `5173fd0f287465e1181969dbad2f37cee10fd47e`, immutable bundle
+  under `data/readiness/grid-governance/<decisionId>/`). Every criterion
+  passed and the outcome was
+  **`approved_for_bounded_opt_in_beta_implementation`** — authorising at most
+  implementation of a bounded, explicitly selected, internal/development grid
+  beta in a later, separately reviewed phase. No runtime was enabled, legacy
+  remains default, C2 remains the experimental default, no beta implementation
+  started, no public rollout and no balance claim are authorised, and
+  Milestone 0.2C remains incomplete until a separately reviewed bounded opt-in
+  implementation is completed.
+
 ### 9.20 Phase 3E1 status
 
 - Development-only seed registry (`grid-readiness-development-v1`, 24 seeds,
@@ -2110,9 +2201,20 @@ slots and distinct seeds observed); Phase 3E2.1 provenance hardening
 decision/addendum reconstruction, pinned official base hashes, official
 supplement passes the stronger validator unchanged); supplemental coverage
 decision **`coverage_confirmed`**; combined readiness classification
-**`ready_for_opt_in_beta_review`**; opt-in beta decision **not performed**;
-default grid activation **not performed**; Milestone 0.2C **not complete**
-pending a separately authorised activation-readiness decision.
+**`ready_for_opt_in_beta_review`**; Phase 3F governance tooling **complete**
+(decision contract, bounded-beta contract, static isolation preflight,
+immutable seven-file governance bundle, `readiness:grid:governance` CLI);
+Phase 3F official governance decision **complete** (source commit
+`5173fd0f287465e1181969dbad2f37cee10fd47e`, bundle under
+`data/readiness/grid-governance/`, outcome
+`approved_for_bounded_opt_in_beta_implementation`); governance outcome
+**`approved_for_bounded_opt_in_beta_implementation`**; bounded opt-in beta
+implementation **not started**; grid runtime enabled **no**; legacy default
+**yes**; public rollout **not authorised**; balance qualification **not
+performed**; opt-in beta decision **performed (approval for bounded
+implementation)**; default grid activation **not performed**; Milestone 0.2C
+**not complete** pending a separately authorised activation-readiness
+decision.
 
 ## 10. Still out of scope
 
