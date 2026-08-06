@@ -1772,6 +1772,144 @@ balance qualification:                   not performed
 Milestone 0.2C:                          not complete
 ```
 
+## D54: Bounded explicit grid beta implementation (Phase 3G, 2026-08-06)
+
+Phase 3G implements the one explicitly selected, internal/development,
+local-scripted, single-match grid-beta surface authorised by the authoritative
+Phase 3F governance decision (`58e8cd87-504e-4b5f-9bac-f6b81d82377b`,
+outcome `approved_for_bounded_opt_in_beta_implementation`, reviewed source
+commit `5173fd0f…`, snapshot `grid-opt-in-beta-reviewed-source-v1` checksum
+`1f984801…`, contract `grid-opt-in-beta-contract-v1` checksum
+`5f345ce4…`). No official beta match was executed during implementation; the
+beta path was exercised only through tests using external temporary roots.
+
+- **Explicit beta command and acknowledgement.** The only beta command is
+  `match:grid:beta` (`npm run match:grid:beta -- --seed <n> --fighter-a <id>
+--fighter-b <id> --acknowledge-grid-beta`; optional `--help`). All match
+  arguments are required except `--help`; unknown or duplicate arguments
+  fail; there is no `--runtime` argument, no alternate output root and no
+  provider/model argument. Missing acknowledgement fails before fighter
+  loading, ID generation, simulation or writes; invalid selection fails
+  closed. The explicit command and acknowledgement are the only way to select
+  grid — no environment, stored preference, previous record or fallback may
+  select grid, and no grid/legacy failure retries through the other runtime.
+- **Implementation identity and banner.** Implementation
+  `grid-opt-in-beta-match-v1`; banner
+  `FORGE ARENA — GRID 3×3 BETA / OPT-IN / EXPERIMENTAL / NOT BALANCE-QUALIFIED
+/ LEGACY REMAINS THE DEFAULT`; the beta disclaimer states that the match
+  does not change the default runtime, qualify combat balance, authorise
+  ranked or public play, or permit the result to be treated as an adaptation
+  or held-out evaluation.
+- **Local fighter-spec format.** `GridBetaFighterSpecV1`
+  (`schemaVersion "1"`, `sourceKind "local-scripted"`, `fighterId`, display
+  name, `buildProposal`, `policy`), loaded by identifier from the fixed root
+  `data/beta/grid-fighters/<fighterId>.json`. Strict schema, catalogue-v1
+  build validation and the authoritative policy schema (no duplicated logic),
+  canonical JSON serialization and a deterministic SHA-256 checksum. Input
+  security: identifiers only (no paths, `/`, `\`, `..`, drive letters, URLs or
+  encoded traversal), missing/non-regular files rejected, symbolic links and
+  junctions in the input ancestry rejected, the resolved path required to stay
+  under the exact fighter root, a maximum JSON size enforced, and the file
+  basename required to agree with the internal `fighterId`. User/input/schema
+  failures never engage the suspension marker. The same fighter may occupy
+  both slots for a mirror match.
+- **Suspension marker and triggers.** One deterministic marker at
+  `data/beta/GRID_BETA_SUSPENDED`; any filesystem entry there (including
+  malformed contents, a symbolic link or a junction) suspends only new
+  grid-beta matches. Legacy matches/series are unaffected and existing beta
+  records/replays remain readable. No command clears or bypasses the marker.
+  Trigger codes: `governance_anchor_failure`, `legacy_default_regression`,
+  `canary_regression`, `nondeterministic_result`, `runtime_identity_mismatch`,
+  `schema_v3_validation_failure`, `record_report_disagreement`,
+  `replay_reconstruction_disagreement`, `silent_runtime_fallback`,
+  `cross_root_persistence_failure`, `bundle_integrity_failure`,
+  `corrupt_or_unreplayable_v3_record`. The marker is created atomically and
+  never overwrites an existing marker; if marker creation itself fails the
+  beta fails closed and reports both the trigger and the marker-write failure.
+- **Governance anchoring before every beta match.** Before any beta match ID
+  is generated, any simulation occurs or any artifact directory is created,
+  the exact seven official governance artifacts are read from
+  `data/readiness/grid-governance/58e8cd87-…/`, exactly seven regular files
+  are required, all seven bytes are snapshotted, and
+  `anchorOfficialGridOptInBetaGovernanceDecision` is called (which also
+  requires the exact reviewed Git source snapshot). The governance bytes are
+  re-checked immediately before simulation and immediately before
+  publication. A bundle that is absent, invalid, altered or no longer anchors
+  executes no beta match, publishes no beta bundle and engages the suspension
+  mechanism.
+- **Protected legacy-source preflight.** A read-only preflight runs against
+  the current checkout before each beta simulation (and again before
+  publication), requiring the current bytes of all protected files to equal
+  their frozen reviewed-source identities (with checkout CRLF normalised to
+  the committed LF form), normal match/series still calling legacy
+  `runMatch`, neither normal path invoking `runGridMatch` or the beta service,
+  global versions `0.2.0 / 0.2.0`, catalogue `1`, C1/C2/AB2 frozen with C2
+  default, grid identity separate, both canary sources frozen, and
+  schema-v2 legacy conversion plus schema-v3 grid conversion/replay present.
+  The check is computed from the actual current bytes — never from mutable
+  persisted booleans alone. A mismatch is `legacy_default_regression` or
+  `canary_regression` and suspends the beta.
+- **Deterministic execution.** The pure core `executeGridBetaMatch` calls only
+  `runGridMatch` with the supplied non-negative integer seed, fresh validated
+  builds/policies, ruleset `0.2.0`, catalogue `1` and explicit C2
+  component qualification. The same match is executed twice with identical
+  inputs and every simulator fact (runtime identity, config, initial states,
+  complete ordered event streams, result, rounds) must be equal; only the
+  primary result is published. Any mismatch is `nondeterministic_result` and
+  suspends the beta.
+- **Schema-v3 persistence and immutable beta bundle.** The primary result is
+  converted through `matchResultToRecord` with an injected match UUID and
+  timestamp (schema v3, empty agent usage), the factual-report v2 is bound,
+  both schemas validated, readiness record evidence inspected, record/report
+  final-state agreement asserted, replay reconstruction agreement required,
+  text/ASCII replay and review prompt rendered, and every fighter/config/seed/
+  C2/runtime identity bound. Each match publishes exactly ten regular files
+  under `data/beta/grid-matches/<matchId>/` (`manifest.json`, `selection.json`,
+  `fighter-a.json`, `fighter-b.json`, `execution-attestation.json`,
+  `match.json`, `factual-report.json`, `text-replay.txt`, `ascii-replay.txt`,
+  `review-prompt.txt`) with manifest-last immutable publication, collision
+  preflight, temporary-directory cleanup, exact inventory, regular files only,
+  complete read-back, schema round trips, and a complete cross-agreement
+  validator `validateGridBetaMatchBundle`. The output-root guard
+  (`grid-beta-match → data/beta/grid-matches`) rejects normal match/series
+  storage, both canary roots, readiness/supplement/governance roots, the
+  fighter-input root, the suspension-marker path and every other
+  in-repository data root. Immediately before publication the suspension
+  marker, all seven governance bytes and the protected-source preflight are
+  re-checked.
+- **Read-only beta replay.** `replay:grid:beta --match <uuid> [--ascii]` reads
+  from the fixed root, validates the complete bundle before displaying
+  anything, shows the banner/disclaimer, displays the stored text replay
+  (default) and optionally the validated ASCII replay, performs no simulation,
+  calls no provider, ignores the suspension marker so existing v3 replays stay
+  readable, does not modify the normal `replay` command and does not read
+  normal match storage.
+- **Scope and status.** No official beta match was executed; no governance
+  decision, readiness evaluation, supplement or benchmark ran; no seed bank
+  was opened; held-out and `all` remained sealed; no provider or external API
+  call occurred; normal match/series remained unchanged on legacy; no runtime
+  fallback was introduced; official readiness, supplement and governance bytes
+  remained unchanged; no default/public/ranked/tournament activation occurred;
+  no balance conclusion was made; Milestone 0.2D did not begin. The explicit
+  internal beta command is implemented but **not yet independently reviewed**;
+  Milestone 0.2C remains incomplete pending that review.
+
+Status:
+
+```
+Official v3 readiness evidence:          complete and unchanged
+Official grapple supplement:             complete and unchanged
+Official Phase 3F governance decision:   complete, unchanged and source-anchored
+Phase 3G bounded beta implementation:    complete
+explicit internal beta command:          implemented, not yet independently reviewed
+legacy default:                          yes
+grid default activation:                 no
+public rollout:                          not authorised
+ranked/tournament use:                   not authorised
+balance qualification:                   not performed
+Milestone 0.2C:                          not complete pending independent Phase 3G implementation review
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

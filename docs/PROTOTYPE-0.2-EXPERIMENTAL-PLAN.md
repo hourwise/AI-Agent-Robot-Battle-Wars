@@ -679,6 +679,26 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   `63259937…`) and the exact reviewed Git source snapshot. The official Phase
   3F decision was not rerun and passes the strengthened anchor unchanged with
   outcome `approved_for_bounded_opt_in_beta_implementation`.
+- Bounded grid beta implementation (Phase 3G): **complete (not yet
+  independently reviewed)**. The one explicitly selected, internal/
+  development, local-scripted, single-match beta surface
+  (`grid-opt-in-beta-match-v1`) is implemented: `match:grid:beta` (required
+  `--seed`, `--fighter-a`, `--fighter-b`, `--acknowledge-grid-beta`, no
+  `--runtime`/output/provider argument), `GridBetaFighterSpecV1` local
+  fighters from `data/beta/grid-fighters/`, the one suspension marker
+  `data/beta/GRID_BETA_SUSPENDED` (twelve frozen triggers; input errors never
+  suspend), a read-only protected legacy-source preflight against the current
+  checkout (frozen reviewed-source identities), a pure deterministic
+  `executeGridBetaMatch` core (only `runGridMatch`, executed twice, equality
+  required), schema-v3 persistence with empty agent usage, an immutable
+  ten-file bundle under `data/beta/grid-matches/<matchId>/` with a complete
+  cross-agreement validator, official governance anchoring before every beta
+  match (re-checked before simulation and publication), and the read-only
+  `replay:grid:beta`. No official beta match was executed during
+  implementation (tests use external temporary roots); legacy remains the
+  default; no default/public/ranked/tournament activation; no balance
+  conclusion; Milestone 0.2C remains incomplete pending independent Phase 3G
+  implementation review.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

@@ -56,7 +56,8 @@ export type CanaryRootKind =
   | "grid-series"
   | "grid-readiness"
   | "grid-readiness-supplement"
-  | "grid-readiness-governance";
+  | "grid-readiness-governance"
+  | "grid-beta-match";
 
 const CANONICAL_ROOT_SEGMENTS: Record<CanaryRootKind, readonly string[]> = {
   "grid-match": ["canary", "grid-match"],
@@ -64,6 +65,7 @@ const CANONICAL_ROOT_SEGMENTS: Record<CanaryRootKind, readonly string[]> = {
   "grid-readiness": ["readiness", "grid"],
   "grid-readiness-supplement": ["readiness", "grid-supplements"],
   "grid-readiness-governance": ["readiness", "grid-governance"],
+  "grid-beta-match": ["beta", "grid-matches"],
 };
 
 export class GridCanaryOutputRootError extends Error {
@@ -90,7 +92,10 @@ export function getCanaryProtectedOutputRoots(): { matches: string; series: stri
 /**
  * The protected roots for a selected kind. The grid-readiness kind must also
  * reject both existing canary roots; the grid-readiness-supplement kind must
- * additionally reject the official readiness root.
+ * additionally reject the official readiness root. The grid-beta-match kind
+ * must reject normal storage, both canary roots, the readiness, supplement
+ * and governance roots, the fighter-input root and the suspension-marker
+ * path.
  */
 function getKindProtectedRoots(kind: CanaryRootKind): string[] {
   const protectedRoots = getCanaryProtectedOutputRoots();
@@ -107,6 +112,18 @@ function getKindProtectedRoots(kind: CanaryRootKind): string[] {
     roots.push(getCanaryCanonicalOutputRoot("grid-series"));
     roots.push(getCanaryCanonicalOutputRoot("grid-readiness"));
     roots.push(getCanaryCanonicalOutputRoot("grid-readiness-supplement"));
+  }
+  if (kind === "grid-beta-match") {
+    const cwd = resolve(process.cwd());
+    roots.push(getCanaryCanonicalOutputRoot("grid-match"));
+    roots.push(getCanaryCanonicalOutputRoot("grid-series"));
+    roots.push(getCanaryCanonicalOutputRoot("grid-readiness"));
+    roots.push(getCanaryCanonicalOutputRoot("grid-readiness-supplement"));
+    roots.push(getCanaryCanonicalOutputRoot("grid-readiness-governance"));
+    // The beta fighter-input root and the suspension-marker path are not
+    // valid beta output roots.
+    roots.push(resolve(cwd, "data", "beta", "grid-fighters"));
+    roots.push(resolve(cwd, "data", "beta", "GRID_BETA_SUSPENDED"));
   }
   return roots;
 }

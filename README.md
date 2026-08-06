@@ -448,6 +448,37 @@ snapshot both validate. The official Phase 3F decision was not rerun and its
 bytes remain unchanged; the decision still passes the strengthened anchor
 with outcome `approved_for_bounded_opt_in_beta_implementation`.
 
+Phase 3G implemented the one explicitly selected, internal/development,
+local-scripted, single-match grid-beta surface authorised by that decision.
+
+```bash
+npm run match:grid:beta -- \
+  --seed 12345 --fighter-a alpha --fighter-b beta --acknowledge-grid-beta
+npm run replay:grid:beta -- --match <uuid> [--ascii]
+```
+
+The explicit command and acknowledgement are the only way to select grid; all
+match arguments are required except `--help`; there is no `--runtime`/output/
+provider argument; missing acknowledgement fails before fighter loading, ID
+generation, simulation or writes; invalid selection fails closed. Fighters
+are `GridBetaFighterSpecV1` documents loaded by identifier from the fixed
+root `data/beta/grid-fighters/<fighterId>.json` (strict schema, catalogue-v1
+build validation, authoritative policy schema, deterministic SHA-256,
+traversal/symlink/size protections; input errors never suspend). Each beta
+match anchors the official governance bundle (exact seven files, all seven
+frozen hashes, exact reviewed Git source snapshot, re-checked before
+simulation and before publication), runs a read-only protected legacy-source
+preflight against the current checkout, executes the same grid match twice
+via the pure `executeGridBetaMatch` core (only `runGridMatch`; deterministic
+equality required) and publishes an immutable ten-file bundle under
+`data/beta/grid-matches/<matchId>/` (manifest last). The one deterministic
+suspension marker `data/beta/GRID_BETA_SUSPENDED` stops only new grid-beta
+matches on any confirmed safety trigger; legacy matches and existing beta
+replays stay readable. No official beta match was executed during
+implementation (tests use external temporary roots); the beta is implemented
+but not yet independently reviewed; no default/public/ranked/tournament
+activation occurred; Milestone 0.2C remains incomplete pending review.
+
 ### Replay
 
 ```bash

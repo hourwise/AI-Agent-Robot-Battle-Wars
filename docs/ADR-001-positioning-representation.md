@@ -2158,6 +2158,32 @@ balance tuning and does not begin Milestone 0.2D.
   reviewed Git source snapshot. The official Phase 3F decision was not rerun
   and passes the strengthened anchor unchanged with outcome
   `approved_for_bounded_opt_in_beta_implementation`.
+- **Bounded grid beta implementation (Phase 3G).** The one explicitly
+  selected, internal/development, local-scripted, single-match grid-beta
+  surface (`grid-opt-in-beta-match-v1`) was implemented: the only beta command
+  `match:grid:beta` (required `--seed`, `--fighter-a`, `--fighter-b`,
+  `--acknowledge-grid-beta`; no `--runtime`/output/provider argument; missing
+  acknowledgement fails before any match activity), local
+  `GridBetaFighterSpecV1` fighters loaded by identifier from
+  `data/beta/grid-fighters/` with strict input security (input errors never
+  suspend), one deterministic suspension marker
+  `data/beta/GRID_BETA_SUSPENDED` with the twelve frozen trigger codes, a
+  read-only protected legacy-source preflight computed from the actual current
+  bytes, a pure `executeGridBetaMatch` core that calls only `runGridMatch`
+  twice with deterministic equality, schema-v3 persistence with empty agent
+  usage, and an immutable ten-file beta bundle under
+  `data/beta/grid-matches/<matchId>/` with a complete cross-agreement
+  validator. Before every beta match the official governance bundle is
+  anchored (exact seven files, frozen hashes, exact reviewed Git source
+  snapshot) and re-checked before simulation and before publication; the
+  output-root guard `grid-beta-match → data/beta/grid-matches` rejects normal
+  match/series, both canaries, readiness/supplement/governance, the
+  fighter-input root and the suspension-marker path. A read-only
+  `replay:grid:beta` command replays stored bundles (validated first, no
+  simulation, ignores the suspension marker). No official beta match was
+  executed during implementation; legacy remains default; no
+  default/public/ranked/tournament activation occurred; no balance conclusion
+  was made; the beta is implemented but not yet independently reviewed.
 
 ### 9.20 Phase 3E1 status
 
@@ -2235,14 +2261,19 @@ hardening **complete** (reviewed source snapshot
 bytes, canary source binding from frozen file hashes, canonical source-state
 assertion, official anchor requires the unchanged bundle plus the exact
 reviewed source snapshot); official governance decision under strengthened
-anchor **pass**; governance outcome
+anchor **pass**; Phase 3G bounded beta implementation **complete**
+(`match:grid:beta` + `replay:grid:beta`, local fighter specs, one suspension
+marker, protected legacy-source preflight, pure deterministic execution core,
+schema-v3 persistence, immutable ten-file beta bundle, no official beta match
+executed, not yet independently reviewed); governance outcome
 **`approved_for_bounded_opt_in_beta_implementation`**; bounded opt-in beta
-implementation **not started**; grid runtime enabled **no**; legacy default
+implementation **not started — implemented but not yet independently
+reviewed**; grid runtime enabled **no**; legacy default
 **yes**; public rollout **not authorised**; balance qualification **not
 performed**; opt-in beta decision **performed (approval for bounded
 implementation)**; default grid activation **not performed**; Milestone 0.2C
 **not complete** pending a separately authorised activation-readiness
-decision.
+decision and independent Phase 3G implementation review.
 
 ## 10. Still out of scope
 

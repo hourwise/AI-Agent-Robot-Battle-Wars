@@ -39,13 +39,18 @@ describe("grid match canary — legacy and contract regression (Phase 3D2A)", ()
     expect(pkg.scripts["series:grid:canary"]).toBe(
       "tsx src/app/run-grid-series-canary.ts",
     );
-    // The only new executable scripts are the two canary scripts.
+    // The explicit grid beta command is the only additional match-family
+    // script beyond the legacy and canary commands.
     const scriptNames = Object.keys(pkg.scripts);
     for (const name of scriptNames) {
       if (name.startsWith("match") || name.startsWith("series")) {
-        expect(["match", "series", "match:grid:canary", "series:grid:canary"]).toContain(
-          name,
-        );
+        expect([
+          "match",
+          "series",
+          "match:grid:canary",
+          "series:grid:canary",
+          "match:grid:beta",
+        ]).toContain(name);
       }
     }
   });

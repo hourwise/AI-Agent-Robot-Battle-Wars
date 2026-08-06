@@ -1124,6 +1124,38 @@ reviewed Git source snapshot; the official Phase 3F decision was not rerun and
 passes the strengthened anchor with outcome
 `approved_for_bounded_opt_in_beta_implementation`.
 
+Phase 3G implemented the bounded explicit grid beta
+(`grid-opt-in-beta-match-v1`). `match:grid:beta` is the only beta match
+command (required `--seed`, `--fighter-a`, `--fighter-b`,
+`--acknowledge-grid-beta`; no `--runtime`/output/provider argument; missing
+acknowledgement fails before any match activity). Fighters are
+`GridBetaFighterSpecV1` documents loaded by identifier from
+`data/beta/grid-fighters/` (strict schema, catalogue-v1 build validation,
+authoritative policy schema, deterministic checksum, traversal/symlink/size
+protection; input errors never suspend). One deterministic suspension marker
+at `data/beta/GRID_BETA_SUSPENDED` stops only new grid-beta matches on any of
+the twelve frozen trigger codes; it is created atomically and never
+overwritten. Before every beta match the service anchors the official
+governance bundle (`anchorOfficialGridOptInBetaGovernanceDecision`: exact
+seven files, frozen hashes, exact reviewed Git source snapshot) and
+re-checks the governance bytes immediately before simulation and before
+publication. A read-only protected legacy-source preflight runs against the
+current checkout (frozen reviewed-source identities, CRLF-normalised) and a
+pure `executeGridBetaMatch` core calls only `runGridMatch` twice, requiring
+deterministic equality of all simulator facts. The primary result is persisted
+as schema v3 with empty agent usage; the factual-report v2 is bound and
+validated; record/report final-state agreement and replay reconstruction
+agreement are required. Each match publishes an immutable ten-file bundle
+under `data/beta/grid-matches/<matchId>/` (manifest last) validated by the
+complete cross-agreement `validateGridBetaMatchBundle`; the output-root guard
+rejects normal match/series, both canaries, readiness/supplement/governance,
+the fighter-input root and the suspension-marker path. `replay:grid:beta`
+validates and displays stored bundles read-only (no simulation; ignores the
+suspension marker). No official beta match was executed during
+implementation; legacy remains default; no default/public/ranked/tournament
+activation and no balance conclusion; the beta is implemented but not yet
+independently reviewed.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.
