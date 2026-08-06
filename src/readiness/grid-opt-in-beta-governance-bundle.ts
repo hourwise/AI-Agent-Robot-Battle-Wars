@@ -56,6 +56,14 @@ import {
   type GridOptInBetaContract,
 } from "./grid-opt-in-beta-contract.js";
 import { buildGridOptInBetaGovernanceReport } from "./grid-opt-in-beta-report.js";
+import {
+  sourceStateFromFacts,
+  gridOptInBetaSourceStateProvenanceFailures,
+} from "./grid-opt-in-beta-source-state-provenance.js";
+import {
+  gridOptInBetaReviewedSourceFactsFailures,
+  type GridOptInBetaReviewedSourceFactsV1,
+} from "./grid-opt-in-beta-source-facts.js";
 
 // ── Frozen official evidence identity ───────────────────────────────────────
 
@@ -299,77 +307,41 @@ export function checkFrozenComponentQualificationChecksums(): boolean {
   );
 }
 
-function deriveGovernanceInputs(
-  preflight: GridOptInBetaStaticPreflight,
-  canary: GridOptInBetaCanaryIsolationStatus,
-  contractChecksum: string,
-): GridOptInBetaGovernanceInputs {
-  return {
-    legacyIsActiveDefault:
-      preflight.normalMatchPathsCallLegacyRunMatch &&
-      preflight.globalConstantsStill020020 &&
-      preflight.catalogueStill1 &&
-      preflight.schemaV2LegacyPersistenceUnchanged &&
-      canary.matchCanaryIsolated &&
-      canary.seriesCanaryIsolated,
-    schemaV3PersistenceAndReplayAvailable:
-      preflight.schemaV3ConverterAndReplaySupportPresent,
-    deterministicRollbackPossible:
-      preflight.schemaV3ConverterAndReplaySupportPresent &&
-      preflight.schemaV2LegacyPersistenceUnchanged,
-    frozenConstraintsUnchanged:
-      preflight.globalConstantsStill020020 &&
-      preflight.catalogueStill1 &&
-      preflight.bothCanaryChecksUnchanged &&
-      checkFrozenComponentQualificationChecksums() &&
-      contractChecksum === GRID_OPT_IN_BETA_CONTRACT_CHECKSUM,
-  };
-}
-
 export interface BuildGridOptInBetaSourceStateInput {
   readonly sourceCommit: string;
   readonly policyContractId: "grid-opt-in-beta-contract-v1";
   readonly policyContractChecksum: string;
+  /** Reviewed source facts derived from the exact committed snapshot. */
+  readonly facts: GridOptInBetaReviewedSourceFactsV1;
 }
 
+/**
+ * Builds the source state from the exact reviewed Git commit snapshot facts
+ * (Milestone 0.2C Phase 3F.1, Phase 7). The source state is never derived
+ * from uncommitted working-tree bytes and never hard-codes canary isolation:
+ * the reviewed source facts (derived from the exact committed bytes and the
+ * frozen canary file hashes) are the only source of truth, and they must be
+ * the frozen canonical reviewed source facts.
+ */
 export function buildGridOptInBetaSourceState(
   input: BuildGridOptInBetaSourceStateInput,
 ): GridOptInBetaSourceStateV1 {
-  const preflight = runGridOptInBetaStaticPreflight();
-  const canary: GridOptInBetaCanaryIsolationStatus = {
-    matchCanaryIsolated: true,
-    seriesCanaryIsolated: true,
-  };
-  const state: GridOptInBetaSourceStateV1 = {
-    schemaVersion: "1",
-    repositoryName: GRID_OPT_IN_BETA_GOVERNANCE_REPOSITORY_NAME,
-    sourceCommit: input.sourceCommit,
-    globalSimulatorVersion: SIMULATOR_VERSION,
-    globalRulesetVersion: RULESET_VERSION,
-    catalogueVersion: CATALOGUE_V1.version as "1",
-    gridRuntimeIdentity: {
-      simulatorVersion: "0.3.0",
-      positioningModel: "grid-3x3-v1",
-      rulesetVersion: "0.2.0",
-      catalogueVersion: "1",
-    },
-    normalRuntimeIdentity: {
-      simulatorVersion: "0.2.0",
-      positioningModel: "legacy-five-zone-v1",
-      rulesetVersion: "0.2.0",
-      catalogueVersion: "1",
-    },
-    legacyDefaultStaticPreflight: preflight,
-    canaryIsolationStatus: canary,
-    policyContractId: input.policyContractId,
-    policyContractChecksum: input.policyContractChecksum,
-    governanceInputs: deriveGovernanceInputs(
-      preflight,
-      canary,
-      input.policyContractChecksum,
-    ),
-  };
-  return state;
+  if (input.sourceCommit !== input.facts.sourceCommit) {
+    throw new Error(
+      `Grid opt-in beta governance source commit ${input.sourceCommit} does not match the reviewed facts source commit ${input.facts.sourceCommit}`,
+    );
+  }
+  const factsFailures = gridOptInBetaReviewedSourceFactsFailures(input.facts);
+  if (factsFailures.length > 0) {
+    throw new Error(
+      `Grid opt-in beta governance source state requires the canonical reviewed source facts: ${factsFailures.join("; ")}`,
+    );
+  }
+  return sourceStateFromFacts(
+    input.facts,
+    input.policyContractId,
+    input.policyContractChecksum,
+  );
 }
 
 export function serializeGridOptInBetaSourceState(
@@ -768,6 +740,14 @@ export function validateGridOptInBetaGovernanceBundle(
       decision.sourceCommit === requiredSourceCommit,
     "manifest/decision source commit does not equal the authorised commit",
   );
+
+  // 1b. Canonical reviewed source-state provenance (Phase 3F.1 Phase 5): the
+  //     persisted source-state must be exactly the canonical reviewed source
+  //     state. A coherent rewrite of arbitrary source-state booleans can no
+  //     longer validate.
+  for (const failure of gridOptInBetaSourceStateProvenanceFailures(sourceState)) {
+    check(false, failure);
+  }
 
   // 2. Manifest identity binding.
   check(

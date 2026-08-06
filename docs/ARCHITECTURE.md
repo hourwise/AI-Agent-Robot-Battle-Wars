@@ -1096,6 +1096,34 @@ started, no public rollout and no balance claim are authorised, no evaluation
 was rerun, and Milestone 0.2C remains incomplete until a separately reviewed
 bounded opt-in implementation is completed.
 
+Phase 3F.1 bound that decision to the exact reviewed source snapshot. A commit
+string alone was insufficient — `source-state.json` recorded only the
+authorised commit string and static-preflight booleans. The provenance
+tooling (`grid-source-commit-reader.ts`,
+`grid-opt-in-beta-source-snapshot.ts`, `grid-opt-in-beta-source-facts.ts`,
+`grid-opt-in-beta-source-state-provenance.ts`,
+`grid-opt-in-beta-official-identity.ts`) reads the exact reviewed file bytes
+from the Git commit object `5173fd0f…` (`git rev-parse`/`git cat-file`,
+argument-array process API only, never the working tree), requires the exact
+commit locally, rejects shallow/missing objects and a different commit, never
+modifies the repository and never accesses the network. The reviewed source
+snapshot `grid-opt-in-beta-reviewed-source-v1` (checksum `1f984801…`) freezes
+26 reviewed file identities (blob SHA + content SHA-256).
+`deriveGridOptInBetaReviewedSourceFacts` reconstructs
+`GridOptInBetaReviewedSourceFactsV1` from the exact committed bytes; the
+canary source-isolation booleans are derived from the frozen canary file
+hashes (no longer hard-coded to `true`).
+`assertCanonicalGridOptInBetaGovernanceSourceState` requires a persisted
+`source-state.json` to equal the canonical reviewed source state (repository,
+source commit, identities, contract, preflight, canary, governance inputs and
+exact shape), so coherent rewrites of source-state booleans no longer
+validate. `anchorOfficialGridOptInBetaGovernanceDecision` requires both the
+unchanged official seven-file bundle (frozen hashes `0f143dde…`/`5721585d…`/
+`972d99b9…`/`0cc07da6…`/`5f345ce4…`/`da377b33…`/`63259937…`) and the exact
+reviewed Git source snapshot; the official Phase 3F decision was not rerun and
+passes the strengthened anchor with outcome
+`approved_for_bounded_opt_in_beta_implementation`.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

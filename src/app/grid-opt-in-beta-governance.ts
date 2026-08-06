@@ -58,6 +58,20 @@ import {
 import { buildGridOptInBetaGovernanceReport } from "../readiness/grid-opt-in-beta-report.js";
 import type { GridOptInBetaGovernanceManifestV1 } from "../readiness/grid-opt-in-beta-governance-bundle.js";
 import type { GridOptInBetaSourceStateV1 } from "../readiness/grid-opt-in-beta-governance-bundle.js";
+import {
+  buildGridOptInBetaReviewedSourceSnapshot,
+  anchorGridOptInBetaReviewedSourceSnapshot,
+  type GridOptInBetaReviewedSourceSnapshotV1,
+} from "../readiness/grid-opt-in-beta-source-snapshot.js";
+import {
+  assertGridOptInBetaReviewedSourceFactsCanonical,
+  deriveGridOptInBetaReviewedSourceFacts,
+  type GridOptInBetaReviewedSourceFactsV1,
+} from "../readiness/grid-opt-in-beta-source-facts.js";
+import {
+  GitSourceCommitReader,
+  type GridOptInBetaSourceCommitReader,
+} from "../readiness/grid-source-commit-reader.js";
 
 /**
  * Grid opt-in beta governance application service (Milestone 0.2C Phase 3F).
@@ -110,6 +124,8 @@ export interface GridOptInBetaGovernanceDependencies {
   createUuid?: () => string;
   now?: () => Date;
   fs?: CanaryFileSystem;
+  /** Git commit-object reader used to bind the reviewed source snapshot. */
+  sourceCommitReader?: GridOptInBetaSourceCommitReader;
 }
 
 export interface GridOptInBetaGovernanceResult {
@@ -127,6 +143,8 @@ export interface GridOptInBetaGovernanceResult {
   artifactDirectory: string;
   artifacts: Array<{ name: string; path: string }>;
   manifest: GridOptInBetaGovernanceManifestV1;
+  reviewedSourceSnapshot: GridOptInBetaReviewedSourceSnapshotV1;
+  reviewedSourceFacts: GridOptInBetaReviewedSourceFactsV1;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -258,14 +276,30 @@ export async function runGridOptInBetaGovernanceDecision(
   // 6. Physical-root guard before any artifact write.
   await assertCanaryPhysicalRoot(request.outputRoot, "grid-readiness-governance", fs);
 
-  // 7. Build the source state (read-only static isolation preflight).
+  // 7. Build the reviewed source snapshot from the exact Git commit object
+  //    (Phase 3F.1). This fails before publication if the commit or any
+  //    reviewed blob is unavailable, and never reads the working tree.
+  const sourceCommitReader =
+    dependencies.sourceCommitReader ?? new GitSourceCommitReader();
+  const reviewedSource =
+    await buildGridOptInBetaReviewedSourceSnapshot(sourceCommitReader);
+  anchorGridOptInBetaReviewedSourceSnapshot(reviewedSource.snapshot);
+  const reviewedSourceFacts = deriveGridOptInBetaReviewedSourceFacts(
+    reviewedSource.snapshot,
+    reviewedSource.contents,
+  );
+  assertGridOptInBetaReviewedSourceFactsCanonical(reviewedSourceFacts);
+
+  // 8. Build the source state from the exact reviewed source facts (never
+  //    the working tree; canary isolation is source-bound, not hard-coded).
   const sourceState = buildGridOptInBetaSourceState({
     sourceCommit: GRID_OPT_IN_BETA_GOVERNANCE_SOURCE_COMMIT,
     policyContractId: GRID_OPT_IN_BETA_CONTRACT_ID,
     policyContractChecksum: GRID_OPT_IN_BETA_CONTRACT_CHECKSUM,
+    facts: reviewedSourceFacts,
   });
 
-  // 8. Derive the outcome through the pure criteria function.
+  // 9. Derive the outcome through the pure criteria function.
   const derivation = reconstructGovernanceDerivation(
     baseReference,
     supplementReference,
@@ -285,7 +319,7 @@ export async function runGridOptInBetaGovernanceDecision(
     derivation,
   });
 
-  // 9. Render the human report.
+  // 10. Render the human report.
   const report = buildGridOptInBetaGovernanceReport({
     decisionId: decision.decisionId,
     createdAt: decision.createdAt,
@@ -307,7 +341,7 @@ export async function runGridOptInBetaGovernanceDecision(
     throw new Error("Grid opt-in beta governance report must be non-empty with no NUL");
   }
 
-  // 10. Serialize the artifacts and compute all digests.
+  // 11. Serialize the artifacts and compute all digests.
   const serializedSourceState = serializeGridOptInBetaSourceState(sourceState);
   const serializedBaseReference = serializeGridOptInBetaEvidenceReference(baseReference);
   const serializedSupplementReference =
@@ -329,7 +363,7 @@ export async function runGridOptInBetaGovernanceDecision(
     [GRID_OPT_IN_BETA_GOVERNANCE_REPORT_ARTIFACT]: sha256Hex(serializedReport),
   };
 
-  // 11. Pre-publication evidence immutability re-check: all nineteen evidence
+  // 12. Pre-publication evidence immutability re-check: all nineteen evidence
   //     files must be byte-for-byte unchanged since the start.
   await assertEvidenceUnchangedSinceStart(
     baseV3Root,
@@ -339,7 +373,7 @@ export async function runGridOptInBetaGovernanceDecision(
     retainedSupplement,
   );
 
-  // 12. Build the manifest (written last).
+  // 13. Build the manifest (written last).
   const manifest = buildGridOptInBetaGovernanceManifest({
     decisionId,
     createdAt,
@@ -353,7 +387,7 @@ export async function runGridOptInBetaGovernanceDecision(
   });
   const serializedManifest = serializeGridOptInBetaGovernanceManifest(manifest);
 
-  // 13. Pre-publish in-memory full-bundle validation.
+  // 14. Pre-publish in-memory full-bundle validation.
   const inMemoryContents: Record<string, string> = {
     [GRID_OPT_IN_BETA_GOVERNANCE_MANIFEST_FILE]: serializedManifest,
     [GRID_OPT_IN_BETA_GOVERNANCE_SOURCE_STATE_ARTIFACT]: serializedSourceState,
@@ -367,7 +401,7 @@ export async function runGridOptInBetaGovernanceDecision(
   };
   validateGridOptInBetaGovernanceBundle(inMemoryContents);
 
-  // 14. Publish with the shared immutable publisher.
+  // 15. Publish with the shared immutable publisher.
   const artifactDirectory = await publishImmutableBundle({
     fs,
     outputRoot: request.outputRoot,
@@ -409,7 +443,7 @@ export async function runGridOptInBetaGovernanceDecision(
     },
   });
 
-  // 15. Read back and cross-validate the final bundle explicitly.
+  // 16. Read back and cross-validate the final bundle explicitly.
   const readBack: Record<string, string> = {};
   for (const name of GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_ENTRIES) {
     readBack[name] = await fs.readFile(join(artifactDirectory, name), "utf-8");
@@ -442,5 +476,7 @@ export async function runGridOptInBetaGovernanceDecision(
       path: join(artifactDirectory, name),
     })),
     manifest: manifestReadBack.manifest,
+    reviewedSourceSnapshot: reviewedSource.snapshot,
+    reviewedSourceFacts,
   };
 }

@@ -658,6 +658,27 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   claim are authorised, no evaluation was rerun, and Milestone 0.2C remains
   incomplete until a separately reviewed bounded opt-in implementation is
   completed.
+- Source-provenance hardening (Phase 3F.1): **complete**. The official
+  decision is bound to the exact reviewed source snapshot
+  `grid-opt-in-beta-reviewed-source-v1` (commit `5173fd0f…`, checksum
+  `1f984801…`, 26 reviewed files with Git blob SHA + content SHA-256). A
+  commit string alone is insufficient: the provenance tooling reads the
+  reviewed bytes from the Git commit object (`git rev-parse`/`git cat-file`,
+  argument-array process API, never the working tree), requires the exact
+  commit locally, rejects shallow/missing objects, never modifies the
+  repository and never accesses the network. `GridOptInBetaReviewedSourceFactsV1`
+  reconstructs the source facts from the exact committed bytes; the canary
+  source-isolation booleans are derived from the frozen canary file hashes
+  (no longer hard-coded to `true`);
+  `assertCanonicalGridOptInBetaGovernanceSourceState` requires the persisted
+  `source-state.json` to equal the canonical reviewed source state, so a
+  generic governance bundle can no longer validate after coherently rewriting
+  arbitrary source-state booleans. `anchorOfficialGridOptInBetaGovernanceDecision`
+  requires both the unchanged official seven-file bundle (frozen hashes
+  `0f143dde…`/`5721585d…`/`972d99b9…`/`0cc07da6…`/`5f345ce4…`/`da377b33…`/
+  `63259937…`) and the exact reviewed Git source snapshot. The official Phase
+  3F decision was not rerun and passes the strengthened anchor unchanged with
+  outcome `approved_for_bounded_opt_in_beta_implementation`.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

@@ -2137,6 +2137,27 @@ balance tuning and does not begin Milestone 0.2D.
   started, no public rollout and no balance claim are authorised, and
   Milestone 0.2C remains incomplete until a separately reviewed bounded opt-in
   implementation is completed.
+- **Reviewed source snapshot binding (Phase 3F.1).** The official decision is
+  bound to the exact reviewed source snapshot `grid-opt-in-beta-reviewed-source-v1`
+  (commit `5173fd0f…`, checksum `1f984801…`, 26 reviewed files with Git blob
+  SHA + content SHA-256). A commit string alone is insufficient: the
+  provenance tooling reads the reviewed bytes from the Git commit object
+  (`git rev-parse`/`git cat-file`, argument-array process API, never the
+  working tree), requires the exact commit locally, rejects shallow/missing
+  objects, rejects a different commit, never modifies the repository and never
+  accesses the network. `GridOptInBetaReviewedSourceFactsV1` reconstructs the
+  source facts from those exact bytes, including the canary source-isolation
+  booleans derived from the frozen canary file hashes (no longer hard-coded to
+  `true`). `assertCanonicalGridOptInBetaGovernanceSourceState` requires a
+  persisted `source-state.json` to equal the canonical reviewed source state,
+  so a generic governance bundle can no longer validate after coherently
+  rewriting arbitrary source-state booleans.
+  `anchorOfficialGridOptInBetaGovernanceDecision` requires both the unchanged
+  official seven-file bundle (frozen hashes `0f143dde…`/`5721585d…`/
+  `972d99b9…`/`0cc07da6…`/`5f345ce4…`/`da377b33…`/`63259937…`) and the exact
+  reviewed Git source snapshot. The official Phase 3F decision was not rerun
+  and passes the strengthened anchor unchanged with outcome
+  `approved_for_bounded_opt_in_beta_implementation`.
 
 ### 9.20 Phase 3E1 status
 
@@ -2207,7 +2228,14 @@ immutable seven-file governance bundle, `readiness:grid:governance` CLI);
 Phase 3F official governance decision **complete** (source commit
 `5173fd0f287465e1181969dbad2f37cee10fd47e`, bundle under
 `data/readiness/grid-governance/`, outcome
-`approved_for_bounded_opt_in_beta_implementation`); governance outcome
+`approved_for_bounded_opt_in_beta_implementation`); Phase 3F.1 source-provenance
+hardening **complete** (reviewed source snapshot
+`grid-opt-in-beta-reviewed-source-v1` bound to commit `5173fd0f…`, checksum
+`1f984801…`, exact commit-object source reading, source facts from committed
+bytes, canary source binding from frozen file hashes, canonical source-state
+assertion, official anchor requires the unchanged bundle plus the exact
+reviewed source snapshot); official governance decision under strengthened
+anchor **pass**; governance outcome
 **`approved_for_bounded_opt_in_beta_implementation`**; bounded opt-in beta
 implementation **not started**; grid runtime enabled **no**; legacy default
 **yes**; public rollout **not authorised**; balance qualification **not

@@ -1663,6 +1663,115 @@ implementation **not started**; grid runtime enabled **no**; legacy default
 **yes**; public rollout **not authorised**; balance qualification **not
 performed**; Milestone 0.2C **not complete**.
 
+## D53: Bind the governance decision to the exact reviewed source snapshot (Phase 3F.1, 2026-08-06)
+
+Phase 3F.1 closes the remaining provenance gap in the Phase 3F governance
+decision: `source-state.json` recorded the authorised source-commit string and
+static-preflight booleans, but nothing proved that the reviewed source bytes
+came from that Git commit, and the validator reconstructed approval from the
+persisted source-state claims. Additionally, the two canary-isolation booleans
+were hard-coded to `true`. This correction adds a reviewed source snapshot and
+strengthened official anchoring without rerunning or altering the official
+Phase 3F governance decision.
+
+- **Why a commit string alone was insufficient.** A `sourceCommit` string
+  inside the bundle is a claim, not proof. Any coherent rewrite of the
+  persisted source-state booleans (and the downstream decision, report,
+  manifest and digests) could reconstruct an approval that no reviewed source
+  actually supports. The official approval is therefore authoritative only
+  when the unchanged official seven-file bundle AND the exact reviewed Git
+  source snapshot at commit `5173fd0f…` both validate.
+- **Reviewed source snapshot identity.** Snapshot
+  `grid-opt-in-beta-reviewed-source-v1` (repository
+  `hourwise/AI-Agent-Robot-Battle-Wars`, source commit
+  `5173fd0f287465e1181969dbad2f37cee10fd47e`, deterministic snapshot checksum
+  `1f984801f6e7ed1809080f88e84004e8dc426de31c2e877dfbbcb09967c3680c`). The
+  snapshot covers 26 reviewed files (ordered paths, Git blob SHA and content
+  SHA-256 each) that materially establish legacy default routing, schema-v2/v3
+  persistence, grid replay availability, grid runtime identity, C1/C2/AB2
+  checksums and the C2 default, canary isolation and the absence of
+  automatic/default grid selection.
+- **Exact commit-object source reading.** The provenance tooling reads the
+  reviewed bytes from the Git commit object (`git rev-parse --verify
+<commit>:<path>` and `git cat-file blob <sha>`, argument-array process API
+  only, never a shell with interpolated input). It requires commit
+  `5173fd0f…` to exist locally, requires every reviewed path to exist in that
+  commit, rejects shallow/missing objects instead of silently using current
+  files, rejects a different commit, never modifies the repository and never
+  accesses the network. No working-tree byte is substituted for a
+  commit-object byte.
+- **Reviewed source facts.** `GridOptInBetaReviewedSourceFactsV1` is
+  reconstructed from the exact committed bytes: normal match/series use legacy
+  `runMatch`; neither normal path invokes `runGridMatch`; grid exists only as
+  the explicit alternate `runGridMatch`; global simulator/ruleset constants
+  `0.2.0/0.2.0`; catalogue `1`; grid identity
+  `0.3.0/grid-3x3-v1/0.2.0/1`; schema-v2 legacy converter path present;
+  schema-v3 grid converter path present; schema-v3 replay dispatch present; no
+  normal application command automatically selects grid; both canary source
+  files equal the exact reviewed snapshot; C1/C2/AB2 checksums and the C2
+  default remain frozen.
+- **Removal of hard-coded canary source claims.** The canary source-isolation
+  booleans are no longer hard-coded to `true`. They are derived from the
+  reviewed snapshot and its frozen canary file hashes (`match-canary` content
+  `4ce94b9c…`, `grid-series-canary-core` content `41cd2631…`). The test suite
+  separately proves the canary executions pass, but the governance artifact
+  no longer claims canary source isolation without a source binding.
+- **Canonical source-state assertion.**
+  `assertCanonicalGridOptInBetaGovernanceSourceState` requires a persisted
+  `source-state.json` to agree with the canonical reviewed source state
+  (repository name, source commit, global identities, contract ID/checksum,
+  all static-preflight outcomes, canary-isolation outcomes, governance inputs
+  and the exact expected shape). The official `source-state.json` passes
+  unchanged; a generic governance bundle can no longer validate after
+  coherently rewriting arbitrary source-state booleans.
+- **Frozen official governance hashes.** The official Phase 3F bundle identity
+  is frozen with exact SHA-256 hashes of the seven persisted artifacts:
+  `manifest.json 0f143dde…`, `source-state.json 5721585d…`,
+  `base-evidence-reference.json 972d99b9…`,
+  `supplement-evidence-reference.json 0cc07da6…`,
+  `beta-contract.json 5f345ce4…`, `decision.json da377b33…`,
+  `report.txt 63259937…`.
+- **Official governance anchor result.**
+  `anchorOfficialGridOptInBetaGovernanceDecision` requires the unchanged
+  official seven-file bundle (validated, exact decision ID `58e8cd87…`, exact
+  reviewed source commit `5173fd0f…`, exact outcome
+  `approved_for_bounded_opt_in_beta_implementation`, exact contract identity
+  and all seven frozen hashes) together with successful validation of the
+  reviewed Git source snapshot at commit `5173fd0f…`, its canonical source
+  facts and the canonical source state. The official Phase 3F governance
+  decision **passes the strengthened anchor** and its outcome remains
+  **`approved_for_bounded_opt_in_beta_implementation`**.
+- **Future service correctness.** Future non-official governance runs
+  construct the source state from the exact configured Git commit snapshot,
+  never write a commit string supplied without verifying the commit object,
+  never derive source facts from uncommitted working-tree changes, and fail
+  before publication if the commit or required blobs are unavailable; the
+  evidence immutability checks and the no-simulation behaviour are retained.
+- **No governance rerun, no implementation.** The official Phase 3F decision
+  was not rerun and its bytes remain unchanged; no readiness or supplement
+  evaluation ran; no benchmark ran; no seed bank was opened; held-out and
+  `all` remained sealed; no provider or external API call occurred; no beta
+  selector or implementation was added; no runtime was enabled; no default
+  changed; no public rollout or balance claim was authorised; Milestone 0.2C
+  remains incomplete.
+
+Status:
+
+```
+Official v3 readiness evidence:          complete and unchanged
+Official grapple supplement:             complete and unchanged
+Official Phase 3F governance decision:   complete and unchanged
+Phase 3F.1 source-provenance hardening:  complete
+official governance decision under strengthened anchor: pass
+governance outcome:                      approved_for_bounded_opt_in_beta_implementation
+bounded opt-in beta implementation:      not started
+legacy default:                          yes
+grid runtime enabled:                    no
+public rollout:                          not authorised
+balance qualification:                   not performed
+Milestone 0.2C:                          not complete
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

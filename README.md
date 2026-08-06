@@ -427,6 +427,27 @@ enabled, legacy remains default, no beta implementation started, no public
 rollout and no balance claim are authorised, and Milestone 0.2C remains
 incomplete pending a separately reviewed bounded opt-in implementation.
 
+Phase 3F.1 bound the official governance decision to the exact reviewed
+source snapshot (`grid-opt-in-beta-reviewed-source-v1`, commit
+`5173fd0f...`, checksum `1f984801...`). A commit string alone was
+insufficient: `source-state.json` only recorded the authorised commit string
+and static-preflight booleans, so the validator reconstructed approval from
+persisted claims. The provenance tooling now reads the exact reviewed file
+bytes from the Git commit object (`git cat-file`/`git rev-parse`, argument
+array only, never the working tree), freezes 26 reviewed file identities
+(blob SHA + content SHA-256), recomputes the source facts
+(`GridOptInBetaReviewedSourceFactsV1`) from those bytes — including the
+canary source-isolation booleans, which are derived from the frozen canary
+file hashes instead of being hard-coded to `true` — and requires
+`assertCanonicalGridOptInBetaGovernanceSourceState` to hold. The strengthened
+anchor `anchorOfficialGridOptInBetaGovernanceDecision` accepts the official
+approval only when the unchanged seven-file bundle (frozen hashes
+`0f143dde...`/`5721585d...`/`972d99b9...`/`0cc07da6...`/
+`5f345ce4...`/`da377b33...`/`63259937...`) and the exact reviewed Git source
+snapshot both validate. The official Phase 3F decision was not rerun and its
+bytes remain unchanged; the decision still passes the strengthened anchor
+with outcome `approved_for_bounded_opt_in_beta_implementation`.
+
 ### Replay
 
 ```bash

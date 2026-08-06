@@ -19,6 +19,7 @@ import { GRID_GRAPPLE_SUPPLEMENT_BUNDLE_ENTRIES } from "../../src/readiness/grid
 import {
   copyOfficialEvidenceToTemp,
   officialGovernanceEvidenceAvailable,
+  buildInMemoryReviewedSourceReader,
   GOVERNANCE_TEST_DECISION_ID,
 } from "../helpers/grid-opt-in-beta-governance-builder.js";
 import {
@@ -26,8 +27,10 @@ import {
   type CanaryFileSystem,
 } from "../../src/canary/immutable-canary-bundle.js";
 import { sha256Hex } from "../../src/canary/grid-canary-digest.js";
+import type { GridOptInBetaSourceCommitReader } from "../../src/readiness/grid-source-commit-reader.js";
 
 let evidence: Awaited<ReturnType<typeof copyOfficialEvidenceToTemp>> | null = null;
+let sourceReader: GridOptInBetaSourceCommitReader | null = null;
 let outputDir: string;
 let officialBaseSnapshot: Record<string, string> | null = null;
 let officialSupplementSnapshot: Record<string, string> | null = null;
@@ -53,6 +56,7 @@ beforeAll(async () => {
   outputDir = await mkdtemp(join(tmpdir(), "gov-out-"));
   if (!officialGovernanceEvidenceAvailable()) return;
   evidence = await copyOfficialEvidenceToTemp();
+  sourceReader = await buildInMemoryReviewedSourceReader();
   if (existsSync(GRID_OPT_IN_BETA_GOVERNANCE_BASE_V3_DIR)) {
     officialBaseSnapshot = {};
     for (const name of GRID_READINESS_BUNDLE_ENTRIES) {
@@ -92,6 +96,7 @@ describe("grid opt-in beta governance service (Phase 3F Phase 8)", () => {
         {
           createUuid: createDecisionIdFactory(GOVERNANCE_TEST_DECISION_ID),
           now: () => new Date("2026-08-03T00:00:00.000Z"),
+          sourceCommitReader: sourceReader!,
         },
       ),
     ).rejects.toThrow(/absent or unreadable/);
@@ -111,6 +116,7 @@ describe("grid opt-in beta governance service (Phase 3F Phase 8)", () => {
         {
           createUuid: createDecisionIdFactory(GOVERNANCE_TEST_DECISION_ID),
           now: () => new Date("2026-08-03T00:00:00.000Z"),
+          sourceCommitReader: sourceReader!,
         },
       ),
     ).rejects.toThrow(/absent or unreadable/);
@@ -165,6 +171,7 @@ describe("grid opt-in beta governance service (Phase 3F Phase 8)", () => {
         {
           createUuid: createDecisionIdFactory(GOVERNANCE_TEST_DECISION_ID),
           now: () => new Date("2026-08-03T00:00:00.000Z"),
+          sourceCommitReader: sourceReader!,
         },
       ),
     ).rejects.toThrow(/mismatch|does not match|failed/i);
@@ -183,6 +190,7 @@ describe("grid opt-in beta governance service (Phase 3F Phase 8)", () => {
       {
         createUuid: createDecisionIdFactory(GOVERNANCE_TEST_DECISION_ID),
         now: () => new Date("2026-08-03T00:00:00.000Z"),
+        sourceCommitReader: sourceReader!,
       },
     );
     expect(result.decisionId).toBe(GOVERNANCE_TEST_DECISION_ID);
@@ -234,6 +242,7 @@ describe("grid opt-in beta governance service (Phase 3F Phase 8)", () => {
           createUuid: createDecisionIdFactory(GOVERNANCE_TEST_DECISION_ID),
           now: () => new Date("2026-08-03T00:00:00.000Z"),
           fs: mutatingFs,
+          sourceCommitReader: sourceReader!,
         },
       ),
     ).rejects.toThrow(/base artifact changed during governance execution/);
