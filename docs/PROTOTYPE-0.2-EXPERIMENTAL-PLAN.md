@@ -588,7 +588,8 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   C2 default; the 24 seeds, seven readiness scenarios, thirteen assignments
   and 312-run plan unchanged; both canaries and legacy match/series unchanged;
   no provider or external API call; no tuning after results; no opt-in beta
-  decision; no default activation; Milestone 0.2C remains incomplete.
+  decision; no default activation; Milestone 0.2C is now **COMPLETE** (grid
+  default activation was never performed).
 - Phase 3E2.1 — supplemental grapple evidence provenance hardening:
   **complete (verifier-only); official supplement still passes the stronger
   validator unchanged**. Phase 3E2.1 hardens the provenance guarantees of the
@@ -616,8 +617,8 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   186 same-cell; 0 wrong-fighter; 0 malformed); decision
   `coverage_confirmed`; combined `ready_for_opt_in_beta_review`. No official
   rerun, benchmark, seed bank, provider call, tuning, opt-in beta decision or
-  default activation occurred; held-out/all remain sealed; Milestone 0.2C
-  remains incomplete.
+  default activation occurred; held-out/all remain sealed; Milestone 0.2C is
+  now **COMPLETE**.
 - Phase 3F — bounded opt-in beta governance decision: **complete; official
   governance decision complete; governance outcome
   `approved_for_bounded_opt_in_beta_implementation`**. Phase 3F performs the
@@ -655,9 +656,9 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   internal/development grid beta in a later, separately reviewed phase. No
   runtime was enabled, legacy remains default, C2 remains the experimental
   default, no beta implementation started, no public rollout and no balance
-  claim are authorised, no evaluation was rerun, and Milestone 0.2C remains
-  incomplete until a separately reviewed bounded opt-in implementation is
-  completed.
+  claim are authorised, no evaluation was rerun, and Milestone 0.2C was later
+  completed once the separately reviewed bounded opt-in implementation was
+  completed (D58).
 - Source-provenance hardening (Phase 3F.1): **complete**. The official
   decision is bound to the exact reviewed source snapshot
   `grid-opt-in-beta-reviewed-source-v1` (commit `5173fd0f…`, checksum
@@ -697,8 +698,8 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   `replay:grid:beta`. No official beta match was executed during
   implementation (tests use external temporary roots); legacy remains the
   default; no default/public/ranked/tournament activation; no balance
-  conclusion; Milestone 0.2C remains incomplete pending independent Phase 3G
-  implementation review.
+  conclusion; Milestone 0.2C is now **COMPLETE** (independent review passed;
+  D58).
 - Grid-beta safety and provenance hardening (Phase 3G.1): **complete**. The
   pre-simulation checkpoint window is closed (canonical protected-source
   preflight → governance bytes unchanged → marker absent → synchronous
@@ -723,8 +724,8 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   bundle is inventory-validated before any content is read. No real beta
   match or marker was created; no official artifact was altered; the explicit
   internal beta command is **implemented, not yet authorised for first real
-  execution**; Milestone 0.2C remains incomplete pending independent Phase
-  3G.1 review.
+  execution**; Milestone 0.2C is now **COMPLETE** (independent review passed;
+  D58).
 - Final grid-beta trust-boundary hardening (Phase 3G.1.1): **complete**. The
   production beta service is unbypassable (the public match request contains
   only `seed`, `fighterA`, `fighterB` and `acknowledgement`; the production
@@ -805,9 +806,9 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not
   wired into CLI, series, battle or application commands.
-- Default grid activation: **not performed**. Milestone 0.2C remains
-  **not complete**, pending a separately authorised activation-readiness
-  decision.
+- Default grid activation: **not performed**. Milestone 0.2C is **COMPLETE**;
+  completion does not mean default grid activation — the grid remains opt-in
+  and legacy remains the default.
 - Grid adaptive-series execution: **not implemented** for live play. The grid
   adaptive-series **canary** (Phase 3D2B) is complete and produces a
   series-v2 record locally under `data/canary/grid-series/`, but no normal
@@ -816,7 +817,8 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   separate and local-only.
 - Balance evaluation of the grid runtime: **not performed**; no grid-vs-legacy
   balance conclusions are made.
-- Milestone 0.2C is **not complete**.
+- Milestone 0.2C is **COMPLETE** (D58); the grid runtime remains opt-in and
+  default grid activation was not performed.
 
 This is an evidence-led plan, not a feature wishlist. Every proposed change is driven by a specific limitation observed in Prototype 0.1.
 
@@ -1144,11 +1146,12 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
 
 ---
 
-### Milestone 0.2C — Positioning Model (3×3 Grid) 🚧 IN PROGRESS — GRID RUNTIME OPT-IN, NOT DEFAULT
+### Milestone 0.2C — Positioning Model (3×3 Grid) ✅ COMPLETE — GRID RUNTIME OPT-IN, NOT DEFAULT
 
-**Phase status (2026-08-01):**
+**Phase status (updated 2026-08-07):**
 
-- Milestone 0.2C has **started** and remains **not complete**.
+- Milestone 0.2C is **COMPLETE** (D58); the grid runtime remains opt-in,
+  default grid activation was not performed, and legacy remains the default.
 - **Phase 1 geometry foundation is complete**: ADR-001 accepted
   (`docs/ADR-001-positioning-representation.md`) and the pure geometry module
   `src/simulator/arena-grid.ts` shipped with exhaustive tests
@@ -1194,8 +1197,7 @@ These thresholds are proposals to be reviewed after baseline data is collected. 
   produce schema v2 legacy records.
 - Translated lateral movement is implemented in the opt-in grid runtime only;
   legacy `circle_left` / `circle_right` remain turn-in-place.
-- Default grid activation: **not performed**; Milestone 0.2C is **not
-  complete** pending a separately authorised activation-readiness decision.
+- Default grid activation: **not performed**; Milestone 0.2C is **COMPLETE**.
 
 **Scope:** New arena representation, movement events, facing and rear advantage, replay updates, policy updates.
 
@@ -1250,28 +1252,125 @@ removed without touching live legacy behaviour (normal matches remain
 
 ---
 
-### Milestone 0.2D — Opponent Suite
+### Milestone 0.2D — Opponent Suite (Phase 0: DEFINED, NOT IMPLEMENTED — 2026-08-07, D61)
 
-**Scope:** Versioned deterministic archetypes, tournament runner, cross-opponent reports.
+Milestone 0.2C is COMPLETE and Observation Window A is ACCEPTED. Phase 0
+defines the opponent-suite governance, the fixture contract (ADR-004), the
+runtime relationship, the evidence firewall and the phased implementation
+sequence. No opponent fixture, no fixture JSON, no runner and no tournament/
+cross-opponent execution is implemented in Phase 0; no package script changed
+and no `data/opponents/` tree was created.
 
-**Exclusions:** Adaptation evaluation, rule changes.
+**Authorised research/engineering question (the only question 0.2D may
+answer):**
 
-**Affected modules:** New `data/opponents/` fixtures, `src/agents/scripted/` (refactor Bulwark to load from fixture), new `src/app/run-tournament.ts`.
+> Can the project represent a small, diverse set of fixed robot opponents as
+> immutable, versioned, deterministic local fixtures and execute/report
+> against them reproducibly without changing combat semantics, performing
+> adaptation, or making balance claims?
 
-**Schema implications:** Opponent fixture schema.
+Milestone 0.2D is NOT authorised to answer: which build is best; which weapon
+is strongest; whether the grid is balanced; whether slot A/B is fair; whether
+any design should be tuned; whether C2 is final; whether grid should become
+the default; whether an AI redesign improved; whether a public tournament is
+ready. Those belong to later separately authorised evaluation work (e.g.
+0.2E or a separately authorised qualification cycle).
 
-**Version implications:** New fixture version field.
+**Runner terminology:** the historical "tournament runner" term is retired
+because it conflicts with the project's explicit prohibition on
+public/ranked/tournament operation. The canonical name for 0.2D development
+tooling is the **opponent-suite runner** (also described as a
+cross-opponent matrix runner). This is a local development/evaluation
+harness. It is not the public Arena tournament system. It does not create
+rankings. It does not award prizes. It does not perform matchmaking. It does
+not authorise public or ranked play.
 
-**Tests:** Each opponent produces deterministic behaviour; tournament runner produces correct cross-table; no opponent calls external API.
+**Definition status (Phase 0):**
 
-**Acceptance criteria:**
+- Opponent fixtures implemented: no
+- Cross-opponent/opponent-suite runner implemented: no
+- Adaptation: not authorised
+- Balance evaluation: not authorised
+- Seed-bank access: none
+- Held-out access: none
+- Provider/API use: none
+- Legacy default: yes
+- Grid default: no
+- Public/ranked/tournament: not authorised
+- Milestone 0.2E: not started
 
-- 6 opponents available as versioned fixtures.
-- Tournament runner evaluates one design against all 6 opponents.
-- Cross-opponent report shows win/loss/draw per opponent.
-- Bulwark behaviour unchanged from 0.1 (validated against canonical series).
+**Scope (Phase 0):** opponent fixture format governance (ADR-004), runtime
+relationship decision, six conceptual archetype envelopes, evidence firewall,
+Bulwark migration rule, phased implementation sequence, and runner output
+boundaries.
 
-**Rollback:** Remove new fixtures and tournament runner. Bulwark agent unchanged.
+**Exclusions (Phase 0):** opponent implementation, fixture JSON files, runner
+implementation, adaptation evaluation, rule changes, seed-bank use,
+statistical qualification, and any balance verdict.
+
+**Proposed phased implementation sequence (none implemented):**
+
+- **Phase 1** — Opponent fixture schema + canonical serializer/checksum +
+  loader. No opponents yet except perhaps a mechanically migrated Bulwark
+  fixture for compatibility testing.
+- **Phase 2** — Six canonical opponent fixtures (bulwark, skirmisher,
+  crusher, spinner, controller, generalist). No cross-opponent execution yet.
+- **Phase 3** — Deterministic fixture validation and Bulwark migration.
+- **Phase 4** — Development-only opponent-suite/cross-opponent runner for
+  explicitly authorised runtime(s).
+- **Phase 5** — Cross-opponent factual report (no adaptation and no balance
+  verdict).
+
+Each future phase requires independent review before proceeding.
+
+**Future runner output boundaries:** the opponent-suite runner may eventually
+report factual values — opponent ID, fixture checksum, runtime identity,
+caller-supplied seed, match IDs, win/loss/draw, method, rounds, deterministic
+result checksum. Phase 0 explicitly prohibits automatic conclusions such as
+strongest/weakest opponent, best build, optimal weapon, balance score, tier
+list or recommended tuning. Raw factual aggregation is allowed later;
+interpretation requires separate governance.
+
+**Evidence firewall:** fixture design may use public catalogue definitions,
+the public policy schema, deterministic simulator contracts, existing
+unit-test fixtures, the historical Bulwark implementation (for compatibility)
+and grid geometry/policy semantics for compatibility analysis. It must NOT
+use for fixture tuning or selection: development benchmark outcomes, benchmark
+seed identities, held-out seeds, held-out per-match results, `all`, AB2
+held-out outcome details, GRID-BETA-001–005 winners/scores/round patterns,
+provider/model-generated optimisation or adaptation results. The five beta
+smoke outcomes remain uninterpreted. No seed bank
+(`benchmark-100-v1`, development partition, held-out partition, `all`) is
+opened; no replacement held-out partition is created; no statistical sample
+size is selected; no win-rate threshold is calculated.
+
+**Relationship with 0.2B and 0.2E:** the component lifecycle mechanism (0.2B)
+exists but qualification/balance acceptance remains deferred; 0.2D must not
+resolve C2 or component-balance questions. 0.2D creates deterministic
+opponents that the historical Adaptation Evaluation (0.2E) may eventually use;
+0.2D must not invoke redesign, expose results to an AI reviewer, compare
+baseline vs redesign, test overfitting or use held-out seeds. Dependency:
+`0.2C positioning/runtime infrastructure → 0.2D deterministic opponent
+fixtures → 0.2E separately governed adaptation evaluation`, without implying
+0.2E is automatically authorised.
+
+**Affected modules (Phase 0):** none — documentation only
+(`docs/ADR-004-multi-opponent-fixture-format.md`, this plan, README,
+ARCHITECTURE, DECISIONS).
+
+**Schema implications (Phase 0):** the opponent fixture schema is defined
+conceptually in ADR-004; no code schema ships in Phase 0.
+
+**Version implications:** fixture version field is defined in ADR-004; no code
+change in Phase 0.
+
+**Tests (Phase 0):** none added — documentation/design only.
+
+**Acceptance criteria (Phase 0):** ADR-004 accepted; stale 0.2C status
+corrected; D61 recorded; no implementation artefacts created.
+
+**Rollback (Phase 0):** revert the documentation-only commit; no code exists
+to remove.
 
 ---
 
@@ -1309,11 +1408,11 @@ Decision questions to resolve before implementation. Recommended order reflects 
 | ADR-001 | Positioning representation         | **Accepted for phased implementation:** 3×3 grid frozen in `docs/ADR-001-positioning-representation.md`; Phases 1–3C implemented (geometry, schema v3/replay, opt-in grid runtime core, hardening, momentum correction, lateral/flank integration). The grid runtime is opt-in (`runGridMatch`, simulator `0.3.0`); default activation remains deferred. | Nothing                     |
 | ADR-002 | Component damage lifecycle         | **Accepted:** healthy→damaged→disabled. Candidate C1 is implemented and viable for lifecycle coverage, but 0.2B acceptance awaits split gates and diagnostic fixtures.                                                                                                                                                                                   | Volatility benchmark (0.2A) |
 | ADR-003 | Deterministic seed-bank evaluation | Fixed seeds, sample size, held-out protocol?                                                                                                                                                                                                                                                                                                             | Nothing                     |
-| ADR-004 | Multi-opponent fixture format      | How are opponent builds and policies stored and versioned?                                                                                                                                                                                                                                                                                               | Nothing                     |
+| ADR-004 | Multi-opponent fixture format      | **Accepted (Milestone 0.2D Phase 0, 2026-08-07):** immutable/versioned fixture identity, canonical SHA-256 fixture checksum, runtime-neutral fixture with runtime-specific execution, six archetype envelopes, Bulwark migration rule — frozen in `docs/ADR-004-multi-opponent-fixture-format.md`. No implementation yet.                                | Nothing                     |
 | ADR-005 | Simulator version compatibility    | How do old matches replay under new rules? Version-gating vs separate code paths?                                                                                                                                                                                                                                                                        | ADR-001, ADR-002            |
 | ADR-006 | Adaptation success metrics         | What thresholds define improvement? How is overfitting detected?                                                                                                                                                                                                                                                                                         | ADR-003                     |
 
-Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are independent). ADR-001 is accepted for phased implementation; Phases 1–3C (geometry, schema v3/replay, opt-in grid runtime core, hardening, momentum correction, lateral/flank integration) are complete and the grid runtime is opt-in with default activation deferred. ADR-002's lifecycle and Candidate C qualification architecture are accepted; Candidate C1 is implemented, but split gate approval and diagnostic fixture confirmation remain outstanding. ADR-005 depends on decisions made in ADR-001 and ADR-002. ADR-006 is last — it needs the evaluation protocol defined.
+Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are independent). ADR-001 is accepted for phased implementation; Phases 1–3C (geometry, schema v3/replay, opt-in grid runtime core, hardening, momentum correction, lateral/flank integration) are complete and the grid runtime is opt-in with default activation deferred. ADR-002's lifecycle and Candidate C qualification architecture are accepted; Candidate C1 is implemented, but split gate approval and diagnostic fixture confirmation remain outstanding. ADR-004 is now resolved as Milestone 0.2D Phase 0 governance (`docs/ADR-004-multi-opponent-fixture-format.md`) with no implementation. ADR-005 depends on decisions made in ADR-001 and ADR-002. ADR-006 is last — it needs the evaluation protocol defined.
 
 ---
 

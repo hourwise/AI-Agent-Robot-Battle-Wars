@@ -2608,6 +2608,158 @@ Milestone 0.2D:
 not started
 ```
 
+## D61: Define Milestone 0.2D opponent-suite governance (2026-08-07)
+
+Milestone 0.2C is COMPLETE and Bounded Beta Observation Window A is ACCEPTED
+(D58–D60). The infrastructure-safety chapter is closed. Milestone 0.2D Phase 0
+is a documentation, architecture and governance task only: it redefines the
+older Milestone 0.2D roadmap in light of the completed grid-beta work before
+any implementation begins. No opponents, no tournament/cross-opponent runner,
+no fixture JSON files and no `data/opponents/` tree are implemented; no
+package script changed and no `src/` file changed.
+
+- **Authorised question.** Milestone 0.2D may answer only: "Can the project
+  represent a small, diverse set of fixed robot opponents as immutable,
+  versioned, deterministic local fixtures and execute/report against them
+  reproducibly without changing combat semantics, performing adaptation, or
+  making balance claims?" It is not authorised to answer best-build, strongest
+  weapon, grid balance, slot fairness, tuning, C2 finality, grid-as-default,
+  AI-redesign improvement or public-tournament-readiness questions.
+- **ADR-004 accepted.** `docs/ADR-004-multi-opponent-fixture-format.md` freezes
+  the fixture contract before implementation: immutable/versioned identity
+  (`schemaVersion`, `opponentId`, `fixtureVersion`, `displayName`, `build`,
+  `policy`, `catalogueVersion`, `rulesetCompatibility`,
+  `runtimeCompatibility`, `description`, `archetypeIntent`); no subjective
+  balance labels (`tier`, `powerLevel`, `difficultyRating`, `balanced`,
+  `meta`, `optimal`); `archetypeIntent` is descriptive only. Canonical
+  identity binds the exact build proposal, complete validated build, policy,
+  schema version, fixture version, catalogue version and runtime-compatibility
+  declaration to a deterministic canonical serialization and SHA-256 fixture
+  checksum; changing any authoritative field requires a new checksum and,
+  where semantically appropriate, a new fixture version; no silent fixture
+  mutation.
+- **Runtime relationship.** Chosen model: runtime-neutral fixture,
+  runtime-specific execution. Fixtures own build/policy/archetype identity
+  valid across runtimes; runtime execution is chosen separately and recorded
+  explicitly (e.g. `runtimeCompatibility: legacy: supported,
+grid-3x3-v1: supported`). Non-portable policies/builds are declared
+  incompatible rather than translated silently. No fixture may cause a
+  runtime change or request grid activation.
+- **Six conceptual archetypes.** `bulwark`, `skirmisher`, `crusher`,
+  `spinner`, `controller`, `generalist` are retained (no duplicated
+  archetype or unsupported component). Phase 0 defines only intended design
+  envelopes (chassis family, weapon family, policy style, tactical behaviour,
+  compatibility questions, what must NOT be inferred from the label); exact
+  builds are deferred to a later phase and must be chosen without
+  benchmark/held-out optimisation.
+- **Runner terminology.** The historical "tournament runner" term is retired
+  in favour of the local development **opponent-suite runner** (cross-opponent
+  matrix runner). It is not the public Arena tournament system; it does not
+  create rankings, award prizes, perform matchmaking or authorise
+  public/ranked play. It is not implemented in Phase 0.
+- **Execution governance.** Future 0.2D execution is deterministic and
+  local-scripted; no fixture may call an external model/provider API, adapt,
+  learn, mutate, or read prior match/benchmark/held-out results. A future
+  runner must require explicit runtime selection; absent selection must not
+  silently switch the default to grid. A general grid cross-opponent runner is
+  NOT authorised in this design phase — grid execution requires separate
+  authorisation because the bounded grid-beta governance covers explicit
+  internal beta matches, not an unlimited matrix runner. Legacy remains
+  default.
+- **Evidence firewall.** Fixture design may use public catalogue definitions,
+  the public policy schema, deterministic simulator contracts, existing
+  unit-test fixtures, the historical Bulwark implementation for compatibility,
+  grid geometry/policy semantics for compatibility analysis, and
+  GRID-BETA-001–005 only as evidence that the beta infrastructure operates
+  safely. It must NOT use development benchmark outcomes, benchmark seed
+  identities, held-out seeds/results, `all`, AB2 held-out outcome details,
+  GRID-BETA-001–005 winners/scores/round patterns, provider/model-generated
+  optimisation or adaptation results for fixture tuning or selection. The five
+  beta smoke outcomes remain uninterpreted.
+- **Bulwark migration rule.** Migration preserves canonical fixture identity
+  (build/policy intent); it does not promise byte-identical event streams
+  across legacy and grid because the runtimes intentionally have different
+  positioning semantics. A future legacy regression proves replacing
+  hard-coded Bulwark data with the fixture does not change relevant legacy
+  deterministic behaviour, using bounded ordinary unit fixtures or existing
+  canonical non-held-out regression cases — never the benchmark seed bank.
+- **Phased sequence (defined, not implemented).** Phase 0 definition/
+  governance (this task); Phase 1 fixture schema + canonical
+  serializer/checksum + loader; Phase 2 six canonical fixtures (no
+  cross-opponent execution); Phase 3 deterministic fixture validation and
+  Bulwark migration; Phase 4 development-only opponent-suite runner for
+  explicitly authorised runtime(s); Phase 5 cross-opponent factual report (no
+  adaptation, no balance verdict). Each future phase requires independent
+  review before proceeding.
+- **Runner output boundaries.** Factual values only (opponent ID, fixture
+  checksum, runtime identity, caller-supplied seed, match IDs,
+  win/loss/draw, method, rounds, deterministic result checksum). Automatic
+  conclusions (strongest/weakest opponent, best build, optimal weapon,
+  balance score, tier list, recommended tuning) are prohibited; interpretation
+  requires separate governance.
+- **No seed banks.** `benchmark-100-v1`, the development partition, the
+  held-out partition and `all` are not opened; no replacement held-out
+  partition is created; no statistical sample size is selected; no win-rate
+  thresholds are calculated. Those belong to later evaluation governance
+  (likely 0.2E or a separately authorised qualification cycle).
+- **0.2B / 0.2E relationship.** The component lifecycle mechanism (0.2B)
+  exists but qualification/balance acceptance remains deferred; 0.2D must not
+  resolve C2 or component-balance questions. 0.2D creates deterministic
+  opponents that the historical Adaptation Evaluation (0.2E) may eventually
+  use; 0.2D must not invoke redesign, expose results to an AI reviewer,
+  compare baseline vs redesign, test overfitting or use held-out seeds.
+  Dependency: `0.2C → 0.2D → 0.2E` without implying 0.2E is automatically
+  authorised.
+
+Status:
+
+```
+Milestone 0.2C:
+COMPLETE
+
+Observation Window A:
+ACCEPTED
+
+Milestone 0.2D:
+DEFINED, NOT IMPLEMENTED
+
+0.2D purpose:
+versioned deterministic local opponent fixtures and factual cross-opponent development tooling
+
+Opponent fixtures implemented:
+no
+
+Cross-opponent runner implemented:
+no
+
+Adaptation:
+not authorised
+
+Balance evaluation:
+not authorised
+
+Seed-bank access:
+none
+
+Held-out access:
+none
+
+Provider/API use:
+none
+
+Legacy default:
+yes
+
+Grid default:
+no
+
+Public/ranked/tournament:
+not authorised
+
+Milestone 0.2E:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

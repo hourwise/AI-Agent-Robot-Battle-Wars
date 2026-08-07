@@ -474,10 +474,11 @@ equality required) and publishes an immutable ten-file bundle under
 `data/beta/grid-matches/<matchId>/` (manifest last). The one deterministic
 suspension marker `data/beta/GRID_BETA_SUSPENDED` stops only new grid-beta
 matches on any confirmed safety trigger; legacy matches and existing beta
-replays stay readable. No official beta match was executed during
-implementation (tests use external temporary roots); the beta is implemented
-but not yet independently reviewed; no default/public/ranked/tournament
-activation occurred; Milestone 0.2C remains incomplete pending review.
+replays stay readable. No official beta match was executed during Phase 3G
+implementation (tests use external temporary roots); the beta was later
+completed, independently reviewed and authorised for bounded internal
+operation (D58); no default/public/ranked/tournament activation occurred and
+Milestone 0.2C is COMPLETE with legacy remaining the default.
 
 Phase 3G.1 hardened the bounded grid-beta safety and artifact provenance
 without running a beta match or altering any official artifact. The
@@ -613,6 +614,31 @@ GRID-BETA-002 through GRID-BETA-005 therefore executed with exact Git HEAD
 the accepted `9fcb5ec…` state. Independent review accepts this as
 source-equivalent operational provenance; the four observation matches were
 not rerun.
+
+## Milestone 0.2D Phase 0 — Opponent-suite definition and governance gate
+
+Milestone 0.2C is COMPLETE and Observation Window A is ACCEPTED. Milestone
+0.2D Phase 0 (D61, 2026-08-07) is a documentation, architecture and
+governance task only: it redefines the older 0.2D roadmap before any
+implementation. **No opponents, fixture JSON files, runner, `data/opponents/`
+tree, package-script change or `src/` change was made.** The authorised 0.2D
+question is: can the project represent a small, diverse set of fixed robot
+opponents as immutable, versioned, deterministic local fixtures and
+execute/report against them reproducibly without changing combat semantics,
+performing adaptation, or making balance claims? ADR-004
+(`docs/ADR-004-multi-opponent-fixture-format.md`) freezes the fixture
+contract (immutable/versioned identity, canonical SHA-256 fixture checksum,
+no subjective balance labels, descriptive `archetypeIntent`), chooses the
+runtime-neutral-fixture / runtime-specific-execution model, defines six
+conceptual archetype envelopes (`bulwark`, `skirmisher`, `crusher`,
+`spinner`, `controller`, `generalist`), the Bulwark migration rule, the
+evidence firewall, and the phased implementation sequence (Phases 1–5, each
+requiring independent review). The historical "tournament runner" term is
+retired in favour of the local development **opponent-suite runner**
+(cross-opponent matrix runner) — not the public Arena tournament system, no
+rankings, prizes, matchmaking or public/ranked play. No seed bank, held-out
+partition or `all` is opened; adaptation and balance evaluation are not
+authorised; legacy remains default; Milestone 0.2E is not started.
 
 ### Replay
 

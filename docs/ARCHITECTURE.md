@@ -1273,6 +1273,32 @@ benchmark/provider/seed-bank/held-out/`all` access occurred. The window is
 factual operational observation only — no balance, slot/fairness or tuning
 conclusion is drawn, and outcomes are explicitly deferred.
 
+Milestone 0.2D Phase 0 (D61, 2026-08-07) defines — and does not implement —
+the opponent-suite governance. ADR-004 (`docs/ADR-004-multi-opponent-fixture-format.md`)
+freezes the fixture contract: immutable/versioned identity
+(`schemaVersion`, `opponentId`, `fixtureVersion`, `displayName`, `build`,
+`policy`, `catalogueVersion`, `rulesetCompatibility`,
+`runtimeCompatibility`, `description`, `archetypeIntent`), no subjective
+balance labels, a descriptive-only `archetypeIntent`, and a canonical
+SHA-256 fixture checksum binding the build proposal, complete validated
+build, policy, schema/fixture/catalogue versions and runtime-compatibility
+declaration. The chosen runtime model is runtime-neutral fixture with
+runtime-specific execution: fixtures own build/policy identity valid across
+runtimes, declare `runtimeCompatibility` explicitly, and never cause a
+runtime change or request grid activation. Six conceptual archetype envelopes
+(`bulwark`, `skirmisher`, `crusher`, `spinner`, `controller`, `generalist`)
+are defined without fixture JSON. The historical "tournament runner" is
+retired in favour of the local development opponent-suite runner
+(cross-opponent matrix runner), which is not the public Arena tournament
+system and creates no rankings/prizes/matchmaking/public play. The evidence
+firewall prohibits benchmark, held-out, `all`, AB2, and GRID-BETA-001–005
+outcome use for fixture tuning or selection; no seed bank is opened; no
+statistical sample is selected. The phased sequence (fixture schema → six
+canonical fixtures → validation + Bulwark migration → development-only
+runner → factual cross-opponent report) is defined but not started; each
+phase requires independent review. No opponent fixture, runner, package
+script or `src/` change was made in Phase 0.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.
