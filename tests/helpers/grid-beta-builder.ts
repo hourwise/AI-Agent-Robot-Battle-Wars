@@ -8,6 +8,7 @@ import {
   runGridBetaMatch,
 } from "../../src/app/grid-beta-match.js";
 import { createGridBetaMappedFs, gridBetaMappedPath } from "./grid-beta-mapped-fs.js";
+import { buildDualCommitInMemorySourceReader } from "./grid-beta-successor-builder.js";
 import {
   GRID_BETA_MATCH_BUNDLE_ENTRIES,
   GRID_BETA_MATCH_MANIFEST_FILE,
@@ -119,7 +120,7 @@ export async function createBetaTempEnvironment(): Promise<BetaTempEnvironment> 
     JSON.stringify(BETA_FIGHTER_SPEC, null, 2),
     "utf-8",
   );
-  const sourceReader = await buildInMemoryReviewedSourceReader();
+  const sourceReader = await buildDualCommitInMemorySourceReader();
   return {
     root,
     fighterRoot,

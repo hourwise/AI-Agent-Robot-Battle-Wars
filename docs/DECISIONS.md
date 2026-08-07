@@ -3629,6 +3629,137 @@ Milestone 0.2E:
 not started
 ```
 
+## D68: Establish grid beta successor source baseline v2 (Commit G) (2026-08-07)
+
+Commit M passed the required independent review for its class of work. This
+decision records **Commit G** — the separately-versioned successor
+current-source compatibility baseline (`grid-beta-legacy-isolation-reviewed-
+source-v2`) — and the restoration of a fully passing test state. Commit G
+MUST NOT rewrite original v1 governance authority and MUST NOT execute a real
+beta match.
+
+- **Successor source baseline v2.** `src/beta/grid-beta-legacy-isolation-
+reviewed-source-v2.ts` freezes the exact ordered 23-path protected source
+  set at exact Commit M (`e6d981f98ae1bde418810a4fcefae09490344073`), with
+  per-path Git blob SHA and LF-normalised content SHA-256, plus the canonical
+  Bulwark fixture anchor (`data/opponents/bulwark.v1.json`: blob
+  `dbfed21541a47ec0d5f1c7163795a8a8b21b9275`, content SHA-256
+  `d109c73a2f0880a5298fa6784abe4644f10c6ec395d4f4007179cc2d4e50256a`,
+  fixture checksum
+  `053e61e867d00015371e852dbe571af666cc8ac99a514b2364be323d54a8d987`).
+  The complete baseline checksum is
+  `134e7ce29650a170d8965b2fdde691e75afd2420620de143ba720601c666909e`. The
+  snapshot is built ONLY from Git objects of Commit M (never the working
+  tree); missing/shallow commits, missing paths, wrong blob SHAs, changed
+  content, reordered files, changed Bulwark bytes and coherent tampering all
+  fail closed.
+- **Successor v2 preflight.** `src/beta/grid-beta-legacy-preflight-v2.ts`
+  (`schemaVersion "2"`) independently re-verifies: the successor commit is
+  available and its 23 paths + Bulwark bytes anchor byte-for-byte to the
+  frozen baseline; the current checkout protected files equal the successor
+  snapshot; normal run-match/run-series call the legacy entry points, use the
+  canonical Bulwark and never invoke grid or beta; package routing preserves
+  the legacy default; global versions remain `0.2.0`/`0.2.0`; catalogue stays
+  `1`; C2 qualification and grid identity remain frozen; both canary sources
+  are frozen; schema-v2 legacy conversion and schema-v3 grid
+  conversion/replay support remain present. Any failure yields
+  `legacy_default_regression` and suspension.
+- **Dual source-authority identity.** Selection V2 and Manifest V2 carry
+  `sourceAuthority` = original v1 governance authority (decision
+  `58e8cd87-504e-4b5f-9bac-f6b81d82377b`, reviewed source v1 @
+  `5173fd0f287465e1181969dbad2f37cee10fd47e`) PLUS the successor current
+  source baseline v2 (Commit M). The complete bundle validator accepts
+  historical V1+V1 and future V2+V2 bundles and rejects mixed V1/V2 pairs;
+  V1 artifacts are never reinterpreted and never gain successor fields.
+- **Service integration.** `runGridBetaMatch` validates both authorities
+  (v1 governance anchor first, then the v2 source anchor + current preflight)
+  before simulation, and emits Selection V2 + Manifest V2 with the exact
+  canonical v2 preflight persisted.
+- **Proof.** The v2 snapshot is built from exact Commit M Git objects; the 23
+  protected paths, Bulwark JSON, `src/readiness/grid-opt-in-beta-source-
+snapshot.ts` and `src/beta/grid-beta-legacy-preflight.ts` are byte-identical
+  to Commit M; the six canonical opponent fixtures are unchanged; original v1
+  governance authority is unchanged. The full repository suite passes.
+
+Status:
+
+```
+Milestone 0.2D:
+IN PROGRESS
+
+D66 successor-baseline governance:
+complete and independently reviewed
+
+Commit M:
+created and independently reviewed
+
+Commit G:
+created
+
+Commit G exact SHA:
+recorded in final report
+
+Successor baseline v2:
+grid-beta-legacy-isolation-reviewed-source-v2
+
+Successor baseline commit:
+e6d981f98ae1bde418810a4fcefae09490344073
+
+Successor baseline checksum:
+134e7ce29650a170d8965b2fdde691e75afd2420620de143ba720601c666909e
+
+Successor protected source paths:
+23
+
+Canonical Bulwark fixture:
+unchanged
+
+Canonical suite v1:
+unchanged
+
+Six canonical opponent fixtures:
+unchanged
+
+Original v1 governance authority:
+unchanged
+
+Active beta preflight:
+v2 (successor baseline)
+
+Full repository test suite:
+passing
+
+Commit G awaiting independent review:
+yes
+
+Operational grid beta:
+NOT AUTHORISED PENDING INDEPENDENT REVIEW OF COMMIT G
+
+Real beta matches executed in G:
+0
+
+Real suspension marker changes:
+0
+
+Benchmark access:
+none
+
+Held-out access:
+none
+
+Provider/API execution:
+none
+
+Balance evaluation:
+not authorised
+
+Milestone 0.2D Phase 3:
+Commit G awaiting independent review
+
+Milestone 0.2E:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

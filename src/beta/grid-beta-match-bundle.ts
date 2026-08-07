@@ -53,6 +53,22 @@ import {
   assertCanonicalGridBetaPreflightPass,
   type GridBetaLegacyIsolationPreflightV1,
 } from "./grid-beta-legacy-preflight.js";
+import {
+  assertCanonicalGridBetaPreflightV2Pass,
+  gridBetaLegacyIsolationPreflightV2Schema,
+  type GridBetaLegacyIsolationPreflightV2,
+} from "./grid-beta-legacy-preflight-v2.js";
+import {
+  GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_BASELINE_ID,
+  GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_BULWARK_CONTENT_SHA256,
+  GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_BULWARK_FIXTURE_CHECKSUM,
+  GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_CHECKSUM,
+  GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_COMMIT,
+} from "./grid-beta-legacy-isolation-reviewed-source-v2.js";
+import {
+  GRID_OPT_IN_BETA_REVIEWED_SOURCE_SNAPSHOT_CHECKSUM,
+  GRID_OPT_IN_BETA_REVIEWED_SOURCE_SNAPSHOT_ID,
+} from "../readiness/grid-opt-in-beta-source-snapshot.js";
 import { gridBetaMatchResultChecksum } from "./grid-beta-execution-core.js";
 import {
   isGridBetaSuspensionTrigger,
@@ -549,6 +565,361 @@ export function deserializeGridBetaMatchManifest(
   }
 }
 
+// ── Source authority v2 (dual-authority identity) ───────────────────────────
+
+/**
+ * The dual source-authority identity carried by FUTURE (V2) selection and
+ * manifest artifacts: the immutable original-v1 governance authority plus the
+ * separately-versioned successor current-source baseline v2. Historical V1
+ * artifacts keep their original single `reviewedSourceCommit` meaning and are
+ * never reinterpreted.
+ */
+export const gridBetaSourceAuthorityV2Schema = z
+  .object({
+    originalGovernance: z
+      .object({
+        governanceDecisionId: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_DECISION_ID),
+        reviewedSourceSnapshotId: z.literal(GRID_OPT_IN_BETA_REVIEWED_SOURCE_SNAPSHOT_ID),
+        reviewedSourceCommit: z.literal(GRID_OPT_IN_BETA_REVIEWED_SOURCE_COMMIT),
+        reviewedSourceSnapshotChecksum: z.literal(
+          GRID_OPT_IN_BETA_REVIEWED_SOURCE_SNAPSHOT_CHECKSUM,
+        ),
+      })
+      .strict(),
+    currentSource: z
+      .object({
+        baselineId: z.literal(GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_BASELINE_ID),
+        sourceCommit: z.literal(GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_COMMIT),
+        baselineChecksum: z.literal(
+          GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_CHECKSUM,
+        ),
+        canonicalBulwarkFixtureChecksum: z.literal(
+          GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_BULWARK_FIXTURE_CHECKSUM,
+        ),
+        canonicalBulwarkPersistedSha256: z.literal(
+          GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_BULWARK_CONTENT_SHA256,
+        ),
+      })
+      .strict(),
+  })
+  .strict();
+
+export interface GridBetaSourceAuthorityV2 {
+  readonly originalGovernance: {
+    readonly governanceDecisionId: "58e8cd87-504e-4b5f-9bac-f6b81d82377b";
+    readonly reviewedSourceSnapshotId: "grid-opt-in-beta-reviewed-source-v1";
+    readonly reviewedSourceCommit: "5173fd0f287465e1181969dbad2f37cee10fd47e";
+    readonly reviewedSourceSnapshotChecksum: "1f984801f6e7ed1809080f88e84004e8dc426de31c2e877dfbbcb09967c3680c";
+  };
+  readonly currentSource: {
+    readonly baselineId: "grid-beta-legacy-isolation-reviewed-source-v2";
+    readonly sourceCommit: "e6d981f98ae1bde418810a4fcefae09490344073";
+    readonly baselineChecksum: "134e7ce29650a170d8965b2fdde691e75afd2420620de143ba720601c666909e";
+    readonly canonicalBulwarkFixtureChecksum: "053e61e867d00015371e852dbe571af666cc8ac99a514b2364be323d54a8d987";
+    readonly canonicalBulwarkPersistedSha256: "d109c73a2f0880a5298fa6784abe4644f10c6ec395d4f4007179cc2d4e50256a";
+  };
+}
+
+export function buildGridBetaSourceAuthorityV2(): GridBetaSourceAuthorityV2 {
+  return {
+    originalGovernance: {
+      governanceDecisionId:
+        GRID_OPT_IN_BETA_GOVERNANCE_DECISION_ID as "58e8cd87-504e-4b5f-9bac-f6b81d82377b",
+      reviewedSourceSnapshotId: GRID_OPT_IN_BETA_REVIEWED_SOURCE_SNAPSHOT_ID,
+      reviewedSourceCommit: GRID_OPT_IN_BETA_REVIEWED_SOURCE_COMMIT,
+      reviewedSourceSnapshotChecksum:
+        GRID_OPT_IN_BETA_REVIEWED_SOURCE_SNAPSHOT_CHECKSUM as "1f984801f6e7ed1809080f88e84004e8dc426de31c2e877dfbbcb09967c3680c",
+    },
+    currentSource: {
+      baselineId: GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_BASELINE_ID,
+      sourceCommit: GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_COMMIT,
+      baselineChecksum:
+        GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_CHECKSUM as "134e7ce29650a170d8965b2fdde691e75afd2420620de143ba720601c666909e",
+      canonicalBulwarkFixtureChecksum:
+        GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_BULWARK_FIXTURE_CHECKSUM as "053e61e867d00015371e852dbe571af666cc8ac99a514b2364be323d54a8d987",
+      canonicalBulwarkPersistedSha256:
+        GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_BULWARK_CONTENT_SHA256 as "d109c73a2f0880a5298fa6784abe4644f10c6ec395d4f4007179cc2d4e50256a",
+    },
+  };
+}
+
+// ── Selection v2 ────────────────────────────────────────────────────────────
+
+export const gridBetaSelectionV2Schema = z
+  .object({
+    schemaVersion: z.literal("2"),
+    kind: z.literal("grid-beta-selection"),
+    implementationId: z.literal(GRID_OPT_IN_BETA_MATCH_IMPLEMENTATION_ID),
+    contractId: z.literal(GRID_OPT_IN_BETA_CONTRACT_ID),
+    contractChecksum: z.literal(GRID_OPT_IN_BETA_CONTRACT_CHECKSUM),
+    governanceDecisionId: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_DECISION_ID),
+    governanceOutcome: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_OUTCOME),
+    governanceArtifactHashes: z.record(z.string(), z.string().regex(/^[0-9a-f]{64}$/)),
+    sourceAuthority: gridBetaSourceAuthorityV2Schema,
+    command: z.literal(GRID_OPT_IN_BETA_MATCH_COMMAND),
+    acknowledgement: z.literal(true),
+    seed: z.number().int().nonnegative(),
+    fighterA: z
+      .object({
+        fighterId: z.string().regex(GRID_BETA_FIGHTER_ID_PATTERN),
+        checksum: z.string().regex(/^[0-9a-f]{64}$/),
+      })
+      .strict(),
+    fighterB: z
+      .object({
+        fighterId: z.string().regex(GRID_BETA_FIGHTER_ID_PATTERN),
+        checksum: z.string().regex(/^[0-9a-f]{64}$/),
+      })
+      .strict(),
+    runtimeIdentity: z
+      .object({
+        simulatorVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.simulatorVersion),
+        positioningModel: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.positioningModel),
+        rulesetVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.rulesetVersion),
+        catalogueVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.catalogueVersion),
+      })
+      .strict(),
+    componentQualificationId: z.literal(GRID_OPT_IN_BETA_COMPONENT_QUALIFICATION_ID),
+    componentQualificationChecksum: z.literal("13548462df34a183"),
+    protectedSourcePreflight: gridBetaLegacyIsolationPreflightV2Schema,
+    disclaimer: z.literal(GRID_OPT_IN_BETA_DISCLAIMER),
+  })
+  .strict();
+
+export interface GridBetaSelectionV2 {
+  readonly schemaVersion: "2";
+  readonly kind: "grid-beta-selection";
+  readonly implementationId: "grid-opt-in-beta-match-v1";
+  readonly contractId: "grid-opt-in-beta-contract-v1";
+  readonly contractChecksum: string;
+  readonly governanceDecisionId: string;
+  readonly governanceOutcome: "approved_for_bounded_opt_in_beta_implementation";
+  readonly governanceArtifactHashes: Readonly<Record<string, string>>;
+  readonly sourceAuthority: GridBetaSourceAuthorityV2;
+  readonly command: "match:grid:beta";
+  readonly acknowledgement: true;
+  readonly seed: number;
+  readonly fighterA: { readonly fighterId: string; readonly checksum: string };
+  readonly fighterB: { readonly fighterId: string; readonly checksum: string };
+  readonly runtimeIdentity: {
+    readonly simulatorVersion: "0.3.0";
+    readonly positioningModel: "grid-3x3-v1";
+    readonly rulesetVersion: "0.2.0";
+    readonly catalogueVersion: "1";
+  };
+  readonly componentQualificationId: "component-impact-c2";
+  readonly componentQualificationChecksum: string;
+  readonly protectedSourcePreflight: GridBetaLegacyIsolationPreflightV2;
+  readonly disclaimer: string;
+}
+
+export interface BuildGridBetaSelectionV2Input {
+  readonly seed: number;
+  readonly fighterA: { fighterId: string; checksum: string };
+  readonly fighterB: { fighterId: string; checksum: string };
+  readonly protectedSourcePreflight: GridBetaLegacyIsolationPreflightV2;
+}
+
+export function buildGridBetaSelectionV2(
+  input: BuildGridBetaSelectionV2Input,
+): GridBetaSelectionV2 {
+  // The persisted V2 preflight must be the exact canonical pass.
+  assertCanonicalGridBetaPreflightV2Pass(input.protectedSourcePreflight);
+  const selection: GridBetaSelectionV2 = {
+    schemaVersion: "2",
+    kind: "grid-beta-selection",
+    implementationId: GRID_OPT_IN_BETA_MATCH_IMPLEMENTATION_ID,
+    contractId: GRID_OPT_IN_BETA_CONTRACT_ID,
+    contractChecksum: GRID_OPT_IN_BETA_CONTRACT_CHECKSUM,
+    governanceDecisionId: GRID_OPT_IN_BETA_GOVERNANCE_DECISION_ID,
+    governanceOutcome: GRID_OPT_IN_BETA_GOVERNANCE_OUTCOME,
+    governanceArtifactHashes: { ...GRID_OPT_IN_BETA_GOVERNANCE_ARTIFACT_HASHES },
+    sourceAuthority: buildGridBetaSourceAuthorityV2(),
+    command: GRID_OPT_IN_BETA_MATCH_COMMAND,
+    acknowledgement: true,
+    seed: input.seed,
+    fighterA: input.fighterA,
+    fighterB: input.fighterB,
+    runtimeIdentity: { ...GRID_OPT_IN_BETA_RUNTIME_IDENTITY },
+    componentQualificationId: GRID_OPT_IN_BETA_COMPONENT_QUALIFICATION_ID,
+    componentQualificationChecksum: "13548462df34a183",
+    protectedSourcePreflight: input.protectedSourcePreflight,
+    disclaimer: GRID_OPT_IN_BETA_DISCLAIMER,
+  };
+  const parsed = gridBetaSelectionV2Schema.safeParse(selection);
+  if (!parsed.success) {
+    throw new Error(
+      `Grid beta selection v2 failed its authoritative schema: ${parsed.error.message}`,
+    );
+  }
+  return parsed.data;
+}
+
+export function serializeGridBetaSelectionV2(selection: GridBetaSelectionV2): string {
+  return JSON.stringify(selection, null, 2);
+}
+
+export function deserializeGridBetaSelectionV2(
+  json: string,
+): { ok: true; selection: GridBetaSelectionV2 } | { ok: false; errors: string } {
+  try {
+    const result = gridBetaSelectionV2Schema.safeParse(JSON.parse(json));
+    if (!result.success) return { ok: false, errors: result.error.message };
+    return { ok: true, selection: result.data };
+  } catch (e) {
+    return { ok: false, errors: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// ── Manifest v2 ─────────────────────────────────────────────────────────────
+
+export const gridBetaMatchManifestV2Schema = z
+  .object({
+    schemaVersion: z.literal("2"),
+    kind: z.literal("grid-beta-match-manifest"),
+    matchId: z.string().uuid(),
+    createdAt: z.string().datetime(),
+    implementationId: z.literal(GRID_OPT_IN_BETA_MATCH_IMPLEMENTATION_ID),
+    contractId: z.literal(GRID_OPT_IN_BETA_CONTRACT_ID),
+    contractChecksum: z.literal(GRID_OPT_IN_BETA_CONTRACT_CHECKSUM),
+    governanceDecisionId: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_DECISION_ID),
+    governanceOutcome: z.literal(GRID_OPT_IN_BETA_GOVERNANCE_OUTCOME),
+    sourceAuthority: gridBetaSourceAuthorityV2Schema,
+    runtimeIdentity: z
+      .object({
+        simulatorVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.simulatorVersion),
+        positioningModel: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.positioningModel),
+        rulesetVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.rulesetVersion),
+        catalogueVersion: z.literal(GRID_OPT_IN_BETA_RUNTIME_IDENTITY.catalogueVersion),
+      })
+      .strict(),
+    schemaVersions: z
+      .object({
+        record: z.literal("3"),
+        report: z.literal("2"),
+      })
+      .strict(),
+    result: z
+      .object({
+        winner: z.string().nullable(),
+        method: z.string(),
+        rounds: z.number().int().nonnegative(),
+      })
+      .strict(),
+    artifacts: z
+      .object({
+        manifest: z.literal(GRID_BETA_MATCH_MANIFEST_FILE),
+        selection: z.literal(GRID_BETA_MATCH_SELECTION_ARTIFACT),
+        fighterA: z.literal(GRID_BETA_MATCH_FIGHTER_A_ARTIFACT),
+        fighterB: z.literal(GRID_BETA_MATCH_FIGHTER_B_ARTIFACT),
+        executionAttestation: z.literal(GRID_BETA_MATCH_EXECUTION_ATTESTATION_ARTIFACT),
+        match: z.literal(GRID_BETA_MATCH_RECORD_ARTIFACT),
+        factualReport: z.literal(GRID_BETA_MATCH_FACTUAL_REPORT_ARTIFACT),
+        textReplay: z.literal(GRID_BETA_MATCH_TEXT_REPLAY_ARTIFACT),
+        asciiReplay: z.literal(GRID_BETA_MATCH_ASCII_REPLAY_ARTIFACT),
+        reviewPrompt: z.literal(GRID_BETA_MATCH_REVIEW_PROMPT_ARTIFACT),
+      })
+      .strict(),
+    digests: z.record(z.string(), z.string().regex(/^[0-9a-f]{64}$/)),
+    fighterChecksums: z
+      .object({
+        fighterA: z.string().regex(/^[0-9a-f]{64}$/),
+        fighterB: z.string().regex(/^[0-9a-f]{64}$/),
+      })
+      .strict(),
+    safety: z
+      .object({
+        protectedSourcePreflightStatus: z.enum(["pass", "fail"]),
+        suspensionStatus: z.enum(["active", "clear"]),
+      })
+      .strict(),
+    disclaimer: z.literal(GRID_OPT_IN_BETA_DISCLAIMER),
+  })
+  .strict();
+
+export type GridBetaMatchManifestV2 = z.infer<typeof gridBetaMatchManifestV2Schema>;
+
+export interface BuildGridBetaMatchManifestV2Input {
+  readonly matchId: string;
+  readonly createdAt: string;
+  readonly result: { winner: string | null; method: string; rounds: number };
+  readonly fighterChecksums: { fighterA: string; fighterB: string };
+  readonly protectedSourcePreflightStatus: "pass" | "fail";
+  readonly suspensionStatus: "active" | "clear";
+  readonly digests: Record<string, string>;
+}
+
+export function buildGridBetaMatchManifestV2(
+  input: BuildGridBetaMatchManifestV2Input,
+): GridBetaMatchManifestV2 {
+  const manifest: GridBetaMatchManifestV2 = {
+    schemaVersion: "2",
+    kind: "grid-beta-match-manifest",
+    matchId: input.matchId,
+    createdAt: input.createdAt,
+    implementationId: GRID_OPT_IN_BETA_MATCH_IMPLEMENTATION_ID,
+    contractId: GRID_OPT_IN_BETA_CONTRACT_ID,
+    contractChecksum: GRID_OPT_IN_BETA_CONTRACT_CHECKSUM,
+    governanceDecisionId: GRID_OPT_IN_BETA_GOVERNANCE_DECISION_ID,
+    governanceOutcome: GRID_OPT_IN_BETA_GOVERNANCE_OUTCOME,
+    sourceAuthority: buildGridBetaSourceAuthorityV2(),
+    runtimeIdentity: { ...GRID_OPT_IN_BETA_RUNTIME_IDENTITY },
+    schemaVersions: { record: "3", report: "2" },
+    result: {
+      winner: input.result.winner,
+      method: input.result.method,
+      rounds: input.result.rounds,
+    },
+    artifacts: {
+      manifest: GRID_BETA_MATCH_MANIFEST_FILE,
+      selection: GRID_BETA_MATCH_SELECTION_ARTIFACT,
+      fighterA: GRID_BETA_MATCH_FIGHTER_A_ARTIFACT,
+      fighterB: GRID_BETA_MATCH_FIGHTER_B_ARTIFACT,
+      executionAttestation: GRID_BETA_MATCH_EXECUTION_ATTESTATION_ARTIFACT,
+      match: GRID_BETA_MATCH_RECORD_ARTIFACT,
+      factualReport: GRID_BETA_MATCH_FACTUAL_REPORT_ARTIFACT,
+      textReplay: GRID_BETA_MATCH_TEXT_REPLAY_ARTIFACT,
+      asciiReplay: GRID_BETA_MATCH_ASCII_REPLAY_ARTIFACT,
+      reviewPrompt: GRID_BETA_MATCH_REVIEW_PROMPT_ARTIFACT,
+    },
+    digests: { ...input.digests },
+    fighterChecksums: {
+      fighterA: input.fighterChecksums.fighterA,
+      fighterB: input.fighterChecksums.fighterB,
+    },
+    safety: {
+      protectedSourcePreflightStatus: input.protectedSourcePreflightStatus,
+      suspensionStatus: input.suspensionStatus,
+    },
+    disclaimer: GRID_OPT_IN_BETA_DISCLAIMER,
+  };
+  const parsed = gridBetaMatchManifestV2Schema.safeParse(manifest);
+  if (!parsed.success) {
+    throw new Error(
+      `Grid beta match manifest v2 failed its authoritative schema: ${parsed.error.message}`,
+    );
+  }
+  return parsed.data;
+}
+
+export function serializeGridBetaMatchManifestV2(
+  manifest: GridBetaMatchManifestV2,
+): string {
+  return JSON.stringify(manifest, null, 2);
+}
+
+export function deserializeGridBetaMatchManifestV2(
+  json: string,
+): { ok: true; manifest: GridBetaMatchManifestV2 } | { ok: false; errors: string } {
+  try {
+    const result = gridBetaMatchManifestV2Schema.safeParse(JSON.parse(json));
+    if (!result.success) return { ok: false, errors: result.error.message };
+    return { ok: true, manifest: result.data };
+  } catch (e) {
+    return { ok: false, errors: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 // ── Complete bundle validator ───────────────────────────────────────────────
 
 export class GridBetaMatchBundleError extends Error {
@@ -569,7 +940,11 @@ function sameJson(a: unknown, b: unknown): boolean {
 
 /**
  * Complete cross-agreement validation of the ten-file beta match bundle.
- * Independently requires the exact inventory, digests, implementation/
+ *
+ * Historical V1 bundles (Selection V1 + Manifest V1) and future V2 bundles
+ * (Selection V2 + Manifest V2) are both accepted; mixed pairs (V1 selection +
+ * V2 manifest, or V2 selection + V1 manifest) are rejected. The validator
+ * independently requires the exact inventory, digests, implementation/
  * contract/governance identities, explicit selection and acknowledgement,
  * frozen governance hashes, strict fighter-spec schemas/checksums,
  * catalogue-valid builds and valid policies, schema-v3 record, schema-v2
@@ -578,7 +953,8 @@ function sameJson(a: unknown, b: unknown): boolean {
  * qualification, exact runtime identity, empty agent usage, canonical event
  * chronology, byte-for-byte regeneration of text replay, ASCII replay and
  * review prompt, result-summary agreement, the mandatory disclaimer and the
- * no-legacy/fallback attestation.
+ * no-legacy/fallback attestation. V2 additionally requires the exact dual
+ * source-authority identity and the exact canonical V2 preflight.
  */
 export function validateGridBetaMatchBundle(
   contents: Record<string, string>,
@@ -588,7 +964,7 @@ export function validateGridBetaMatchBundle(
     if (!ok) failures.push(message);
   };
 
-  // 1. Exact inventory.
+  // 1. Exact inventory (shared by V1 and V2).
   for (const name of GRID_BETA_MATCH_BUNDLE_ENTRIES) {
     check(typeof contents[name] === "string", `beta bundle is missing artifact ${name}`);
   }
@@ -597,6 +973,59 @@ export function validateGridBetaMatchBundle(
       check(false, `beta bundle contains unexpected artifact ${name}`);
     }
   }
+  if (failures.length > 0) {
+    throw new GridBetaMatchBundleError(
+      `Grid beta match bundle is invalid: ${failures.join("; ")}`,
+    );
+  }
+
+  // 2. Version dispatch: historical V1+V1 and future V2+V2 are accepted;
+  //    mixed or unknown pairs are rejected (no fabricated successor fields
+  //    onto V1, no silent V2 downgrade).
+  let manifestVersion: "1" | "2" | null;
+  let selectionVersion: "1" | "2" | null;
+  try {
+    const m = JSON.parse(contents[GRID_BETA_MATCH_MANIFEST_FILE]!) as {
+      schemaVersion?: unknown;
+    };
+    manifestVersion =
+      m.schemaVersion === "1" || m.schemaVersion === "2" ? m.schemaVersion : null;
+  } catch {
+    manifestVersion = null;
+  }
+  try {
+    const s = JSON.parse(contents[GRID_BETA_MATCH_SELECTION_ARTIFACT]!) as {
+      schemaVersion?: unknown;
+    };
+    selectionVersion =
+      s.schemaVersion === "1" || s.schemaVersion === "2" ? s.schemaVersion : null;
+  } catch {
+    selectionVersion = null;
+  }
+  if (manifestVersion === "1" && selectionVersion === "1") {
+    return validateGridBetaMatchBundleV1(contents);
+  }
+  if (manifestVersion === "2" && selectionVersion === "2") {
+    return validateGridBetaMatchBundleV2(contents);
+  }
+  throw new GridBetaMatchBundleError(
+    `Grid beta match bundle schema versions are incompatible: manifest ${manifestVersion ?? "invalid"} / selection ${selectionVersion ?? "invalid"}`,
+  );
+}
+
+/**
+ * Historical V1 bundle validation (Selection V1 + Manifest V1). Applies the
+ * historical V1 schemas and the historical persisted-preflight canonical
+ * assertion; requires the original governance identities exactly as before and
+ * never requires successor v2 fields.
+ */
+function validateGridBetaMatchBundleV1(
+  contents: Record<string, string>,
+): GridBetaMatchBundleValidationResult {
+  const failures: string[] = [];
+  const check = (ok: boolean, message: string): void => {
+    if (!ok) failures.push(message);
+  };
 
   const manifestParsed = contents[GRID_BETA_MATCH_MANIFEST_FILE]
     ? deserializeGridBetaMatchManifest(contents[GRID_BETA_MATCH_MANIFEST_FILE]!)
@@ -884,6 +1313,315 @@ export function validateGridBetaMatchBundle(
     hashNames.length === Object.keys(selectionHashes).length &&
       hashNames.every((name) => selectionHashes[name] === frozenHashes[name]),
     "selection governance artifact hashes do not match the frozen official hashes",
+  );
+
+  if (failures.length > 0) {
+    throw new GridBetaMatchBundleError(
+      `Grid beta match bundle cross-agreement failed: ${failures.join("; ")}`,
+    );
+  }
+
+  return {
+    matchId: manifest.matchId,
+    validationStatus: "validated",
+  };
+}
+
+/**
+ * Future V2 bundle validation (Selection V2 + Manifest V2). Requires the
+ * exact original-v1 authority identity, the exact successor baseline v2
+ * identity, the exact canonical V2 preflight, cross-agreement of the dual
+ * source authority between selection and manifest, and retains all existing
+ * fighter/config/C2/runtime/report/replay/digest checks.
+ */
+function validateGridBetaMatchBundleV2(
+  contents: Record<string, string>,
+): GridBetaMatchBundleValidationResult {
+  const failures: string[] = [];
+  const check = (ok: boolean, message: string): void => {
+    if (!ok) failures.push(message);
+  };
+
+  const manifestParsed = contents[GRID_BETA_MATCH_MANIFEST_FILE]
+    ? deserializeGridBetaMatchManifestV2(contents[GRID_BETA_MATCH_MANIFEST_FILE]!)
+    : { ok: false as const, errors: "missing manifest" };
+  const selectionParsed = contents[GRID_BETA_MATCH_SELECTION_ARTIFACT]
+    ? deserializeGridBetaSelectionV2(contents[GRID_BETA_MATCH_SELECTION_ARTIFACT]!)
+    : { ok: false as const, errors: "missing selection" };
+  const attestationParsed = contents[GRID_BETA_MATCH_EXECUTION_ATTESTATION_ARTIFACT]
+    ? deserializeGridBetaExecutionAttestation(
+        contents[GRID_BETA_MATCH_EXECUTION_ATTESTATION_ARTIFACT]!,
+      )
+    : { ok: false as const, errors: "missing attestation" };
+  if (!manifestParsed.ok) check(false, `invalid manifest v2: ${manifestParsed.errors}`);
+  if (!selectionParsed.ok)
+    check(false, `invalid selection v2: ${selectionParsed.errors}`);
+  if (!attestationParsed.ok)
+    check(false, `invalid attestation: ${attestationParsed.errors}`);
+
+  if (
+    failures.length > 0 ||
+    !manifestParsed.ok ||
+    !selectionParsed.ok ||
+    !attestationParsed.ok
+  ) {
+    throw new GridBetaMatchBundleError(
+      `Grid beta match bundle is invalid: ${failures.join("; ")}`,
+    );
+  }
+
+  const manifest = manifestParsed.manifest;
+  const selection = selectionParsed.selection;
+  const attestation = attestationParsed.attestation;
+
+  // 2. All non-manifest digests.
+  const digests: Record<string, string> = {};
+  for (const name of GRID_BETA_MATCH_NON_MANIFEST_ARTIFACTS) {
+    digests[name] = sha256Hex(contents[name]!);
+  }
+  check(
+    sameJson(digests, manifest.digests),
+    "beta bundle digests do not match the manifest",
+  );
+
+  // 3. Fighter artifacts (same authoritative path as V1).
+  const fighterA = parseFighterArtifact(
+    contents[GRID_BETA_MATCH_FIGHTER_A_ARTIFACT],
+    selection.fighterA.fighterId,
+    check,
+    "fighter-a",
+  );
+  const fighterB = parseFighterArtifact(
+    contents[GRID_BETA_MATCH_FIGHTER_B_ARTIFACT],
+    selection.fighterB.fighterId,
+    check,
+    "fighter-b",
+  );
+  if (fighterA) {
+    check(
+      fighterA.checksum === selection.fighterA.checksum,
+      "fighter-a checksum does not match the selection",
+    );
+  }
+  if (fighterB) {
+    check(
+      fighterB.checksum === selection.fighterB.checksum,
+      "fighter-b checksum does not match the selection",
+    );
+  }
+  check(
+    manifest.fighterChecksums.fighterA === selection.fighterA.checksum &&
+      manifest.fighterChecksums.fighterB === selection.fighterB.checksum,
+    "manifest fighter checksums do not match the selection",
+  );
+
+  // 4. Record: schema v3.
+  const recordParsed = deserializeMatchRecord(contents[GRID_BETA_MATCH_RECORD_ARTIFACT]!);
+  if (!recordParsed.ok) {
+    check(false, `invalid match record: ${recordParsed.errors}`);
+  } else if (!isV3Record(recordParsed.record)) {
+    check(false, "match record must be schema v3");
+  }
+  const record: MatchRecordV3 | null =
+    recordParsed.ok && isV3Record(recordParsed.record) ? recordParsed.record : null;
+  if (record) {
+    const recordValidation = validateMatchRecord(record);
+    check(recordValidation.ok, "match record failed authoritative schema validation");
+  }
+
+  // 5. Report: schema v2.
+  const reportParsed = deserializeFactualMatchReport(
+    contents[GRID_BETA_MATCH_FACTUAL_REPORT_ARTIFACT]!,
+  );
+  if (!reportParsed.ok) {
+    check(false, `invalid factual report: ${reportParsed.errors}`);
+  } else if (!isFactualReportV2(reportParsed.report)) {
+    check(false, "factual report must be schema v2");
+  }
+  const report: FactualMatchReportV2 | null =
+    reportParsed.ok && isFactualReportV2(reportParsed.report)
+      ? reportParsed.report
+      : null;
+  if (report) {
+    const reportValidation = validateFactualMatchReport(report);
+    check(reportValidation.ok, "factual report failed authoritative schema validation");
+  }
+
+  if (record && report) {
+    // 6. Record/report identity and final-state agreement.
+    check(record.matchId === report.matchId, "record and report match IDs disagree");
+    try {
+      assertGridReadinessRecordReportFinalAgreement(record, report);
+    } catch (e) {
+      check(false, e instanceof Error ? e.message : String(e));
+    }
+    // 7. Canonical event chronology + readiness evidence inspection.
+    try {
+      inspectGridReadinessRecordEvidence(record);
+    } catch (e) {
+      check(false, e instanceof Error ? e.message : String(e));
+    }
+    // 8. Empty agent usage.
+    check(record.agentUsage.length === 0, "record agent usage must be empty");
+  }
+
+  // 9. Exact seed and complete C2 metadata binding.
+  const c2Config = getComponentQualificationConfig("component-impact-c2");
+  const c2Metadata = getComponentQualificationMetadata(c2Config);
+  check(selection.seed === record?.seed, "selection seed disagrees with the record");
+  check(
+    selection.componentQualificationId === c2Metadata.id &&
+      selection.componentQualificationChecksum === c2Metadata.configChecksum,
+    "selection C2 component qualification metadata is not the complete canonical C2 metadata",
+  );
+  check(
+    record?.componentQualificationId === c2Metadata.id &&
+      record.componentQualification !== undefined &&
+      sameJson(record.componentQualification, c2Metadata) &&
+      record?.config.componentQualificationId === c2Metadata.id &&
+      record.config.componentQualification !== undefined &&
+      sameJson(record.config.componentQualification, c2Metadata),
+    "record C2 component qualification metadata is not the complete canonical C2 metadata",
+  );
+
+  // 10. Exact runtime identity.
+  check(
+    record?.simulatorVersion === "0.3.0" &&
+      record?.positioningModel === "grid-3x3-v1" &&
+      record?.rulesetVersion === "0.2.0" &&
+      record?.catalogueVersion === "1",
+    "record does not carry the exact frozen grid runtime identity",
+  );
+
+  // 11. Complete validated-build binding.
+  if (record && fighterA && fighterB) {
+    check(
+      sameJson(fighterA.build, record.config.fighterA.build) &&
+        sameJson(fighterA.build, record.initialState.fighterA.build) &&
+        sameJson(fighterB.build, record.config.fighterB.build) &&
+        sameJson(fighterB.build, record.initialState.fighterB.build) &&
+        sameJson(record.config.fighterA.build, record.initialState.fighterA.build) &&
+        sameJson(record.config.fighterB.build, record.initialState.fighterB.build),
+      "record config/initial-state builds do not match the authoritative reconstructed builds",
+    );
+    check(
+      sameJson(fighterA.spec.policy, record.config.fighterA.policy) &&
+        sameJson(fighterB.spec.policy, record.config.fighterB.policy),
+      "record config policies do not match the fighter artifact policies",
+    );
+  }
+
+  // 12. Byte-for-byte regeneration of derived artifacts.
+  if (record && report) {
+    const reconstructed = gridRecordToGridResult(record);
+    check(
+      contents[GRID_BETA_MATCH_TEXT_REPLAY_ARTIFACT] === renderTextReplay(reconstructed),
+      "text-replay.txt does not byte-for-byte match the regenerated text replay",
+    );
+    check(
+      contents[GRID_BETA_MATCH_ASCII_REPLAY_ARTIFACT] ===
+        renderAsciiReplay(reconstructed, { mode: "ascii" }, POSITIONING_MODEL_GRID),
+      "ascii-replay.txt does not byte-for-byte match the regenerated ASCII replay",
+    );
+    check(
+      contents[GRID_BETA_MATCH_REVIEW_PROMPT_ARTIFACT] === buildReviewUserPrompt(report),
+      "review-prompt.txt does not byte-for-byte match the regenerated review prompt",
+    );
+  }
+
+  // 13. Manifest identity, result summary, safety, disclaimer, attestation,
+  //     primary execution checksum binding and exact match-identity agreement.
+  check(
+    manifest.matchId === record?.matchId && manifest.matchId === attestation.matchId,
+    "manifest/attestation match ID does not agree with the record",
+  );
+  check(
+    manifest.createdAt === record?.createdAt,
+    "manifest createdAt does not agree with the record createdAt",
+  );
+  check(
+    manifest.result.winner === record?.result.winner &&
+      manifest.result.method === record?.result.method &&
+      manifest.result.rounds === record?.rounds,
+    "manifest result summary does not agree with the record",
+  );
+  // Exact canonical V2 preflight (no convenient bypass trigger).
+  let canonicalPreflightV2 = true;
+  try {
+    assertCanonicalGridBetaPreflightV2Pass(selection.protectedSourcePreflight);
+  } catch {
+    canonicalPreflightV2 = false;
+  }
+  check(
+    canonicalPreflightV2,
+    "selection v2 protected-source preflight is not the canonical pass",
+  );
+  check(
+    manifest.safety.protectedSourcePreflightStatus === "pass" &&
+      manifest.safety.suspensionStatus === "clear",
+    "manifest safety must be protected-source preflight pass with a clear suspension status",
+  );
+  check(
+    manifest.disclaimer === GRID_OPT_IN_BETA_DISCLAIMER &&
+      selection.disclaimer === GRID_OPT_IN_BETA_DISCLAIMER,
+    "beta disclaimer is missing from the manifest or selection",
+  );
+  check(
+    attestation.deterministicEquality === true &&
+      attestation.noLegacyFallback === true &&
+      attestation.emptyAgentUsage === true &&
+      attestation.recordReportAgreement === true &&
+      attestation.replayReconstructionAgreement === true &&
+      attestation.bundleValidationStatus === "validated",
+    "execution attestation claims are not all confirmed",
+  );
+  check(
+    attestation.primaryResultChecksum === attestation.repeatResultChecksum,
+    "execution attestation primary/repeat checksums must be equal (deterministic)",
+  );
+  if (record) {
+    check(
+      attestation.primaryResultChecksum ===
+        gridBetaMatchResultChecksum(gridRecordToGridResult(record)),
+      "execution attestation primary checksum does not bind to the persisted record reconstruction",
+    );
+  }
+  check(
+    attestation.governanceBytesUnchangedBeforeSimulation === true &&
+      attestation.governanceBytesUnchangedBeforePublication === true,
+    "governance byte-unchanged attestations are not confirmed",
+  );
+  check(
+    attestation.suspensionMarkerAbsentBeforeGovernanceAnchor === true &&
+      attestation.suspensionMarkerAbsentBeforeSimulation === true &&
+      attestation.suspensionMarkerAbsentBeforePublication === true,
+    "suspension marker absence attestations are not all confirmed",
+  );
+
+  // 14. Frozen governance hashes inside the selection v2.
+  const frozenHashes = GRID_OPT_IN_BETA_GOVERNANCE_ARTIFACT_HASHES;
+  const selectionHashes = selection.governanceArtifactHashes;
+  const hashNames = Object.keys(frozenHashes);
+  check(
+    hashNames.length === Object.keys(selectionHashes).length &&
+      hashNames.every((name) => selectionHashes[name] === frozenHashes[name]),
+    "selection governance artifact hashes do not match the frozen official hashes",
+  );
+
+  // 15. Dual source-authority cross-agreement between selection v2 and
+  //     manifest v2 (both authorities must be identical in both artifacts).
+  check(
+    sameJson(manifest.sourceAuthority, selection.sourceAuthority),
+    "manifest v2 source authority does not cross-agree with the selection v2 source authority",
+  );
+  check(
+    selection.sourceAuthority.originalGovernance.governanceDecisionId ===
+      GRID_OPT_IN_BETA_GOVERNANCE_DECISION_ID &&
+      selection.sourceAuthority.currentSource.baselineId ===
+        GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_BASELINE_ID &&
+      selection.sourceAuthority.currentSource.sourceCommit ===
+        GRID_BETA_LEGACY_ISOLATION_REVIEWED_SOURCE_V2_COMMIT,
+    "selection v2 source authority is not the exact dual authority identity",
   );
 
   if (failures.length > 0) {

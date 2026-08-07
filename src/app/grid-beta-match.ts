@@ -57,15 +57,15 @@ import {
   GRID_BETA_MATCH_ASCII_REPLAY_ARTIFACT,
   GRID_BETA_MATCH_TEXT_REPLAY_ARTIFACT,
   buildGridBetaExecutionAttestation,
-  buildGridBetaMatchManifest,
-  buildGridBetaSelection,
-  deserializeGridBetaMatchManifest,
+  buildGridBetaMatchManifestV2,
+  buildGridBetaSelectionV2,
+  deserializeGridBetaMatchManifestV2,
   serializeGridBetaExecutionAttestation,
-  serializeGridBetaMatchManifest,
-  serializeGridBetaSelection,
+  serializeGridBetaMatchManifestV2,
+  serializeGridBetaSelectionV2,
   validateGridBetaMatchBundle,
-  type GridBetaMatchManifestV1,
-  type GridBetaSelectionV1,
+  type GridBetaMatchManifestV2,
+  type GridBetaSelectionV2,
 } from "../beta/grid-beta-match-bundle.js";
 import {
   createGridBetaFighterExecutionValues,
@@ -75,9 +75,9 @@ import {
   type GridBetaFighterSpecV1,
 } from "../beta/grid-beta-fighter-spec.js";
 import {
-  assertCanonicalGridBetaPreflightPass,
-  runGridBetaLegacyIsolationPreflight,
-} from "../beta/grid-beta-legacy-preflight.js";
+  assertCanonicalGridBetaPreflightV2Pass,
+  runGridBetaLegacyIsolationPreflightV2,
+} from "../beta/grid-beta-legacy-preflight-v2.js";
 import {
   executeGridBetaMatch,
   gridBetaMatchResultChecksum,
@@ -159,8 +159,8 @@ export interface GridBetaMatchResult {
   readonly fighterBChecksum: string;
   readonly primaryResultChecksum: string;
   readonly repeatResultChecksum: string;
-  readonly selection: GridBetaSelectionV1;
-  readonly manifest: GridBetaMatchManifestV1;
+  readonly selection: GridBetaSelectionV2;
+  readonly manifest: GridBetaMatchManifestV2;
   readonly artifactDirectory: string;
   readonly artifacts: Array<{ name: string; path: string }>;
 }
@@ -414,11 +414,12 @@ export async function runGridBetaMatch(
     );
   }
 
-  // 8. Current legacy-isolation preflight (read-only; computed from the
-  //     actual current protected-file bytes and source-level checks). Its
-  //     result is required to be the exact canonical pass before any further
-  //     async safety check and before the simulation.
-  const preflight = await runGridBetaLegacyIsolationPreflight(fs);
+  // 8. Current-source successor preflight V2 (read-only; computed from the
+  //     actual current protected-file bytes and the exact successor baseline
+  //     anchored through the injected Git commit reader). Its result is
+  //     required to be the exact canonical pass before any further async
+  //     safety check and before the simulation.
+  const preflight = await runGridBetaLegacyIsolationPreflightV2(fs, sourceCommitReader);
   if (preflight.status !== "pass" && preflight.trigger !== null) {
     return suspendBeta(
       fs,
@@ -428,7 +429,7 @@ export async function runGridBetaMatch(
       `protected legacy-isolation preflight failed: ${preflight.failures.join("; ")}`,
     );
   }
-  assertCanonicalGridBetaPreflightPass(preflight);
+  assertCanonicalGridBetaPreflightV2Pass(preflight);
 
   // 9. Governance bytes unchanged immediately before simulation (re-read
   //     after the preflight so the pre-simulation window is closed: no async
@@ -683,7 +684,10 @@ export async function runGridBetaMatch(
   } catch (e) {
     throw new GridBetaMatchError(e instanceof Error ? e.message : String(e));
   }
-  const preflightBeforePublication = await runGridBetaLegacyIsolationPreflight(fs);
+  const preflightBeforePublication = await runGridBetaLegacyIsolationPreflightV2(
+    fs,
+    sourceCommitReader,
+  );
   if (
     preflightBeforePublication.status !== "pass" &&
     preflightBeforePublication.trigger !== null
@@ -696,7 +700,7 @@ export async function runGridBetaMatch(
       `protected legacy-isolation preflight failed before publication: ${preflightBeforePublication.failures.join("; ")}`,
     );
   }
-  assertCanonicalGridBetaPreflightPass(preflightBeforePublication);
+  assertCanonicalGridBetaPreflightV2Pass(preflightBeforePublication);
 
   // 20. Serialize all artifacts and compute digests. The primary execution
   //     checksum is bound to the persisted record reconstruction (the repeat
@@ -706,7 +710,7 @@ export async function runGridBetaMatch(
   //     flow; the builder fails if any supplied confirmation is not true.
   const fighterAChecksum = gridBetaFighterSpecChecksum(fighterASpec);
   const fighterBChecksum = gridBetaFighterSpecChecksum(fighterBSpec);
-  const selection = buildGridBetaSelection({
+  const selection = buildGridBetaSelectionV2({
     seed: request.seed,
     fighterA: { fighterId: fighterASpec.fighterId, checksum: fighterAChecksum },
     fighterB: { fighterId: fighterBSpec.fighterId, checksum: fighterBChecksum },
@@ -732,7 +736,7 @@ export async function runGridBetaMatch(
     temporaryBundleValidation: true,
   });
 
-  const serializedSelection = serializeGridBetaSelection(selection);
+  const serializedSelection = serializeGridBetaSelectionV2(selection);
   const serializedFighterA = serializeGridBetaFighterSpec(fighterASpec);
   const serializedFighterB = serializeGridBetaFighterSpec(fighterBSpec);
   const serializedAttestation = serializeGridBetaExecutionAttestation(attestation);
@@ -756,7 +760,7 @@ export async function runGridBetaMatch(
 
   // 21. Build the manifest (written last) and validate the complete bundle
   //     in memory before publication.
-  const manifest = buildGridBetaMatchManifest({
+  const manifest = buildGridBetaMatchManifestV2({
     matchId,
     createdAt,
     result: {
@@ -769,7 +773,7 @@ export async function runGridBetaMatch(
     suspensionStatus: "clear",
     digests,
   });
-  const serializedManifest = serializeGridBetaMatchManifest(manifest);
+  const serializedManifest = serializeGridBetaMatchManifestV2(manifest);
 
   const inMemoryContents: Record<string, string> = {
     [GRID_BETA_MATCH_MANIFEST_FILE]: serializedManifest,
@@ -835,7 +839,10 @@ export async function runGridBetaMatch(
       beforeAtomicPublish: async () => {
         let finalPreflight;
         try {
-          finalPreflight = await runGridBetaLegacyIsolationPreflight(fs);
+          finalPreflight = await runGridBetaLegacyIsolationPreflightV2(
+            fs,
+            sourceCommitReader,
+          );
         } catch (e) {
           throw new GridBetaSafetyError(
             "legacy_default_regression",
@@ -849,7 +856,7 @@ export async function runGridBetaMatch(
           );
         }
         try {
-          assertCanonicalGridBetaPreflightPass(finalPreflight);
+          assertCanonicalGridBetaPreflightV2Pass(finalPreflight);
         } catch (e) {
           throw new GridBetaSafetyError(
             "legacy_default_regression",
@@ -896,14 +903,14 @@ export async function runGridBetaMatch(
   }
 
   // 23. Read back and cross-validate the final bundle explicitly.
-  let manifestReadBack: GridBetaMatchManifestV1;
+  let manifestReadBack: GridBetaMatchManifestV2;
   try {
     const readBack: Record<string, string> = {};
     for (const name of GRID_BETA_MATCH_BUNDLE_ENTRIES) {
       readBack[name] = await fs.readFile(join(artifactDirectory, name), "utf-8");
     }
     validateGridBetaMatchBundle(readBack);
-    const parsed = deserializeGridBetaMatchManifest(
+    const parsed = deserializeGridBetaMatchManifestV2(
       readBack[GRID_BETA_MATCH_MANIFEST_FILE]!,
     );
     if (!parsed.ok) {

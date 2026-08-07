@@ -15,13 +15,19 @@ function mutatingFs(pathSuffix: string, tampered: string): CanaryFileSystem {
   };
 }
 
-describe("grid beta legacy-isolation preflight (Phase 3G Phase 6)", () => {
-  it("passes against the clean current checkout", async () => {
+describe("grid beta legacy-isolation preflight (Phase 3G Phase 6, v1)", () => {
+  it("rejects the evolved current checkout as expected against the historical v1 snapshot (Commit M/G)", async () => {
+    // The v1 preflight is historical and compares the CURRENT checkout bytes
+    // against the frozen v1 reviewed source. After the governed 0.2D Phase 3
+    // migration (Commit M/G), the normal match/series paths intentionally
+    // differ from v1, so the v1 preflight correctly fails closed with
+    // `legacy_default_regression`. This is expected transition evidence, not
+    // a regression: the active current-source baseline is now v2.
     const preflight = await runGridBetaLegacyIsolationPreflight(defaultCanaryFs);
-    expect(preflight.status).toBe("pass");
-    expect(preflight.trigger).toBeNull();
-    expect(preflight.failures).toEqual([]);
-    expect(preflight.protectedFilesEqualReviewedSnapshot).toBe(true);
+    expect(preflight.status).toBe("fail");
+    expect(preflight.trigger).toBe("legacy_default_regression");
+    expect(preflight.protectedFilesEqualReviewedSnapshot).toBe(false);
+    // The evolved normal paths still call legacy runMatch and never grid/beta.
     expect(preflight.normalMatchCallsLegacyRunMatch).toBe(true);
     expect(preflight.normalSeriesCallsLegacyRunMatch).toBe(true);
     expect(preflight.neitherNormalPathInvokesGridOrBeta).toBe(true);
@@ -32,6 +38,10 @@ describe("grid beta legacy-isolation preflight (Phase 3G Phase 6)", () => {
     expect(preflight.bothCanarySourcesFrozen).toBe(true);
     expect(preflight.schemaV2LegacyConversionPresent).toBe(true);
     expect(preflight.schemaV3GridConversionAndReplayPresent).toBe(true);
+    // The failure is specifically the v1 protected-file mismatch for the two
+    // evolved normal-path files.
+    expect(preflight.failures.join("; ")).toContain("src/app/run-match.ts");
+    expect(preflight.failures.join("; ")).toContain("src/app/run-series.ts");
   });
 
   it("detects a changed normal match source as legacy_default_regression", async () => {

@@ -838,6 +838,24 @@ created, and Commit G is not started. The full repository suite is expected to
 contain the v1 protected-source mismatch failures until Commit G activates v2;
 migration-focused tests and check/lint/format all pass.
 
+**Commit G — grid beta successor source baseline v2 (D68, 2026-08-07).** Commit
+M passed independent review and the separately-versioned successor
+current-source compatibility baseline v2 is now established and the full
+repository test state is restored (all green). `grid-beta-legacy-isolation-
+reviewed-source-v2` freezes the exact ordered 23-path protected source set at
+Commit M (`e6d981f…`, baseline checksum `134e7ce2…`) plus the canonical
+Bulwark anchor (`dbfed215…`/`d109c73a…`/`053e61e8…`), built ONLY from Commit M
+Git objects; `grid-beta-legacy-preflight-v2` re-verifies the successor commit,
+the 23 current-checkout protected paths, legacy routing, package legacy
+default, global versions, catalogue, C2 qualification, canary sources and
+schema conversion/replay support; Selection/Manifest V2 carry the dual
+source-authority identity (original v1 governance + successor v2 baseline);
+the bundle validator accepts V1+V1 and V2+V2 and rejects mixed pairs; original
+v1 governance authority and all 23 protected paths (plus the Bulwark JSON and
+the v1 snapshot/preflight modules) are byte-unchanged. **Operational grid beta
+remains NOT AUTHORISED pending independent review of Commit G; no real beta
+match was executed and no real suspension marker was created/cleared.**
+
 ### Replay
 
 ```bash

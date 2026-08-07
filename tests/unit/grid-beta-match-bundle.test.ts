@@ -561,17 +561,21 @@ describe("grid beta match bundle and validator (Phase 3G Phases 9 and 10)", () =
     expect(() => validateGridBetaMatchBundle(corrupted)).toThrow(
       /not the canonical pass/,
     );
-    // status pass with a nonempty trigger also rejects.
+    // A second contradictory detailed boolean also rejects (schema-valid but
+    // contradicting the canonical-pass assertion). For V2 the persisted
+    // preflight schema additionally requires `trigger: null`, so a non-null
+    // trigger is rejected by the strict schema itself.
     const selection2 = JSON.parse(baseline[GRID_BETA_MATCH_SELECTION_ARTIFACT]!) as {
       protectedSourcePreflight: {
         status: string;
         trigger: string | null;
         failures: string[];
+        globalVersions020020: boolean;
       };
     };
     selection2.protectedSourcePreflight = {
       ...selection2.protectedSourcePreflight,
-      trigger: "legacy_default_regression",
+      globalVersions020020: false,
     };
     const corrupted2 = rebuildCoherently(baseline, {
       selection: { protectedSourcePreflight: selection2.protectedSourcePreflight },

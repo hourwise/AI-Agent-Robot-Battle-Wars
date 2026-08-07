@@ -27,7 +27,7 @@ import {
   runBetaMatchToTemp,
 } from "../helpers/grid-beta-builder.js";
 import { createGridBetaMappedFs } from "../helpers/grid-beta-mapped-fs.js";
-import { buildInMemoryReviewedSourceReader } from "../helpers/grid-opt-in-beta-governance-builder.js";
+import { buildDualCommitInMemorySourceReader } from "../helpers/grid-beta-successor-builder.js";
 
 let env: Awaited<ReturnType<typeof createBetaTempEnvironment>> | null = null;
 
@@ -147,9 +147,11 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     if (!env) return;
     // Forge the reader to report the exact commit but serve altered constants
     // source bytes, so the reviewed source snapshot can no longer validate.
-    const forgedReader = await buildInMemoryReviewedSourceReader({
-      "src/simulator/constants.ts":
-        'export const SIMULATOR_VERSION = "0.3.0" as const;\nexport const RULESET_VERSION = "0.2.0" as const;\n',
+    const forgedReader = await buildDualCommitInMemorySourceReader({
+      v1: {
+        "src/simulator/constants.ts":
+          'export const SIMULATOR_VERSION = "0.3.0" as const;\nexport const RULESET_VERSION = "0.2.0" as const;\n',
+      },
     });
     const out = join(env.root, "out-forged-source");
     const marker = join(env.root, "marker-forged-source");

@@ -1574,6 +1574,37 @@ not created, Commit G not started. The full repository suite is expected to
 contain the v1 protected-source mismatch failures until Commit G activates v2;
 migration-focused tests and check/lint/format pass.
 
+**Commit G (D68, 2026-08-07) — grid beta successor source baseline v2
+(created, awaiting independent review):** Commit M passed independent review;
+Commit G establishes the separately-versioned successor current-source
+baseline and restores a fully passing test state. It does NOT rewrite original
+v1 governance authority and does NOT execute a real beta match. New module
+`src/beta/grid-beta-legacy-isolation-reviewed-source-v2.ts` freezes
+`grid-beta-legacy-isolation-reviewed-source-v2` bound to exact Commit M
+(`e6d981f…`): an ordered 23-path protected source set (the v1 protected paths
+plus `package.json`, the historical Bulwark equivalence anchor and the
+complete canonical opponent loading/compatibility chain), per-path blob SHA +
+LF-normalised content SHA-256, the Bulwark anchor (`dbfed215…`/`d109c73a…`/
+`053e61e8…`) and deterministic baseline checksum `134e7ce2…`; the snapshot is
+built ONLY from Commit M Git objects (missing/shallow, missing paths, wrong
+blob SHAs, changed bytes, reordered files, Bulwark changes and coherent
+tampering all fail closed; working tree never substituted). New module
+`src/beta/grid-beta-legacy-preflight-v2.ts` (`schemaVersion "2"`) re-verifies
+the successor commit byte-anchor, current protected files equal the successor
+snapshot, legacy routing/canonical Bulwark/no-grid-or-beta, package legacy
+default, `0.2.0`/`0.2.0`, catalogue `1`, frozen C2, separate grid identity,
+frozen canary sources and schema conversion/replay presence — any failure
+suspends with `legacy_default_regression`. Selection V2 and Manifest V2 carry
+the dual `sourceAuthority` (original v1 governance + successor v2 baseline);
+the bundle validator accepts V1+V1 and V2+V2 and rejects mixed pairs; the
+service validates both authorities before simulation and emits V2 artifacts.
+Original v1 governance authority, all 23 protected paths, the Bulwark JSON,
+`src/readiness/grid-opt-in-beta-source-snapshot.ts` and `src/beta/grid-beta-
+legacy-preflight.ts` are byte-unchanged; the six canonical opponent fixtures
+are unchanged; the full repository suite passes. **Operational grid beta
+remains NOT AUTHORISED pending independent review of Commit G; no real beta
+match executed and no real suspension marker created/cleared.**
+
 **Affected modules (Phase 0):** none — documentation only
 (`docs/ADR-004-multi-opponent-fixture-format.md`, this plan, README,
 ARCHITECTURE, DECISIONS).
