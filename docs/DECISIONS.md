@@ -4011,6 +4011,124 @@ Milestone 0.2E:
 not started
 ```
 
+## D71: Isolate opponent-suite primary/repeat execution graphs (2026-08-07)
+
+Independent review of the Phase 4 commit (`7497bc0…`) found the architecture
+and legacy-only opponent-suite design correct. One narrow implementation
+blocker remained before final acceptance: Phase 4 requires every planned
+matchup's primary and repeat executions to use **independent fresh MatchConfig
+object graphs**, but `buildConfig(...)` created fresh outer config/fighter
+objects while directly reusing the deeply frozen canonical
+`fixture.validatedBuild`/`fixture.policy` references. This was safe from
+ordinary mutation because canonical fixtures are deeply frozen, but it did not
+satisfy the stronger independent-object-graph contract. This decision records
+the execution-isolation correction.
+
+- **Fresh complete build clones.** `src/opponents/opponent-suite-runner.ts`
+  adds the internal `cloneValidatedBuildForExecution(build)` helper returning
+  a fresh complete `ValidatedBuild` graph: `proposal` (machineName, chassisId,
+  mobilityId, weaponId, utilityId, armour front/left/right/rear/top,
+  designSummary, designRationale), `totalCost`, `armourCost`,
+  `totalArmourPoints`, `catalogueVersion`. No `validateBuild` re-run, no value
+  changes, no derived totals, no canonical build used as an optimisation
+  input — execution isolation only.
+- **Fresh policy clones.** `cloneActionPolicyForExecution(policy)` copies every
+  authoritative `ActionPolicy` field (opening, preferredRange, aggression,
+  primaryTarget, secondaryTarget, retreatThreshold, heatThreshold, fallback)
+  so the execution policy is deep-equal to, but reference-distinct from, the
+  canonical policy. The canonical policy is never mutated.
+- **Fresh config graph per call.** The narrowly-scoped pure
+  `buildOpponentSuiteMatchConfig(fixtureA, fixtureB, seed)` (exported for
+  direct reference-isolation proof; no filesystem/root/provider/runtime
+  substitution) returns a completely fresh graph every call: outer config,
+  fighterA/fighterB, execution build clones (including proposal and armour)
+  and policy clones. Two calls produce reference-distinct nested graphs
+  (config, fighters, build, proposal, armour, policy) while remaining
+  deep-value identical, and every execution graph is reference-distinct from
+  its canonical fixture graph.
+- **Authoritative values preserved.** Tests prove complete `validatedBuild`
+  and `policy` deep equality with no field omitted, plus unchanged
+  `rulesetVersion`, `catalogueVersion`, `componentQualificationId` and seed.
+- **Determinism unchanged.** Still 12 factual matches and 24 internal
+  simulator executions per caller seed; the primary/repeat comparison across
+  runtime, resolved config, initial state, ordered events, result, rounds and
+  result checksum is unchanged; seed 44001 remains an ordinary test-only seed.
+- **Mutation fail-closed preserved.** Canonical fixtures remain deeply frozen;
+  the before/after canonical serialization and fixture-checksum checks remain;
+  a test proves execution-config mutation cannot alter the corresponding
+  canonical fixture object. No fixture is unfrozen or made mutable to clone it.
+- **Boundary evidence corrected.** The boundary test keeps the two-`runMatch`-
+  calls source assertion but adds genuine semantic reference-isolation proof
+  through `buildOpponentSuiteMatchConfig`, so source text is no longer the
+  sole evidence for independent nested execution graphs.
+
+Status:
+
+```
+Phase 4 architecture review:
+PASS
+
+Phase 4 final acceptance before D71:
+pending one execution-isolation correction
+
+Issue:
+primary/repeat configs used fresh outer objects but shared deeply frozen canonical build/policy references
+
+Observed behavioural defect:
+none
+
+Canonical fixture mutation:
+none
+
+Correction:
+fresh complete build/policy execution clones per primary and repeat
+
+Canonical fixtures:
+unchanged
+
+Fixture checksums:
+unchanged
+
+Suite identity:
+unchanged
+
+Suite checksum:
+2a276edc8fe6958cb06b0f2a844dd261a878ccf092da238f8ddc2b381c1b8fae
+
+Match plan:
+unchanged
+
+Legacy runtime:
+unchanged
+
+General grid runner:
+NOT authorised
+
+Provider/API:
+none
+
+Persistence:
+none
+
+Balance interpretation:
+none
+
+Successor v2 baseline:
+unchanged
+
+Successor checksum:
+134e7ce29650a170d8965b2fdde691e75afd2420620de143ba720601c666909e
+
+Operational opponent-suite CLI runs:
+0
+
+Operational grid-beta matches:
+0
+
+Phase 5:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

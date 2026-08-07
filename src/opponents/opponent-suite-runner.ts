@@ -4,10 +4,11 @@ import { RULESET_VERSION } from "../simulator/constants.js";
 import { DEFAULT_COMPONENT_QUALIFICATION_ID } from "../simulator/component-qualification-registry.js";
 import { LEGACY_RUNTIME_IDENTITY } from "../simulator/runtime-identity.js";
 import { runMatch } from "../simulator/simulator.js";
-import type { MatchConfig, MatchResult } from "../simulator/types.js";
+import type { ActionPolicy, MatchConfig, MatchResult } from "../simulator/types.js";
 import { serializeOpponentFixture, type OpponentFixtureV1 } from "./opponent-fixture.js";
 import { loadOpponentFixture } from "./opponent-fixture-loader.js";
 import { assertOpponentFixtureSupportsRuntime } from "./opponent-runtime-compatibility.js";
+import type { ValidatedBuild } from "../validation/validation.types.js";
 import {
   CANONICAL_OPPONENT_SUITE_V1,
   OPPONENT_SUITE_ID,
@@ -252,15 +253,84 @@ function mapWinner(
   );
 }
 
-function buildConfig(
+/**
+ * Fresh complete `ValidatedBuild` execution clone (execution isolation only).
+ *
+ * Every primary and repeat execution receives its own complete build graph
+ * (proposal, armour and derived fields), reference-distinct from the deeply
+ * frozen canonical fixture build and from every other execution graph. Values
+ * are copied exactly — never re-validated, never changed, no derived totals,
+ * and the canonical fixture build is never used as an optimisation input.
+ */
+function cloneValidatedBuildForExecution(build: ValidatedBuild): ValidatedBuild {
+  return {
+    proposal: {
+      machineName: build.proposal.machineName,
+      chassisId: build.proposal.chassisId,
+      mobilityId: build.proposal.mobilityId,
+      weaponId: build.proposal.weaponId,
+      utilityId: build.proposal.utilityId,
+      armour: {
+        front: build.proposal.armour.front,
+        left: build.proposal.armour.left,
+        right: build.proposal.armour.right,
+        rear: build.proposal.armour.rear,
+        top: build.proposal.armour.top,
+      },
+      designSummary: build.proposal.designSummary,
+      designRationale: build.proposal.designRationale,
+    },
+    totalCost: build.totalCost,
+    armourCost: build.armourCost,
+    totalArmourPoints: build.totalArmourPoints,
+    catalogueVersion: build.catalogueVersion,
+  };
+}
+
+/**
+ * Fresh complete policy execution clone. The `ActionPolicy` is flat; every
+ * authoritative field is copied exactly so the execution policy is deep-equal
+ * to, but reference-distinct from, the canonical fixture policy. The
+ * canonical policy is never mutated.
+ */
+function cloneActionPolicyForExecution(policy: ActionPolicy): ActionPolicy {
+  return {
+    opening: policy.opening,
+    preferredRange: policy.preferredRange,
+    aggression: policy.aggression,
+    primaryTarget: policy.primaryTarget,
+    secondaryTarget: policy.secondaryTarget,
+    retreatThreshold: policy.retreatThreshold,
+    heatThreshold: policy.heatThreshold,
+    fallback: policy.fallback,
+  };
+}
+
+/**
+ * Builds one independent fresh `MatchConfig` graph for a matchup. Every call
+ * returns a completely new object graph: outer config, fighterA/fighterB,
+ * execution build clones (including proposal and armour) and execution policy
+ * clones — all reference-distinct from the canonical fixture graphs and from
+ * every other returned config. Values deep-equal the canonical fixture
+ * values exactly. Public narrowly-scoped pure helper used by the runner and
+ * by reference-isolation tests; no filesystem/root/provider/runtime
+ * substitution is exposed.
+ */
+export function buildOpponentSuiteMatchConfig(
   fixtureA: OpponentFixtureV1,
   fixtureB: OpponentFixtureV1,
   seed: number,
 ): MatchConfig {
   return {
     seed,
-    fighterA: { build: fixtureA.validatedBuild, policy: fixtureA.policy },
-    fighterB: { build: fixtureB.validatedBuild, policy: fixtureB.policy },
+    fighterA: {
+      build: cloneValidatedBuildForExecution(fixtureA.validatedBuild),
+      policy: cloneActionPolicyForExecution(fixtureA.policy),
+    },
+    fighterB: {
+      build: cloneValidatedBuildForExecution(fixtureB.validatedBuild),
+      policy: cloneActionPolicyForExecution(fixtureB.policy),
+    },
     rulesetVersion: RULESET_VERSION,
     catalogueVersion: CATALOGUE_V1.version,
     componentQualificationId: DEFAULT_COMPONENT_QUALIFICATION_ID,
@@ -281,13 +351,15 @@ function buildConfig(
  * invocation closed.
  *
  * The four compatible fixtures are executed through the unchanged legacy
- * `runMatch` exactly twice per matchup (primary + repeat) with fresh
- * MatchConfig object graphs, requiring exact deterministic equality across
- * runtime/resolved config/initial state/ordered events/result/rounds and
- * identical result checksums. Any difference fails the entire suite run. Only
- * one factual match entry is returned per matchup (12 planned, 24 internal
- * executions per seed). Canonical fixture state is verified unchanged before
- * and after execution.
+ * `runMatch` exactly twice per matchup (primary + repeat) with independent
+ * fresh MatchConfig object graphs — every call clones the complete
+ * build/policy graphs, so primary and repeat never share a canonical fixture
+ * reference — requiring exact deterministic equality across runtime/resolved
+ * config/initial state/ordered events/result/rounds and identical result
+ * checksums. Any difference fails the entire suite run. Only one factual
+ * match entry is returned per matchup (12 planned, 24 internal executions
+ * per seed). Canonical fixture state is verified unchanged before and after
+ * execution.
  */
 export async function runOpponentSuite(
   input: OpponentSuiteRunInputV1,
@@ -372,9 +444,15 @@ export async function runOpponentSuite(
       fixtureVersion: fixtureB.fixtureVersion,
       fixtureChecksum: fixtureB.fixtureChecksum,
     };
-    // Independent fresh MatchConfig object graphs for primary and repeat.
-    const primary = runMatch(buildConfig(fixtureA, fixtureB, input.seed));
-    const repeat = runMatch(buildConfig(fixtureA, fixtureB, input.seed));
+    // Independent fresh MatchConfig object graphs for primary and repeat:
+    // every call clones complete build/policy graphs, so no canonical
+    // fixture reference is ever shared between the two executions.
+    const primary = runMatch(
+      buildOpponentSuiteMatchConfig(fixtureA, fixtureB, input.seed),
+    );
+    const repeat = runMatch(
+      buildOpponentSuiteMatchConfig(fixtureA, fixtureB, input.seed),
+    );
     if (deterministicFacts(primary) !== deterministicFacts(repeat)) {
       throw new OpponentSuiteError(
         `primary/repeat determinism failure at plan index ${plan.planIndex} (${plan.fighterA} vs ${plan.fighterB})`,

@@ -13,6 +13,7 @@ import {
   OPPONENT_SUITE_V1_LEGACY_PLAN,
   OpponentSuiteError,
   assertOpponentSuiteRuntime,
+  buildOpponentSuiteMatchConfig,
   opponentSuiteInternalExecutionCount,
   opponentSuiteMatchId,
   opponentSuiteResultChecksum,
@@ -241,6 +242,114 @@ describe("opponent suite deterministic legacy execution v1 (0.2D Phase 4)", () =
       expect(Object.isFrozen(match.fighterB)).toBe(true);
     }
     expect(Object.isFrozen(run.fixtureInventory)).toBe(true);
+  });
+
+  it("builds reference-distinct primary/repeat nested execution graphs", async () => {
+    const loaded = new Map<string, OpponentFixtureV1>();
+    for (const entry of CANONICAL_OPPONENT_SUITE_V1) {
+      loaded.set(
+        entry.opponentId,
+        await loadOpponentFixture(entry.opponentId, entry.fixtureVersion),
+      );
+    }
+    const fixtureA = loaded.get("bulwark")!;
+    const fixtureB = loaded.get("crusher")!;
+    const primary = buildOpponentSuiteMatchConfig(fixtureA, fixtureB, TEST_SEED);
+    const repeat = buildOpponentSuiteMatchConfig(fixtureA, fixtureB, TEST_SEED);
+
+    // Outer config and fighter objects are fresh.
+    expect(primary).not.toBe(repeat);
+    expect(primary.fighterA).not.toBe(repeat.fighterA);
+    expect(primary.fighterB).not.toBe(repeat.fighterB);
+
+    // Nested build graphs are fresh (build, proposal, armour).
+    expect(primary.fighterA.build).not.toBe(repeat.fighterA.build);
+    expect(primary.fighterB.build).not.toBe(repeat.fighterB.build);
+    expect(primary.fighterA.build.proposal).not.toBe(repeat.fighterA.build.proposal);
+    expect(primary.fighterB.build.proposal).not.toBe(repeat.fighterB.build.proposal);
+    expect(primary.fighterA.build.proposal.armour).not.toBe(
+      repeat.fighterA.build.proposal.armour,
+    );
+    expect(primary.fighterB.build.proposal.armour).not.toBe(
+      repeat.fighterB.build.proposal.armour,
+    );
+
+    // Policy objects are fresh.
+    expect(primary.fighterA.policy).not.toBe(repeat.fighterA.policy);
+    expect(primary.fighterB.policy).not.toBe(repeat.fighterB.policy);
+  });
+
+  it("keeps execution graphs reference-distinct from the canonical fixture graphs", async () => {
+    const loaded = new Map<string, OpponentFixtureV1>();
+    for (const entry of CANONICAL_OPPONENT_SUITE_V1) {
+      loaded.set(
+        entry.opponentId,
+        await loadOpponentFixture(entry.opponentId, entry.fixtureVersion),
+      );
+    }
+    for (const entry of CANONICAL_OPPONENT_SUITE_V1) {
+      const fixture = loaded.get(entry.opponentId)!;
+      // Against a mirror opponent; both slots must be distinct from canonical.
+      const mirror = loaded.get("bulwark")!;
+      const opponent = entry.opponentId === "bulwark" ? loaded.get("crusher")! : mirror;
+      const config = buildOpponentSuiteMatchConfig(fixture, opponent, TEST_SEED);
+      const myBuild = config.fighterA.build;
+      const myPolicy = config.fighterA.policy;
+      expect(myBuild).not.toBe(fixture.validatedBuild);
+      expect(myBuild.proposal).not.toBe(fixture.validatedBuild.proposal);
+      expect(myBuild.proposal.armour).not.toBe(fixture.validatedBuild.proposal.armour);
+      expect(myPolicy).not.toBe(fixture.policy);
+    }
+  });
+
+  it("preserves exact authoritative values in every execution clone", async () => {
+    const loaded = new Map<string, OpponentFixtureV1>();
+    for (const entry of CANONICAL_OPPONENT_SUITE_V1) {
+      loaded.set(
+        entry.opponentId,
+        await loadOpponentFixture(entry.opponentId, entry.fixtureVersion),
+      );
+    }
+    for (const entry of CANONICAL_OPPONENT_SUITE_V1) {
+      const fixture = loaded.get(entry.opponentId)!;
+      const opponent =
+        entry.opponentId === "bulwark" ? loaded.get("crusher")! : loaded.get("bulwark")!;
+      const config = buildOpponentSuiteMatchConfig(fixture, opponent, TEST_SEED);
+      // Complete validatedBuild equality (all fields, no omission).
+      expect(config.fighterA.build).toEqual(fixture.validatedBuild);
+      // Complete policy equality (all fields, no omission).
+      expect(config.fighterA.policy).toEqual(fixture.policy);
+      expect(config.fighterB.build).toEqual(opponent.validatedBuild);
+      expect(config.fighterB.policy).toEqual(opponent.policy);
+      // Authoritative config values unchanged.
+      expect(config.rulesetVersion).toBe(RULESET_VERSION);
+      expect(config.catalogueVersion).toBe(CATALOGUE_V1.version);
+      expect(config.componentQualificationId).toBe(DEFAULT_COMPONENT_QUALIFICATION_ID);
+      expect(config.seed).toBe(TEST_SEED);
+    }
+  });
+
+  it("cannot mutate a canonical fixture through an execution config clone", async () => {
+    const bulwark = await loadOpponentFixture("bulwark", 1);
+    const crusher = await loadOpponentFixture("crusher", 1);
+    const beforeBytes = serializeOpponentFixture(bulwark);
+    const beforeChecksum = bulwark.fixtureChecksum;
+    // Execution clones are fresh, reference-distinct graphs; mutating them
+    // must never alter the canonical fixture (which remains deeply frozen).
+    const config = buildOpponentSuiteMatchConfig(bulwark, crusher, TEST_SEED);
+    expect(Object.isFrozen(bulwark.validatedBuild)).toBe(true);
+    expect(Object.isFrozen(bulwark.policy)).toBe(true);
+    expect(config.fighterA.build).not.toBe(bulwark.validatedBuild);
+    expect(config.fighterA.policy).not.toBe(bulwark.policy);
+    // Mutate the execution clone freely.
+    (config.fighterA.build.proposal as { machineName: string }).machineName = "tampered";
+    (config.fighterA.policy as { aggression: number }).aggression = 999;
+    expect(config.fighterA.build.proposal.machineName).toBe("tampered");
+    // The canonical fixture is byte- and checksum-identical.
+    expect(serializeOpponentFixture(bulwark)).toBe(beforeBytes);
+    expect(bulwark.fixtureChecksum).toBe(beforeChecksum);
+    expect(bulwark.validatedBuild.proposal.machineName).not.toBe("tampered");
+    expect(bulwark.policy.aggression).not.toBe(999);
   });
 
   it("fails closed when the two incompatible fixtures would ever appear in a plan slot", async () => {
