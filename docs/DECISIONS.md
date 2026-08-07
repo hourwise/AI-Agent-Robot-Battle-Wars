@@ -3106,6 +3106,127 @@ Milestone 0.2D Phase 3:
 not started
 ```
 
+## D65: Create canonical opponent suite v1 fixtures (2026-08-07)
+
+After the D64 selection freeze (`4750dd9ae536b4da4fe7d50e797679d09628a8b3`),
+the six canonical opponent suite v1 fixtures were created for the first time,
+generated from the frozen selection through the reviewed opponent-fixture
+foundation only: `validateBuild(build, CATALOGUE_V1)` → COMPLETE returned
+`ValidatedBuild` → frozen compatibility structures → fixture identity →
+`opponentFixtureChecksum` → `parseOpponentFixture` verification →
+`serializeOpponentFixture` → exact canonical bytes written to
+`data/opponents/<id>.v1.json`. No production fixture generator, no package
+script and no `src/` change were made. No simulator was run and no opponent
+match exists; the fixtures are frozen before their first combat outcome.
+
+- **Six IDs.** `bulwark`, `skirmisher`, `crusher`, `spinner`, `controller`,
+  `generalist` — all `v1`, `schemaVersion "1"`, `catalogueVersion "1"`,
+  ruleset `0.2.0` supported.
+- **Immutable evidence anchors (fixtureChecksum / persisted-file SHA-256).**
+
+  | fixture    | fixtureChecksum                                                    | persisted-file SHA-256                                             |
+  | ---------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+  | bulwark    | `053e61e867d00015371e852dbe571af666cc8ac99a514b2364be323d54a8d987` | `d109c73a2f0880a5298fa6784abe4644f10c6ec395d4f4007179cc2d4e50256a` |
+  | skirmisher | `86e05148c57cabad2e9cf916475462acf7b132d1686904c0e5e197db9c1129cc` | `c078b792cc46aaaf30f9ed34ae5e7f772d99d65bd8745018ac969657bf8cd0b7` |
+  | crusher    | `754f8c3a70106f320483f74d52626b56b451885dfc16c777ca8442ceb7f60b6c` | `42f0397595dc88fd8edb12d7e8aba155f179fcb5feea84c3ff93f797903099a0` |
+  | spinner    | `4bde756805abfc9152cd5b64c76fefd26cbc1a2aae9db7ff7a96675b734783b5` | `ea9319b3fd4df6610c24e60bff23e4add73717092688063c2f53c69b5e1521f6` |
+  | controller | `d4940517943b440cc68bc7822c85051ff2d864530a13281d16a15ad770bece23` | `82a1235ecd85a891169841e15051d30ffdd026acf0197a58c2ecc5ced3a43773` |
+  | generalist | `07c2f77237bcf868e8297c2e5be12c67cd848f9def48c486ee40a58222908172` | `c887ef2ac1d9201753539d57b036c56e4f3a0b56a4da9ded42b1305a79b8fa50` |
+
+- **Historical Bulwark equality.** The `bulwark` fixture `build` deep-equals
+  `BULWARK_BUILD_PROPOSAL` and its `policy` deep-equals `BULWARK_POLICY`; its
+  complete fixture-generated `validatedBuild` equals `createBulwarkBuild()`.
+  This is data migration only — `bulwark-agent.ts` is unchanged and source-code
+  migration remains Phase 3.
+- **Exact inventory.** `data/opponents/` contains exactly six regular files
+  (sorted): `bulwark.v1.json`, `controller.v1.json`, `crusher.v1.json`,
+  `generalist.v1.json`, `skirmisher.v1.json`, `spinner.v1.json`. No manifest,
+  no dotfiles, no temporary files, no v2 fixtures, no symlinks, no
+  subdirectories.
+- **Canonical-loader results.** All six load successfully through production
+  `loadOpponentFixture(id, 1)` with exact ID/version, exact frozen build/
+  policy/ruleset/runtime values, complete validated-build agreement, exact
+  checksum recomputation, canonical bytes equal to the source file bytes, and
+  deeply frozen results.
+- **Zero access.** Opponent matches 0; benchmark access none; held-out access
+  none; provider access none.
+
+Status:
+
+```
+Milestone 0.2D:
+IN PROGRESS
+
+Phase 0 governance:
+complete and independently reviewed
+
+Phase 1 fixture foundation:
+complete and independently reviewed
+
+Phase 2 selection:
+frozen before fixture creation
+
+Canonical opponent suite v1:
+6 fixtures created
+
+bulwark:
+v1
+
+skirmisher:
+v1
+
+crusher:
+v1
+
+spinner:
+v1
+
+controller:
+v1
+
+generalist:
+v1
+
+Bulwark source-code migration:
+not performed
+
+Opponent-suite runner:
+not implemented
+
+Opponent matches executed:
+0
+
+Adaptation:
+not authorised
+
+Balance evaluation:
+not authorised
+
+Seed-bank access:
+none
+
+Held-out access:
+none
+
+Provider/API use:
+none
+
+Legacy default:
+yes
+
+Grid default:
+no
+
+Public/ranked/tournament:
+not authorised
+
+Milestone 0.2D Phase 3:
+not started
+
+Milestone 0.2E:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

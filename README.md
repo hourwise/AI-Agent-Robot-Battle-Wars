@@ -729,6 +729,54 @@ state; canonical persisted-byte validation and the checksum algorithm are
 unchanged. Phase 1 remains complete pending independent Phase 1.1 review;
 Phase 2 is not started.
 
+## Milestone 0.2D Phase 2 — Canonical opponent suite v1
+
+Milestone 0.2D Phase 1.1 passed independent review; the opponent-fixture
+foundation is COMPLETE. Phase 2 (D64/D65, 2026-08-07) froze the complete
+human-selected suite v1 design in Git **before** any fixture file existed
+(`docs/OPPONENT-SUITE-V1-SELECTION.md`, commit `4750dd9…`, D64), then created
+the six canonical fixtures for the first time — **without executing them**.
+
+- **Selection freeze.** The five new fixtures (`skirmisher`, `crusher`,
+  `spinner`, `controller`, `generalist`) were selected structurally from
+  ADR-004 archetypes, public catalogue/policy semantics and simple
+  human-readable armour distributions — no performance data. `bulwark` is the
+  sole historical migration candidate and reproduces `BULWARK_BUILD_PROPOSAL`
+  / `BULWARK_POLICY` exactly. The selection is immutable; any future semantic
+  change requires a new fixture version.
+- **Six canonical fixtures** under `data/opponents/` (exactly six regular
+  files, no manifest/dotfiles/symlinks): `bulwark.v1.json` (The Bulwark),
+  `skirmisher.v1.json` (Iron Cicada), `crusher.v1.json` (Hammerfall),
+  `spinner.v1.json` (Whirlwind), `controller.v1.json` (Lockdown),
+  `generalist.v1.json` (Sentinel). All `schemaVersion "1"`, `fixtureVersion 1`,
+  `catalogueVersion "1"`, ruleset `0.2.0` supported.
+- **Authoritative generation.** Each fixture was generated through the
+  reviewed foundation: `validateBuild(build, CATALOGUE_V1)` → complete
+  `ValidatedBuild` → frozen compatibility → `opponentFixtureChecksum` →
+  `parseOpponentFixture` verification → `serializeOpponentFixture` exact bytes.
+  No production generator, no package script, no `src/` change. `src/opponents/`
+  and `bulwark-agent.ts` are byte-unchanged.
+- **Runtime compatibility.** `skirmisher` and `controller` are grid-only
+  (legacy deliberately incompatible under ADR-004); `bulwark`, `crusher`,
+  `spinner`, `generalist` are dual-compatible.
+- **Immutable evidence anchors.** Per-fixture `fixtureChecksum` and
+  persisted-file SHA-256 are recorded in `docs/OPPONENT-SUITE-V1-SELECTION.md`,
+  D65 and the canonical fixture tests as expected constants.
+- **Bulwark data migration only.** Tests prove the bulwark fixture build/
+  policy deep-equal the historical constants and its validated build equals
+  `createBulwarkBuild()`. Source-code migration is NOT performed (Phase 3).
+- **No execution.** No simulator, no `runMatch`/`runGridMatch`, no beta, no
+  benchmark, no readiness, no opponent match. Zero benchmark/held-out/provider
+  access.
+
+Status (D65): Milestone 0.2D IN PROGRESS; Phase 2 selection frozen before
+fixture creation; canonical opponent suite v1 = 6 fixtures created; Bulwark
+source-code migration not performed; opponent-suite runner not implemented;
+opponent matches executed 0; adaptation/balance not authorised;
+seed-bank/held-out/provider none; legacy default yes; grid default no;
+public/ranked/tournament not authorised; Phase 3 not started; Milestone 0.2E
+not started.
+
 ### Replay
 
 ```bash

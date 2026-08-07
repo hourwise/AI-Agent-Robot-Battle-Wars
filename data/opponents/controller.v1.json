@@ -1,0 +1,74 @@
+{
+  "archetypeIntent": "Control and repositioning on the grid; descriptive intent only.",
+  "build": {
+    "armour": {
+      "front": 20,
+      "left": 15,
+      "rear": 10,
+      "right": 15,
+      "top": 10
+    },
+    "chassisId": "medium",
+    "designRationale": "Pair legs and traction support with a grappler to express grid control intent; no performance claim is implied.",
+    "designSummary": "A medium grappler platform built around control and repositioning intent.",
+    "machineName": "Lockdown",
+    "mobilityId": "legs",
+    "utilityId": "traction_boost",
+    "weaponId": "grappler"
+  },
+  "catalogueVersion": "1",
+  "description": "Medium grappler fixture intended to represent grid-specific control and repositioning.",
+  "displayName": "Lockdown",
+  "fixtureChecksum": "d4940517943b440cc68bc7822c85051ff2d864530a13281d16a15ad770bece23",
+  "fixtureVersion": 1,
+  "opponentId": "controller",
+  "policy": {
+    "aggression": 60,
+    "fallback": "defend",
+    "heatThreshold": 80,
+    "opening": "cautious",
+    "preferredRange": "close",
+    "primaryTarget": "rear",
+    "retreatThreshold": 30,
+    "secondaryTarget": "left"
+  },
+  "rulesetCompatibility": {
+    "rulesetVersion": "0.2.0",
+    "status": "supported"
+  },
+  "runtimeCompatibility": {
+    "grid": {
+      "positioningModel": "grid-3x3-v1",
+      "simulatorVersion": "0.3.0",
+      "status": "supported"
+    },
+    "legacy": {
+      "positioningModel": "legacy-five-zone-v1",
+      "simulatorVersion": "0.2.0",
+      "status": "incompatible"
+    }
+  },
+  "schemaVersion": "1",
+  "validatedBuild": {
+    "armourCost": 7,
+    "catalogueVersion": "1",
+    "proposal": {
+      "armour": {
+        "front": 20,
+        "left": 15,
+        "rear": 10,
+        "right": 15,
+        "top": 10
+      },
+      "chassisId": "medium",
+      "designRationale": "Pair legs and traction support with a grappler to express grid control intent; no performance claim is implied.",
+      "designSummary": "A medium grappler platform built around control and repositioning intent.",
+      "machineName": "Lockdown",
+      "mobilityId": "legs",
+      "utilityId": "traction_boost",
+      "weaponId": "grappler"
+    },
+    "totalArmourPoints": 70,
+    "totalCost": 87
+  }
+}

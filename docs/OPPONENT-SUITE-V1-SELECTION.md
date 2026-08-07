@@ -284,11 +284,18 @@ anchors: `fixtureChecksum` (over the canonical identity serialization) and the
 SHA-256 of the exact canonical persisted file bytes. Any future semantic change
 requires a new fixture version rather than editing these v1 identities.
 
-| fixture    | fixtureChecksum | persisted-file SHA-256 |
-| ---------- | --------------- | ---------------------- |
-| bulwark    | _(generated)_   | _(generated)_          |
-| skirmisher | _(generated)_   | _(generated)_          |
-| crusher    | _(generated)_   | _(generated)_          |
-| spinner    | _(generated)_   | _(generated)_          |
-| controller | _(generated)_   | _(generated)_          |
-| generalist | _(generated)_   | _(generated)_          |
+| fixture    | fixtureChecksum                                                    | persisted-file SHA-256                                             |
+| ---------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| bulwark    | `053e61e867d00015371e852dbe571af666cc8ac99a514b2364be323d54a8d987` | `d109c73a2f0880a5298fa6784abe4644f10c6ec395d4f4007179cc2d4e50256a` |
+| skirmisher | `86e05148c57cabad2e9cf916475462acf7b132d1686904c0e5e197db9c1129cc` | `c078b792cc46aaaf30f9ed34ae5e7f772d99d65bd8745018ac969657bf8cd0b7` |
+| crusher    | `754f8c3a70106f320483f74d52626b56b451885dfc16c777ca8442ceb7f60b6c` | `42f0397595dc88fd8edb12d7e8aba155f179fcb5feea84c3ff93f797903099a0` |
+| spinner    | `4bde756805abfc9152cd5b64c76fefd26cbc1a2aae9db7ff7a96675b734783b5` | `ea9319b3fd4df6610c24e60bff23e4add73717092688063c2f53c69b5e1521f6` |
+| controller | `d4940517943b440cc68bc7822c85051ff2d864530a13281d16a15ad770bece23` | `82a1235ecd85a891169841e15051d30ffdd026acf0197a58c2ecc5ced3a43773` |
+| generalist | `07c2f77237bcf868e8297c2e5be12c67cd848f9def48c486ee40a58222908172` | `c887ef2ac1d9201753539d57b036c56e4f3a0b56a4da9ded42b1305a79b8fa50` |
+
+The six canonical files were created from the frozen selection through the
+reviewed foundation (`validateBuild` → complete `ValidatedBuild` → identity →
+`opponentFixtureChecksum` → `parseOpponentFixture` → `serializeOpponentFixture`),
+written byte-exactly to `data/opponents/<id>.v1.json`. No production generator,
+no package script and no `src/` change were made. `data/opponents/` contains
+exactly these six files.

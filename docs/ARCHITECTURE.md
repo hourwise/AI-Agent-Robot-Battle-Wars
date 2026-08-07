@@ -1338,6 +1338,29 @@ coherent-tamper and loader regressions prove fail-closed behaviour; the
 checksum algorithm, canonical serialization, loader API, fixed root,
 compatibility contracts and global schemas are unchanged.
 
+Milestone 0.2D Phase 2 (D64/D65, 2026-08-07) freezes and creates the canonical
+opponent suite v1. The complete human-selected design was frozen in Git
+(`docs/OPPONENT-SUITE-V1-SELECTION.md`, commit `4750dd9…`) before any fixture
+file existed; six canonical fixtures then appear under the fixed root
+`data/opponents/` (`bulwark`, `skirmisher`, `crusher`, `spinner`, `controller`,
+`generalist`, all `v1`) — exactly six regular files, no manifest/dotfiles/
+symlinks/subdirectories. Each was generated through the reviewed foundation
+only: `validateBuild(build, CATALOGUE_V1)` → complete `ValidatedBuild` →
+frozen compatibility structures → `opponentFixtureChecksum` →
+`parseOpponentFixture` verification → `serializeOpponentFixture` exact bytes.
+No production generator, package script or `src/` change was made; the
+production `src/opponents/` modules are byte-unchanged. `bulwark` reproduces
+`BULWARK_BUILD_PROPOSAL`/`BULWARK_POLICY` and `createBulwarkBuild()` exactly
+(data migration only; `bulwark-agent.ts` unchanged, source migration deferred
+to Phase 3). `skirmisher` and `controller` declare legacy incompatible (grid
+only); the other four are dual-compatible. Per-fixture `fixtureChecksum` and
+persisted-file SHA-256 are frozen immutable v1 evidence anchors (D65, selection
+doc, canonical fixture tests). All six load through production
+`loadOpponentFixture(id, 1)` with exact identity/values, complete
+validated-build agreement, exact checksum recomputation, canonical bytes equal
+to the source files and deeply frozen results. No simulator and no opponent
+match ran; zero benchmark/held-out/provider access.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

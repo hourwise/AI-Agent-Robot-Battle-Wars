@@ -1,0 +1,74 @@
+{
+  "archetypeIntent": "Lateral skirmishing and rear-angle pressure; descriptive intent only.",
+  "build": {
+    "armour": {
+      "front": 20,
+      "left": 10,
+      "rear": 10,
+      "right": 10,
+      "top": 10
+    },
+    "chassisId": "light",
+    "designRationale": "Use wheels and a grappler to pursue lateral pressure without relying on heavy armour.",
+    "designSummary": "A light mobile control machine built to seek lateral angles.",
+    "machineName": "Iron Cicada",
+    "mobilityId": "wheels",
+    "utilityId": "traction_boost",
+    "weaponId": "grappler"
+  },
+  "catalogueVersion": "1",
+  "description": "Light mobile grappler fixture intended to exercise lateral policy semantics.",
+  "displayName": "Iron Cicada",
+  "fixtureChecksum": "86e05148c57cabad2e9cf916475462acf7b132d1686904c0e5e197db9c1129cc",
+  "fixtureVersion": 1,
+  "opponentId": "skirmisher",
+  "policy": {
+    "aggression": 70,
+    "fallback": "retreat",
+    "heatThreshold": 80,
+    "opening": "flank",
+    "preferredRange": "close",
+    "primaryTarget": "rear",
+    "retreatThreshold": 35,
+    "secondaryTarget": "left"
+  },
+  "rulesetCompatibility": {
+    "rulesetVersion": "0.2.0",
+    "status": "supported"
+  },
+  "runtimeCompatibility": {
+    "grid": {
+      "positioningModel": "grid-3x3-v1",
+      "simulatorVersion": "0.3.0",
+      "status": "supported"
+    },
+    "legacy": {
+      "positioningModel": "legacy-five-zone-v1",
+      "simulatorVersion": "0.2.0",
+      "status": "incompatible"
+    }
+  },
+  "schemaVersion": "1",
+  "validatedBuild": {
+    "armourCost": 6,
+    "catalogueVersion": "1",
+    "proposal": {
+      "armour": {
+        "front": 20,
+        "left": 10,
+        "rear": 10,
+        "right": 10,
+        "top": 10
+      },
+      "chassisId": "light",
+      "designRationale": "Use wheels and a grappler to pursue lateral pressure without relying on heavy armour.",
+      "designSummary": "A light mobile control machine built to seek lateral angles.",
+      "machineName": "Iron Cicada",
+      "mobilityId": "wheels",
+      "utilityId": "traction_boost",
+      "weaponId": "grappler"
+    },
+    "totalArmourPoints": 60,
+    "totalCost": 63
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "archetypeIntent": "Frontal pressure with a deliberate rear-armour weakness; descriptive intent only.",
+  "build": {
+    "armour": {
+      "front": 60,
+      "left": 15,
+      "rear": 0,
+      "right": 15,
+      "top": 0
+    },
+    "chassisId": "heavy",
+    "designRationale": "Maximise frontal protection and close-range ram damage. Accept rear vulnerability.",
+    "designSummary": "An unstoppable forward assault machine with heavy frontal armour.",
+    "machineName": "The Bulwark",
+    "mobilityId": "tracks",
+    "utilityId": "reinforced_drive",
+    "weaponId": "ram"
+  },
+  "catalogueVersion": "1",
+  "description": "Historical heavy frontal-pressure scripted opponent migrated without changing its build or policy.",
+  "displayName": "The Bulwark",
+  "fixtureChecksum": "053e61e867d00015371e852dbe571af666cc8ac99a514b2364be323d54a8d987",
+  "fixtureVersion": 1,
+  "opponentId": "bulwark",
+  "policy": {
+    "aggression": 85,
+    "fallback": "desperate_attack",
+    "heatThreshold": 90,
+    "opening": "rush",
+    "preferredRange": "close",
+    "primaryTarget": "front",
+    "retreatThreshold": 10,
+    "secondaryTarget": "front"
+  },
+  "rulesetCompatibility": {
+    "rulesetVersion": "0.2.0",
+    "status": "supported"
+  },
+  "runtimeCompatibility": {
+    "grid": {
+      "positioningModel": "grid-3x3-v1",
+      "simulatorVersion": "0.3.0",
+      "status": "supported"
+    },
+    "legacy": {
+      "positioningModel": "legacy-five-zone-v1",
+      "simulatorVersion": "0.2.0",
+      "status": "supported"
+    }
+  },
+  "schemaVersion": "1",
+  "validatedBuild": {
+    "armourCost": 9,
+    "catalogueVersion": "1",
+    "proposal": {
+      "armour": {
+        "front": 60,
+        "left": 15,
+        "rear": 0,
+        "right": 15,
+        "top": 0
+      },
+      "chassisId": "heavy",
+      "designRationale": "Maximise frontal protection and close-range ram damage. Accept rear vulnerability.",
+      "designSummary": "An unstoppable forward assault machine with heavy frontal armour.",
+      "machineName": "The Bulwark",
+      "mobilityId": "tracks",
+      "utilityId": "reinforced_drive",
+      "weaponId": "ram"
+    },
+    "totalArmourPoints": 90,
+    "totalCost": 94
+  }
+}

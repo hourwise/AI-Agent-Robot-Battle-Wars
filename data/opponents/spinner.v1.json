@@ -1,0 +1,74 @@
+{
+  "archetypeIntent": "Aggressive burst and knockback pressure; descriptive intent only.",
+  "build": {
+    "armour": {
+      "front": 25,
+      "left": 15,
+      "rear": 10,
+      "right": 15,
+      "top": 15
+    },
+    "chassisId": "medium",
+    "designRationale": "Pair a horizontal spinner with wheels and cooling, using moderate distributed armour without asserting balance.",
+    "designSummary": "A medium mobile spinner platform built for aggressive burst pressure.",
+    "machineName": "Whirlwind",
+    "mobilityId": "wheels",
+    "utilityId": "cooling",
+    "weaponId": "horizontal_spinner"
+  },
+  "catalogueVersion": "1",
+  "description": "Medium spinner fixture intended to represent aggressive burst and knockback behaviour.",
+  "displayName": "Whirlwind",
+  "fixtureChecksum": "4bde756805abfc9152cd5b64c76fefd26cbc1a2aae9db7ff7a96675b734783b5",
+  "fixtureVersion": 1,
+  "opponentId": "spinner",
+  "policy": {
+    "aggression": 75,
+    "fallback": "desperate_attack",
+    "heatThreshold": 75,
+    "opening": "rush",
+    "preferredRange": "close",
+    "primaryTarget": "front",
+    "retreatThreshold": 20,
+    "secondaryTarget": "left"
+  },
+  "rulesetCompatibility": {
+    "rulesetVersion": "0.2.0",
+    "status": "supported"
+  },
+  "runtimeCompatibility": {
+    "grid": {
+      "positioningModel": "grid-3x3-v1",
+      "simulatorVersion": "0.3.0",
+      "status": "supported"
+    },
+    "legacy": {
+      "positioningModel": "legacy-five-zone-v1",
+      "simulatorVersion": "0.2.0",
+      "status": "supported"
+    }
+  },
+  "schemaVersion": "1",
+  "validatedBuild": {
+    "armourCost": 8,
+    "catalogueVersion": "1",
+    "proposal": {
+      "armour": {
+        "front": 25,
+        "left": 15,
+        "rear": 10,
+        "right": 15,
+        "top": 15
+      },
+      "chassisId": "medium",
+      "designRationale": "Pair a horizontal spinner with wheels and cooling, using moderate distributed armour without asserting balance.",
+      "designSummary": "A medium mobile spinner platform built for aggressive burst pressure.",
+      "machineName": "Whirlwind",
+      "mobilityId": "wheels",
+      "utilityId": "cooling",
+      "weaponId": "horizontal_spinner"
+    },
+    "totalArmourPoints": 80,
+    "totalCost": 85
+  }
+}

@@ -42,13 +42,36 @@ const OPPONENT_SOURCE_FILES = [
   "src/opponents/opponent-fixture-loader.ts",
 ];
 
-describe("opponent fixture scope regressions (0.2D Phase 1 Phase 15)", () => {
-  it("creates no canonical opponent fixture files and no data/opponents directory", () => {
-    expect(existsSync(join(ROOT, "data", "opponents"))).toBe(false);
-    // No fixture JSON anywhere under a canonical opponent root (the root does
-    // not exist, so this is vacuously satisfied; the loader tests also never
-    // create the real root).
-    expect(resolveDataOpponents()).toBe(join(ROOT, "data", "opponents"));
+/** Exact Phase 2 canonical inventory contract (sorted). */
+const CANONICAL_OPPONENT_FILES = [
+  "bulwark.v1.json",
+  "controller.v1.json",
+  "crusher.v1.json",
+  "generalist.v1.json",
+  "skirmisher.v1.json",
+  "spinner.v1.json",
+];
+
+describe("opponent fixture scope regressions (0.2D Phase 1 Phase 15, Phase 2 inventory)", () => {
+  it("contains exactly the six canonical suite v1 fixtures and nothing else", () => {
+    const root = join(ROOT, "data", "opponents");
+    expect(existsSync(root)).toBe(true);
+    // Exact sorted inventory.
+    const names = readdirSync(root, { withFileTypes: true })
+      .map((e) => e.name)
+      .sort();
+    expect(names).toEqual(CANONICAL_OPPONENT_FILES);
+    // Reject dotfiles, subdirectories, symlinks and non-regular files.
+    for (const entry of readdirSync(root, { withFileTypes: true })) {
+      expect(entry.name.startsWith("."), entry.name).toBe(false);
+      expect(entry.isDirectory(), entry.name).toBe(false);
+      expect(entry.isSymbolicLink(), entry.name).toBe(false);
+      expect(entry.isFile(), entry.name).toBe(true);
+    }
+    // No v2 fixtures exist.
+    expect(names.some((n) => n.includes(".v2."))).toBe(false);
+    // No fixture JSON anywhere outside this canonical inventory.
+    expect(resolveDataOpponents()).toBe(root);
   });
 
   it("keeps the frozen canonical versions and identities unchanged", () => {

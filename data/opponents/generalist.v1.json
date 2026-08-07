@@ -1,0 +1,74 @@
+{
+  "archetypeIntent": "Generalist mixed-purpose intent without fairness or balance claims.",
+  "build": {
+    "armour": {
+      "front": 20,
+      "left": 15,
+      "rear": 15,
+      "right": 15,
+      "top": 15
+    },
+    "chassisId": "medium",
+    "designRationale": "Use a moderate chassis, mobility, flipper, cooling and distributed armour as a descriptive generalist, not a balance baseline.",
+    "designSummary": "A medium mixed-purpose platform with no extreme component choice.",
+    "machineName": "Sentinel",
+    "mobilityId": "wheels",
+    "utilityId": "cooling",
+    "weaponId": "flipper"
+  },
+  "catalogueVersion": "1",
+  "description": "Medium mixed-purpose fixture with deliberately non-extreme component choices.",
+  "displayName": "Sentinel",
+  "fixtureChecksum": "07c2f77237bcf868e8297c2e5be12c67cd848f9def48c486ee40a58222908172",
+  "fixtureVersion": 1,
+  "opponentId": "generalist",
+  "policy": {
+    "aggression": 65,
+    "fallback": "defend",
+    "heatThreshold": 80,
+    "opening": "hold",
+    "preferredRange": "medium",
+    "primaryTarget": "front",
+    "retreatThreshold": 30,
+    "secondaryTarget": "top"
+  },
+  "rulesetCompatibility": {
+    "rulesetVersion": "0.2.0",
+    "status": "supported"
+  },
+  "runtimeCompatibility": {
+    "grid": {
+      "positioningModel": "grid-3x3-v1",
+      "simulatorVersion": "0.3.0",
+      "status": "supported"
+    },
+    "legacy": {
+      "positioningModel": "legacy-five-zone-v1",
+      "simulatorVersion": "0.2.0",
+      "status": "supported"
+    }
+  },
+  "schemaVersion": "1",
+  "validatedBuild": {
+    "armourCost": 8,
+    "catalogueVersion": "1",
+    "proposal": {
+      "armour": {
+        "front": 20,
+        "left": 15,
+        "rear": 15,
+        "right": 15,
+        "top": 15
+      },
+      "chassisId": "medium",
+      "designRationale": "Use a moderate chassis, mobility, flipper, cooling and distributed armour as a descriptive generalist, not a balance baseline.",
+      "designSummary": "A medium mixed-purpose platform with no extreme component choice.",
+      "machineName": "Sentinel",
+      "mobilityId": "wheels",
+      "utilityId": "cooling",
+      "weaponId": "flipper"
+    },
+    "totalArmourPoints": 80,
+    "totalCost": 80
+  }
+}

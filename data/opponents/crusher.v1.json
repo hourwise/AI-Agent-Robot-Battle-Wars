@@ -1,0 +1,74 @@
+{
+  "archetypeIntent": "Cautious heavy impact and top-target pressure; descriptive intent only.",
+  "build": {
+    "armour": {
+      "front": 30,
+      "left": 20,
+      "rear": 15,
+      "right": 20,
+      "top": 15
+    },
+    "chassisId": "heavy",
+    "designRationale": "Use a heavy chassis, tracks, hammer and cooling with broad armour coverage for a cautious impact-focused profile.",
+    "designSummary": "A heavy hammer platform built around deliberate high-impact attacks.",
+    "machineName": "Hammerfall",
+    "mobilityId": "tracks",
+    "utilityId": "cooling",
+    "weaponId": "hammer"
+  },
+  "catalogueVersion": "1",
+  "description": "Heavy hammer fixture intended to represent cautious high-impact attacks.",
+  "displayName": "Hammerfall",
+  "fixtureChecksum": "754f8c3a70106f320483f74d52626b56b451885dfc16c777ca8442ceb7f60b6c",
+  "fixtureVersion": 1,
+  "opponentId": "crusher",
+  "policy": {
+    "aggression": 55,
+    "fallback": "defend",
+    "heatThreshold": 70,
+    "opening": "cautious",
+    "preferredRange": "medium",
+    "primaryTarget": "top",
+    "retreatThreshold": 20,
+    "secondaryTarget": "front"
+  },
+  "rulesetCompatibility": {
+    "rulesetVersion": "0.2.0",
+    "status": "supported"
+  },
+  "runtimeCompatibility": {
+    "grid": {
+      "positioningModel": "grid-3x3-v1",
+      "simulatorVersion": "0.3.0",
+      "status": "supported"
+    },
+    "legacy": {
+      "positioningModel": "legacy-five-zone-v1",
+      "simulatorVersion": "0.2.0",
+      "status": "supported"
+    }
+  },
+  "schemaVersion": "1",
+  "validatedBuild": {
+    "armourCost": 10,
+    "catalogueVersion": "1",
+    "proposal": {
+      "armour": {
+        "front": 30,
+        "left": 20,
+        "rear": 15,
+        "right": 20,
+        "top": 15
+      },
+      "chassisId": "heavy",
+      "designRationale": "Use a heavy chassis, tracks, hammer and cooling with broad armour coverage for a cautious impact-focused profile.",
+      "designSummary": "A heavy hammer platform built around deliberate high-impact attacks.",
+      "machineName": "Hammerfall",
+      "mobilityId": "tracks",
+      "utilityId": "cooling",
+      "weaponId": "hammer"
+    },
+    "totalArmourPoints": 100,
+    "totalCost": 100
+  }
+}

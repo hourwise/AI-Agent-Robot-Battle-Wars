@@ -1453,6 +1453,30 @@ the fixed-root loader (stale and coherent checksums); canonical persisted-byte
 validation and the checksum algorithm are unchanged. Phase 1 remains complete
 pending independent Phase 1.1 review; Phase 2 not started.
 
+**Phase 2 (D64/D65, 2026-08-07) — canonical opponent suite v1 (created, not
+executed):** Phase 1.1 passed independent review; the foundation is COMPLETE.
+The complete human-selected suite v1 design was frozen in Git BEFORE any
+fixture file existed (`docs/OPPONENT-SUITE-V1-SELECTION.md`, commit
+`4750dd9…`, D64); the six canonical fixtures were then created for the first
+time under `data/opponents/` (exactly six regular files, no manifest/dotfiles/
+symlinks/subdirectories). Five fixtures were selected structurally from
+ADR-004 archetypes, public catalogue/policy semantics and simple
+human-readable armour distributions — no performance data; `bulwark` is the
+sole historical migration candidate reproducing `BULWARK_BUILD_PROPOSAL` /
+`BULWARK_POLICY` exactly. Generation used ONLY the reviewed foundation:
+`validateBuild(build, CATALOGUE_V1)` → complete `ValidatedBuild` → frozen
+compatibility → `opponentFixtureChecksum` → `parseOpponentFixture` → exact
+`serializeOpponentFixture` bytes. No production generator, no package script,
+no `src/opponents/` change, no `bulwark-agent.ts` change. `skirmisher` and
+`controller` declare legacy incompatible (grid only); the other four are
+dual-compatible. Per-fixture `fixtureChecksum` and persisted-file SHA-256 are
+immutable v1 evidence anchors (D65). All six load through production
+`loadOpponentFixture(id, 1)` with exact identity/values, complete
+validated-build agreement, exact checksum recomputation, canonical bytes equal
+to the source files and deeply frozen results. NO simulator, NO opponent
+match, NO benchmark/held-out/provider access. Bulwark source-code migration
+NOT performed (Phase 3); opponent-suite runner NOT implemented.
+
 **Affected modules (Phase 0):** none — documentation only
 (`docs/ADR-004-multi-opponent-fixture-format.md`, this plan, README,
 ARCHITECTURE, DECISIONS).

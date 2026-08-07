@@ -1,0 +1,5 @@
+# Canonical opponent suite v1 fixtures are immutable byte-exact evidence
+# anchors (D65). Their persisted bytes must equal the canonical fixture
+# serialization exactly (LF, no trailing newline), so they must never be
+# line-ending-converted on checkout regardless of core.autocrlf.
+data/opponents/*.json text eol=lf
