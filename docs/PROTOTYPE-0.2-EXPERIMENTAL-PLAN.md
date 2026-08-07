@@ -777,6 +777,22 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   evidence, not held-out evaluation, does not authorise grid as the default,
   does not authorise public/ranked/tournament/monetised play, and does not
   begin Milestone 0.2D.
+- Bounded beta observation window A (2026-08-07, D59): **COMPLETE**. A small
+  bounded operational observation window ran four further controlled mirror
+  matches before any Milestone 0.2D decision: GRID-BETA-002 seed `20260808`
+  (draw, `f668f59c-…`), GRID-BETA-003 seed `20260809` (fighter_a,
+  `dc7459b6-…`), GRID-BETA-004 seed `20260810` (fighter_a, `64eb89f3-…`),
+  GRID-BETA-005 seed `20260811` (draw, `e835a904-…`), all by judges in 20
+  rounds with identical mirror fighter bytes at the frozen checksum
+  `e168c618…`. Every run: ten immutable files, primary/repeat result
+  checksums equal, canonical preflight pass, empty agent usage, exact C2
+  metadata, complete bundle-validator pass, text and ASCII replay pass,
+  suspension marker absent after. Post-window integrity: all seven
+  governance hashes unchanged, GRID-BETA-001's ten hashes unchanged,
+  C1/C2/AB2 and C2 default unchanged, legacy normal paths unchanged, no
+  benchmark/provider/seed-bank/held-out/`all` access. Factual operational
+  observation only — no balance, slot/fairness or tuning conclusion; outcomes
+  explicitly deferred.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

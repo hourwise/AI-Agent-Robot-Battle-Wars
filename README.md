@@ -567,6 +567,38 @@ held-out evaluation, does not authorise grid as the default, does not
 authorise public/ranked/tournament/monetised play, and does not begin
 Milestone 0.2D.
 
+## Bounded beta observation window A
+
+A small bounded operational observation window (D59, 2026-08-07) ran four
+further controlled mirror matches (`beta-smoke-01` vs `beta-smoke-01`, frozen
+fighter checksum `e168c618…`) before any decision about Milestone 0.2D. It is
+not balance evaluation, readiness evaluation, tuning, adaptation,
+opponent-suite construction or held-out testing. All four commands completed
+successfully with zero suspension triggers, all deterministic primary/repeat
+pairs agreed, all four bundles passed the complete production bundle
+validator, and all eight text/ASCII replays validated the full physical
+bundles:
+
+| Run           | Seed     | Match UUID                             | Winner    | Method | Rounds | primary==repeat | bundle | text replay | ASCII replay | marker |
+| ------------- | -------- | -------------------------------------- | --------- | ------ | ------ | --------------- | ------ | ----------- | ------------ | ------ |
+| GRID-BETA-001 | 20260807 | `19c41607-21d0-48e1-a419-23d4721e4be4` | fighter_b | judges | 20     | yes             | pass   | pass        | pass         | absent |
+| GRID-BETA-002 | 20260808 | `f668f59c-076d-42de-ba37-73dd0734bf46` | draw      | judges | 20     | yes             | pass   | pass        | pass         | absent |
+| GRID-BETA-003 | 20260809 | `dc7459b6-ee55-4183-be06-36bf19d4cb26` | fighter_a | judges | 20     | yes             | pass   | pass        | pass         | absent |
+| GRID-BETA-004 | 20260810 | `64eb89f3-bb4d-4574-8ca8-9ab08e5b87a1` | fighter_a | judges | 20     | yes             | pass   | pass        | pass         | absent |
+| GRID-BETA-005 | 20260811 | `e835a904-85b8-4279-bad5-614b4d03e29c` | draw      | judges | 20     | yes             | pass   | pass        | pass         | absent |
+
+Operational counts: 5/5 total controlled beta commands completed; 5/5
+deterministic repeats matched; 5/5 bundles validated; 5/5 text replays
+validated; 5/5 ASCII replays validated; 0 suspension triggers. These are
+factual operational observations only — no win rate, slot advantage, balance,
+fairness, policy or weapon/build interpretation is made, and outcomes are
+explicitly deferred. Post-window integrity: the suspension marker remained
+absent; all seven official governance hashes unchanged; the frozen fighter
+checksum unchanged; GRID-BETA-001's ten artifact hashes unchanged; every new
+match directory retained exactly ten immutable files; C1/C2/AB2 and the C2
+default unchanged; normal match/series/replay remain legacy; no benchmark,
+provider, seed bank, held-out or `all` access occurred.
+
 ### Replay
 
 ```bash

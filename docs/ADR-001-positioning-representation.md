@@ -2280,6 +2280,23 @@ balance tuning and does not begin Milestone 0.2D.
   only — it is not balance, readiness or adaptation evidence, not held-out
   evaluation, does not authorise grid as the default, does not authorise
   public/ranked/tournament/monetised play, and does not begin Milestone 0.2D.
+- **Bounded beta observation window A (2026-08-07, D59).** After GRID-BETA-001
+  passed independent closure review, a small bounded operational observation
+  window ran four further controlled mirror matches (`beta-smoke-01` vs
+  `beta-smoke-01`, frozen checksum `e168c618…`) before any Milestone 0.2D
+  decision: GRID-BETA-002 seed `20260808` (draw, `f668f59c-…`),
+  GRID-BETA-003 seed `20260809` (fighter_a, `dc7459b6-…`), GRID-BETA-004 seed
+  `20260810` (fighter_a, `64eb89f3-…`), GRID-BETA-005 seed `20260811` (draw,
+  `e835a904-…`), all by judges in 20 rounds. Every run: ten immutable files,
+  identical mirror fighter bytes at the frozen checksum, primary/repeat
+  result checksums equal, canonical protected-source preflight pass, empty
+  agent usage, C2 metadata exact, complete bundle validator pass, text and
+  ASCII replay pass, suspension marker absent after. Post-window integrity:
+  all seven governance hashes unchanged, GRID-BETA-001's ten hashes
+  unchanged, C1/C2/AB2 and C2 default unchanged, legacy normal paths
+  unchanged, no benchmark/provider/seed-bank/held-out/`all` access. The
+  window is factual operational observation only — no balance, slot/fairness
+  or tuning conclusion is drawn and outcomes are explicitly deferred.
 
 ### 9.20 Phase 3E1 status
 
@@ -2400,9 +2417,17 @@ rounds, primary/repeat result checksums identical
 validation pass, suspension marker absent after completion, all seven
 governance hashes unchanged; not balance/readiness/adaptation evidence, not
 held-out evaluation, does not authorise grid as default or
-public/ranked/tournament play, does not begin Milestone 0.2D); governance
+public/ranked/tournament play, does not begin Milestone 0.2D); bounded beta
+observation window A **complete** (D59: GRID-BETA-002 seed `20260808` draw
+`f668f59c…`, GRID-BETA-003 seed `20260809` fighter_a `dc7459b6…`, GRID-BETA-004
+seed `20260810` fighter_a `64eb89f3…`, GRID-BETA-005 seed `20260811` draw
+`e835a904…`, all judges 20 rounds, 5/5 primary/repeat pairs agreed, 5/5
+bundles validated, 5/5 text and 5/5 ASCII replays validated, 0 suspension
+triggers, all governance hashes and GRID-BETA-001 artifacts unchanged; no
+balance/slot-fairness/tuning conclusion, no benchmark/provider/seed-bank/
+held-out/`all` access); governance
 outcome **`approved_for_bounded_opt_in_beta_implementation`**; bounded opt-in
-beta implementation **operational (single controlled smoke run; legacy
+beta implementation **operational (five controlled smoke runs; legacy
 remains default)**; grid runtime enabled **no**; legacy default
 **yes**; public rollout **not authorised**; balance qualification **not
 performed**; opt-in beta decision **performed (approval for bounded

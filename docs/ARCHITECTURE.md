@@ -1257,6 +1257,22 @@ readiness or adaptation evidence, not held-out evaluation, does not authorise
 grid as the default, does not authorise public/ranked/tournament/monetised
 play, and does not begin Milestone 0.2D.
 
+Bounded beta observation window A (D59, 2026-08-07) ran four further
+controlled mirror matches before any Milestone 0.2D decision: GRID-BETA-002
+seed `20260808` draw `f668f59c-…`, GRID-BETA-003 seed `20260809` fighter_a
+`dc7459b6-…`, GRID-BETA-004 seed `20260810` fighter_a `64eb89f3-…`,
+GRID-BETA-005 seed `20260811` draw `e835a904-…`, all by judges in 20 rounds.
+Every run produced exactly ten immutable files with identical mirror fighter
+bytes at the frozen checksum `e168c618…`, equal primary/repeat result
+checksums, canonical protected-source preflight pass, empty agent usage, exact
+C2 metadata, a complete bundle-validator pass, text and ASCII replay passes,
+and no suspension marker afterward. Post-window integrity: all seven
+governance hashes unchanged, GRID-BETA-001's ten hashes unchanged, C1/C2/AB2
+and the C2 default unchanged, legacy normal paths unchanged, and no
+benchmark/provider/seed-bank/held-out/`all` access occurred. The window is
+factual operational observation only — no balance, slot/fairness or tuning
+conclusion is drawn, and outcomes are explicitly deferred.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

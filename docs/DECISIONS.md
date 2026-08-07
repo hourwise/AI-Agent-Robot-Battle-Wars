@@ -2370,6 +2370,106 @@ Milestone 0.2D:
 not started
 ```
 
+## D59: Record bounded grid beta observation window A (2026-08-07)
+
+Milestone 0.2C is COMPLETE and GRID-BETA-001 passed independent closure review
+as a successful operational smoke test. This decision records a small bounded
+operational observation window performed before any decision about Milestone
+0.2D. It is NOT balance evaluation, readiness evaluation, tuning, adaptation,
+opponent-suite construction or held-out testing. The observation used the
+existing local smoke fighter `data/beta/grid-fighters/beta-smoke-01.json`
+(frozen canonical checksum `e168c618…`, revalidated before the window), and
+every observation match was the same deliberate mirror pairing
+`beta-smoke-01` vs `beta-smoke-01`; its build and policy were not changed
+regardless of outcomes. The complete observation schedule was frozen before
+any run — GRID-BETA-002 seed `20260808`, GRID-BETA-003 seed `20260809`,
+GRID-BETA-004 seed `20260810`, GRID-BETA-005 seed `20260811` — and was not
+changed because of any result.
+
+- **Five-run factual operational table.** Every run executed exactly once;
+  each bundle passed the complete production bundle validator; the text and
+  ASCII replays each validated the full physical ten-file bundle; the
+  suspension marker stayed absent after every run; fighter-a and fighter-b
+  artifact bytes were identical (mirror) with the frozen fighter checksum;
+  every primary/repeat result-checksum pair agreed; C2 metadata, the frozen
+  grid runtime identity, the canonical protected-source preflight pass, empty
+  agent usage and no legacy fallback held throughout.
+
+| Run           | Seed     | Match UUID                             | Winner    | Method | Rounds | primary==repeat | bundle | text replay | ASCII replay | marker after |
+| ------------- | -------- | -------------------------------------- | --------- | ------ | ------ | --------------- | ------ | ----------- | ------------ | ------------ |
+| GRID-BETA-001 | 20260807 | `19c41607-21d0-48e1-a419-23d4721e4be4` | fighter_b | judges | 20     | yes             | pass   | pass        | pass         | absent       |
+| GRID-BETA-002 | 20260808 | `f668f59c-076d-42de-ba37-73dd0734bf46` | draw      | judges | 20     | yes             | pass   | pass        | pass         | absent       |
+| GRID-BETA-003 | 20260809 | `dc7459b6-ee55-4183-be06-36bf19d4cb26` | fighter_a | judges | 20     | yes             | pass   | pass        | pass         | absent       |
+| GRID-BETA-004 | 20260810 | `64eb89f3-bb4d-4574-8ca8-9ab08e5b87a1` | fighter_a | judges | 20     | yes             | pass   | pass        | pass         | absent       |
+| GRID-BETA-005 | 20260811 | `e835a904-85b8-4279-bad5-614b4d03e29c` | draw      | judges | 20     | yes             | pass   | pass        | pass         | absent       |
+
+- **Per-run result checksums.** GRID-BETA-001 primary/repeat
+  `867b2df6d1eabeb48e22534070bd9c411db1e383be40b6dee45fc97f56aa9aec`;
+  GRID-BETA-002 `18b5d46d0df96892b5990def5082ed0fb85be2597cfeb0083caf7ab0b24949d7`;
+  GRID-BETA-003 `abebd06823f2455f50ee88ce391e074573b680a10ab9309b2b3957c7ca42cd94`;
+  GRID-BETA-004 `1ac11d79534fc29a5baf6a00c5239f7502b177f0e8260a96854638b58477a329`;
+  GRID-BETA-005 `2aaf28fb584128a955a82927fff12ad4b340d1ddee49f63510b6b097cbdc64ce`.
+- **Post-window integrity.** The suspension marker remained absent; all seven
+  official governance hashes recomputed unchanged; the frozen fighter
+  checksum unchanged; GRID-BETA-001's ten artifact hashes unchanged; every
+  new match directory retained exactly ten immutable files; C1/C2/AB2 and the
+  C2 default unchanged; normal match/series/replay remain legacy; no
+  benchmark, provider, seed bank, held-out or `all` access occurred.
+- **No interpretation.** These are factual operational observations only. No
+  win rate, slot advantage, balance, fairness, optimal-policy, weapon/build
+  performance or statistical-significance claim is made, and no tuning
+  recommendation is derived. Even though the five mirror matches produced a
+  mix of outcomes, interpretation is explicitly deferred.
+
+Status:
+
+```
+Milestone 0.2C:
+COMPLETE
+
+Bounded beta observation window A:
+COMPLETE
+
+Total controlled beta commands:
+5
+
+Operational determinism:
+5/5 primary-repeat pairs agreed
+
+Bundle validation:
+5/5 pass
+
+Text replay:
+5/5 pass
+
+ASCII replay:
+5/5 pass
+
+Suspension triggers:
+0
+
+Balance conclusion:
+NONE
+
+Slot/fairness conclusion:
+NONE
+
+Tuning:
+NONE
+
+Legacy default:
+yes
+
+Grid default activation:
+no
+
+Public/ranked/tournament:
+not authorised
+
+Milestone 0.2D:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.
