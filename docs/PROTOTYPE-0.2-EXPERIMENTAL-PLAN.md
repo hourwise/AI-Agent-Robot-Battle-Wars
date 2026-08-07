@@ -1533,6 +1533,47 @@ bridge makes ZERO balance/strength/difficulty/fairness/tuning/C2/performance
 statement — source-governance only. No source, test, data or governance
 artifact changed in this step; Bulwark migration remains not started.
 
+**Commit M (D67, 2026-08-07) — canonical Bulwark migration candidate
+(created, awaiting independent review; Commit G NOT started):** D66 passed
+independent review; Commit M is the migration candidate only. New modules:
+`src/opponents/opponent-runtime-compatibility.ts` (explicit runtime gate:
+`OpponentRuntime = "legacy" | "grid"`, `OpponentRuntimeCompatibilityError`,
+pure fail-closed `assertOpponentFixtureSupportsRuntime` binding `"legacy"`/
+`"grid"` only to `LEGACY_RUNTIME_IDENTITY`/`GRID_RUNTIME_IDENTITY` and
+requiring the corresponding `supported` entry — no inference, no fallback, no
+simulation, no grid activation, fixture immutable; plus
+`loadOpponentFixtureForRuntime(opponentId, fixtureVersion, runtime)` with
+public inputs ONLY those three, calling the reviewed fixed-root loader and
+returning the same deeply frozen fixture) and `src/opponents/legacy-bulwark.ts`
+(`loadLegacyBulwark()` freezing `bulwark`/`1`/`legacy`, enforcing the exact v1
+checksum `053e61e8…`, failing closed with no fallback to historical
+constants; never reconstructs the build manually and never re-invokes
+`validateBuild` in normal application code). `src/app/run-match.ts` loads
+canonical legacy Bulwark exactly once per CLI invocation BEFORE any provider
+branch (fixture failure fails closed before DeepSeek calls) and uses
+`fixture.validatedBuild`/`fixture.policy`; mirror mode reuses the same
+immutable objects. `src/app/run-series.ts` loads it once per `runSeries` after
+option validation and BEFORE series-record creation/persistence and any
+agent/provider operation, reusing the fixture across the series and for
+factual-report enrichment. Legacy `runMatch` remains the simulator in both
+normal paths; no `runGridMatch`, no grid-beta, no runtime fallback, no
+arbitrary opponent selection. `src/agents/scripted/bulwark-agent.ts` unchanged
+(historical/regression anchors). Evidence: compatibility matrix (legacy
+supported bulwark/crusher/spinner/generalist; legacy incompatible
+skirmisher/controller; grid supported all six); exact data equivalence with
+`BULWARK_BUILD_PROPOSAL`/`BULWARK_POLICY`/`createBulwarkBuild()` and
+`getBulwarkOpponentSummary()` structural facts; behavioural equivalence under
+unchanged legacy `runMatch` on predeclared test-only seeds 32001/32002/32003
+(mirror + asymmetric roles, exact runtime/config/initial-state/events/result/
+rounds equality); immutability through simulation verified. **Intentional
+transition state:** Commit M differs from the active v1 reviewed source for
+`run-match.ts`/`run-series.ts`, so the v1 legacy-isolation preflight fails
+closed with `legacy_default_regression`; operational grid beta NOT authorised,
+v1 snapshot/preflight byte-unchanged, no marker created/cleared, successor v2
+not created, Commit G not started. The full repository suite is expected to
+contain the v1 protected-source mismatch failures until Commit G activates v2;
+migration-focused tests and check/lint/format pass.
+
 **Affected modules (Phase 0):** none — documentation only
 (`docs/ADR-004-multi-opponent-fixture-format.md`, this plan, README,
 ARCHITECTURE, DECISIONS).

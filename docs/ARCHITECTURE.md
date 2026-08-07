@@ -1412,6 +1412,48 @@ validated-build agreement, exact checksum recomputation, canonical bytes equal
 to the source files and deeply frozen results. No simulator and no opponent
 match ran; zero benchmark/held-out/provider access.
 
+Milestone 0.2D Phase 3 Commit M (D67, 2026-08-07) migrates normal legacy
+application Bulwark combat configuration to the canonical `bulwark.v1`
+fixture, under the D66 governed source-evolution sequence (Commit M →
+independent review → Commit G; Commit G is NOT started). New modules:
+`src/opponents/opponent-runtime-compatibility.ts` — explicit runtime gate
+(`OpponentRuntime = "legacy" | "grid"`, `OpponentRuntimeCompatibilityError`,
+pure fail-closed `assertOpponentFixtureSupportsRuntime(fixture, runtime)`
+binding `"legacy"`/`"grid"` only to `LEGACY_RUNTIME_IDENTITY`/
+`GRID_RUNTIME_IDENTITY` and requiring the corresponding `supported` entry,
+plus `loadOpponentFixtureForRuntime(opponentId, fixtureVersion, runtime)` whose
+production public inputs are ONLY those three, calling the reviewed fixed-root
+loader and returning the same deeply frozen fixture) — and
+`src/opponents/legacy-bulwark.ts` — `loadLegacyBulwark()` freezing
+`bulwark`/`1`/`legacy` and enforcing the exact v1 fixture checksum
+`053e61e8…`, failing closed otherwise with no fallback to historical
+constants. `src/app/run-match.ts` now loads canonical legacy Bulwark exactly
+once per CLI invocation before the provider branch (fixture failure fails
+closed before any DeepSeek request) and uses `fixture.validatedBuild` /
+`fixture.policy`; mirror mode reuses the same immutable objects safely.
+`src/app/run-series.ts` loads canonical legacy Bulwark once per `runSeries`
+after option validation and before any series-record creation/persistence or
+agent/provider call, reusing the fixture across the series and for
+factual-report enrichment. Historical `src/agents/scripted/bulwark-agent.ts`
+is unchanged (regression/evidence anchors). Legacy `runMatch` remains the
+simulator in both normal paths; no `runGridMatch`, no grid-beta invocation, no
+runtime fallback, no arbitrary opponent selection. Migration evidence:
+compatibility matrix (legacy supported bulwark/crusher/spinner/generalist;
+legacy incompatible skirmisher/controller; grid supported all six); exact data
+equivalence with the historical constants and `createBulwarkBuild()`;
+behavioural equivalence under unchanged legacy `runMatch` on predeclared
+test-only seeds 32001/32002/32003 (mirror + asymmetric roles, exact runtime/
+config/initial-state/events/result/rounds equality); immutability through
+simulation verified (canonical bytes, checksum and deep freeze unchanged).
+**Intentional transition state:** Commit M differs from the active v1 reviewed
+source for `run-match.ts`/`run-series.ts`, so the v1 legacy-isolation preflight
+fails closed with `legacy_default_regression`; operational grid beta is NOT
+authorised, the v1 snapshot/preflight are byte-unchanged, no marker is
+created/cleared, successor v2 is not created and Commit G is not started. The
+full repository suite is expected to contain the v1 protected-source mismatch
+failures until Commit G activates v2; migration-focused tests and
+check/lint/format pass.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

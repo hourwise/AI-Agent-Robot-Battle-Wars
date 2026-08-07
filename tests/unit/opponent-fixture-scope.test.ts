@@ -11,10 +11,12 @@ import { OPPONENT_FIXTURE_SCHEMA_VERSION } from "../../src/opponents/opponent-fi
 import { OPPONENT_FIXTURE_ROOT } from "../../src/opponents/opponent-fixture-loader.js";
 
 /**
- * Milestone 0.2D Phase 1 Phase 15 — static scope regressions.
+ * Milestone 0.2D Phase 1 Phase 15 + Phase 2 inventory — static scope
+ * regressions.
  *
- * Proves Phase 1 has NOT accidentally implemented later phases: no canonical
- * opponent fixtures, no opponent-suite runner, no package script, no match
+ * Proves the opponent-fixture module scope boundaries: exactly the six
+ * canonical suite v1 fixtures exist under `data/opponents/` (Phase 2 exact
+ * inventory), no opponent-suite runner, no package script, no match
  * execution, no tournament/ranking code, no provider/benchmark/held-out/
  * grid-beta imports in `src/opponents/`, and no production loader API that
  * accepts a caller-controlled fixture-location root.

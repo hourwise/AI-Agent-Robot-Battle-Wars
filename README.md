@@ -808,6 +808,36 @@ the preflight is not weakened; no marker is created/cleared. This step changes
 no source, test, data or governance artifact; Bulwark migration is not yet
 performed; Phase 3 implementation not started.
 
+**Commit M — canonical Bulwark migration candidate (D67, 2026-08-07).** D66
+passed independent review and the migration candidate (Commit M) is now
+created, awaiting independent review before any successor baseline (Commit G).
+Normal legacy application Bulwark combat configuration now comes from the
+canonical `bulwark.v1` fixture: `src/opponents/opponent-runtime-compatibility.ts`
+adds the explicit runtime gate (`OpponentRuntime`, fail-closed
+`assertOpponentFixtureSupportsRuntime`, `loadOpponentFixtureForRuntime(opponentId,
+fixtureVersion, runtime)` — no root/path/filesystem inputs), and
+`src/opponents/legacy-bulwark.ts` adds `loadLegacyBulwark()` enforcing the
+frozen v1 checksum `053e61e8…`. `run-match.ts` loads canonical legacy Bulwark
+once per invocation before any provider request and uses `fixture.validatedBuild`
+/ `fixture.policy`; `run-series.ts` loads it once per series after option
+validation and before any series record persistence or provider call, reusing
+the immutable fixture across the series and for factual-report enrichment.
+Historical `bulwark-agent.ts` constants are retained unchanged as regression/
+evidence anchors (not fallback combat input). Migration evidence: exact data
+equivalence with `BULWARK_BUILD_PROPOSAL`/`BULWARK_POLICY`/`createBulwarkBuild()`
+and `getBulwarkOpponentSummary()` structural facts; exact behavioural
+equivalence under unchanged legacy `runMatch` on predeclared test-only seeds
+32001/32002/32003 (mirror and asymmetric roles); immutability through
+simulation verified. Compatibility matrix: legacy supported bulwark/crusher/
+spinner/generalist, legacy incompatible skirmisher/controller, grid supported
+all six. **Transition state (intentional):** Commit M differs from the active
+v1 reviewed source for `run-match.ts`/`run-series.ts`, so the v1 beta preflight
+fails closed with `legacy_default_regression`; operational grid beta is NOT
+authorised, the v1 snapshot/preflight are byte-unchanged, successor v2 is not
+created, and Commit G is not started. The full repository suite is expected to
+contain the v1 protected-source mismatch failures until Commit G activates v2;
+migration-focused tests and check/lint/format all pass.
+
 ### Replay
 
 ```bash

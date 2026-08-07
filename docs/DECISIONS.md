@@ -3469,6 +3469,166 @@ Milestone 0.2D Phase 3 implementation:
 not started
 ```
 
+## D67: Create canonical Bulwark migration candidate (Commit M) (2026-08-07)
+
+D66 (governed source-evolution bridge) passed independent review. This
+decision records **Commit M** — the canonical Bulwark migration candidate —
+created under the mandatory `Commit M → independent review → Commit G`
+sequence. Commit M is the migration candidate ONLY; successor baseline v2 is
+NOT created, the active beta preflight is NOT modified, v1 protections are
+NOT weakened, and Commit G is NOT started. The exact Commit M SHA is recorded
+in the final report (recording it inside the commit itself would require an
+impossible self-referential commit identity, so no extra commit was made for
+that purpose).
+
+- **Runtime compatibility gate.** `src/opponents/opponent-runtime-compatibility.ts`
+  defines `OpponentRuntime = "legacy" | "grid"`, `OpponentRuntimeCompatibilityError`
+  and the pure fail-closed `assertOpponentFixtureSupportsRuntime(fixture,
+runtime)`: explicit runtime always supplied, `"legacy"` maps only to
+  `LEGACY_RUNTIME_IDENTITY`, `"grid"` only to `GRID_RUNTIME_IDENTITY`, the
+  corresponding fixture compatibility entry must be `supported`, invalid/
+  unknown runtime fails closed at runtime, no inference, no fallback, no
+  simulation, no grid activation, fixture immutable. It also provides the
+  runtime-aware canonical loader `loadOpponentFixtureForRuntime(opponentId,
+fixtureVersion, runtime)` — public inputs ONLY those three; no
+  root/path/filesystem exposure; calls the reviewed fixed-root
+  `loadOpponentFixture`, asserts compatibility, returns the same deeply frozen
+  fixture.
+- **Canonical legacy Bulwark helper.** `src/opponents/legacy-bulwark.ts`
+  freezes `opponentId "bulwark"`, `fixtureVersion 1`, `runtime "legacy"` and
+  the exact v1 `fixtureChecksum`
+  `053e61e867d00015371e852dbe571af666cc8ac99a514b2364be323d54a8d987`;
+  `loadLegacyBulwark()` calls the runtime-aware loader, requires the exact
+  frozen checksum, and fails closed otherwise. Bulwark is never reconstructed
+  manually; `validateBuild` is not re-invoked by normal application code;
+  historical constants are regression anchors, NOT fallback combat input.
+- **Normal run-match migration.** `src/app/run-match.ts` loads the canonical
+  legacy Bulwark fixture exactly once per CLI invocation BEFORE the branch
+  that can call `loadAiFighter` (so a fixture failure fails closed before any
+  DeepSeek request); uses `fixture.validatedBuild` and `fixture.policy` as the
+  Bulwark combat configuration; keeps legacy `runMatch`; no `runGridMatch`, no
+  beta invocation, no runtime fallback, no opponent CLI option. Mirror mode
+  reuses the same immutable fixture-backed build/policy safely. Visible modes
+  unchanged: `Bulwark vs Bulwark`, `AI vs Bulwark`.
+- **Normal run-series migration.** `src/app/run-series.ts` loads the canonical
+  legacy Bulwark exactly once per `runSeries(...)` invocation after ordinary
+  option validation and BEFORE any series ID/record creation/persistence and
+  BEFORE any agent/provider operation; reuses the immutable fixture across the
+  complete series; uses `validatedBuild`/`policy` for fighter B and the
+  canonical policy for factual-report enrichment. Adaptation/rebuild logic,
+  scoring, participant mapping, series/match schema, seed source, legacy
+  `runMatch` and provider semantics are unchanged.
+- **Historical Bulwark module preserved.** `src/agents/scripted/bulwark-agent.ts`
+  is unchanged: `BULWARK_BUILD_PROPOSAL`, `BULWARK_POLICY`,
+  `createBulwarkBuild`, `getBulwarkOpponentSummary` remain historical/
+  equivalence/evidence anchors.
+- **Migration evidence.** Compatibility matrix (legacy supported: bulwark,
+  crusher, spinner, generalist; legacy incompatible: skirmisher, controller;
+  grid supported: all six). Data equivalence (canonical bulwark build/policy/
+  validatedBuild deep-equal the historical constants and `createBulwarkBuild()`;
+  `getBulwarkOpponentSummary()` structural facts agree). Behavioural
+  equivalence under unchanged legacy `runMatch` on predeclared test-only seeds
+  `32001`, `32002`, `32003` (mirror + asymmetric roles) — exact equality of
+  runtime, resolved config, initial states, complete ordered events, result and
+  rounds; immutability through simulation verified (canonical serialized
+  fixture, checksum and deep freeze unchanged). No winners reported, no win
+  rates, no performance interpretation.
+- **Provider/persistence ordering.** run-match loads canonical Bulwark before
+  `loadAiFighter`; run-series loads it before `seriesRepository.saveSeries`,
+  `agent.designMachine`, `agent.choosePolicy` and `agent.reviewMatch`. No
+  production Bulwark-loader injection seam was added; test-only source-boundary
+  checks prove the ordering.
+- **M transition state (expected, intentional).** Commit M intentionally
+  differs from the active v1 reviewed source snapshot for `run-match.ts` and
+  `run-series.ts`, so the v1 legacy-isolation preflight fails closed with
+  `legacy_default_regression`. Operational grid beta is NOT authorised during
+  the transition; no beta command was run; no marker was created/cleared; the
+  preflight was not weakened. The v1 snapshot module and preflight are
+  byte-unchanged; the full repository suite is expected to contain the v1
+  protected-source mismatch failures until Commit G activates v2.
+
+Status:
+
+```
+Milestone 0.2D:
+IN PROGRESS
+
+D66 successor-baseline governance:
+complete and independently reviewed
+
+Commit M:
+created
+
+Commit M exact SHA:
+recorded in final report
+
+Normal run-match Bulwark combat source:
+canonical bulwark.v1
+
+Normal run-series Bulwark combat source:
+canonical bulwark.v1
+
+Legacy simulator:
+unchanged
+
+Legacy default:
+yes
+
+Grid default:
+no
+
+Runtime fallback:
+none
+
+Historical Bulwark constants:
+retained unchanged
+
+Canonical Bulwark fixture:
+unchanged
+
+Canonical suite v1:
+unchanged
+
+Migration behavioural equivalence:
+exact on bounded test-only seeds
+
+Operational opponent matches:
+0
+
+Operational grid beta during transition:
+NOT AUTHORISED
+
+Active beta protected baseline:
+v1
+
+v1 preflight against Commit M:
+expected fail closed / legacy_default_regression
+
+Successor v2:
+not created
+
+Commit G:
+not started
+
+Benchmark access:
+none
+
+Held-out access:
+none
+
+Provider/API execution:
+none
+
+Balance evaluation:
+not authorised
+
+Milestone 0.2D Phase 3:
+candidate awaiting independent review
+
+Milestone 0.2E:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

@@ -28,11 +28,8 @@ import {
 } from "../reports/factual-match-report.js";
 import { buildUsageSummary } from "../schemas/series.schema.js";
 import { matchResultToRecord } from "../persistence/match-converter.js";
-import {
-  createBulwarkBuild,
-  BULWARK_POLICY,
-  getBulwarkOpponentSummary,
-} from "../agents/scripted/bulwark-agent.js";
+import { getBulwarkOpponentSummary } from "../agents/scripted/bulwark-agent.js";
+import { loadLegacyBulwark } from "../opponents/legacy-bulwark.js";
 import { RandomSeedSource } from "../seed-source.js";
 import { JsonSeriesRepository } from "../persistence/series-repository.js";
 import { JsonMatchRepository } from "../persistence/json-match-repository.js";
@@ -176,6 +173,13 @@ export async function runSeries(
     throw new Error(`Invalid series options: ${msg}`);
   }
 
+  // Load the canonical legacy Bulwark exactly once per series invocation,
+  // BEFORE any series record is created/persisted and BEFORE any
+  // agent/provider request; a fixture failure fails closed with no partially
+  // created series record and no provider work. The loaded immutable fixture
+  // is reused across the complete series.
+  const bulwark = await loadLegacyBulwark();
+
   const participantMapping = buildParticipantMapping(request.competitor.id);
 
   const seriesId = randomUUID();
@@ -278,7 +282,7 @@ export async function runSeries(
     const matchResult = runMatch({
       seed,
       fighterA: { build: buildValidation.build, policy: currentPolicy },
-      fighterB: { build: createBulwarkBuild(), policy: BULWARK_POLICY },
+      fighterB: { build: bulwark.validatedBuild, policy: bulwark.policy },
       rulesetVersion: RULESET_VERSION,
       catalogueVersion: CATALOGUE_V1.version,
     });
@@ -287,7 +291,7 @@ export async function runSeries(
     const enrichedReport = enrichMatchSummariesWithPolicy(
       factualReport,
       currentPolicy,
-      BULWARK_POLICY,
+      bulwark.policy,
     );
 
     const resolvedWinner = resolveWinner(matchResult.result.winner, participantMapping);

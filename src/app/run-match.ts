@@ -3,11 +3,8 @@ import { join } from "node:path";
 import { runMatch } from "../simulator/simulator.js";
 import { RULESET_VERSION } from "../simulator/constants.js";
 import { CATALOGUE_V1 } from "../catalogue/catalogue.v1.js";
-import {
-  createBulwarkBuild,
-  BULWARK_POLICY,
-  getBulwarkOpponentSummary,
-} from "../agents/scripted/bulwark-agent.js";
+import { getBulwarkOpponentSummary } from "../agents/scripted/bulwark-agent.js";
+import { loadLegacyBulwark } from "../opponents/legacy-bulwark.js";
 import { matchResultToRecord } from "../persistence/match-converter.js";
 import { JsonMatchRepository } from "../persistence/json-match-repository.js";
 import { renderTextReplay } from "../replay/text-replay-renderer.js";
@@ -119,10 +116,16 @@ async function loadAiFighter(
   };
 }
 
-function loadBulwarkFighter(): FighterConfig {
+/**
+ * Loads the canonical legacy Bulwark combat configuration exactly once per
+ * CLI invocation. Uses the immutable canonical `bulwark.v1` fixture
+ * (validatedBuild + policy); fails closed before any provider request.
+ */
+async function loadBulwarkFighter(): Promise<FighterConfig> {
+  const fixture = await loadLegacyBulwark();
   return {
-    build: createBulwarkBuild(),
-    policy: BULWARK_POLICY,
+    build: fixture.validatedBuild,
+    policy: fixture.policy,
     source: "bulwark",
   };
 }
@@ -145,6 +148,12 @@ async function main() {
   }
   console.log("");
 
+  // Load the canonical legacy Bulwark exactly once, BEFORE the branch that
+  // can call the provider: a fixture failure fails closed before any
+  // DeepSeek design/policy/review request. In mirror mode the same immutable
+  // fixture-backed build/policy is safely reused for both slots.
+  const bulwarkFighter = await loadBulwarkFighter();
+
   let fighterA: FighterConfig;
   let fighterB: FighterConfig;
   const agentUsage: AgentUsageRecord[] = [];
@@ -154,10 +163,10 @@ async function main() {
     const aiResult = await loadAiFighter(opponentSummary);
     fighterA = aiResult.config;
     agentUsage.push(...aiResult.usage);
-    fighterB = loadBulwarkFighter();
+    fighterB = bulwarkFighter;
   } else {
-    fighterA = loadBulwarkFighter();
-    fighterB = loadBulwarkFighter();
+    fighterA = bulwarkFighter;
+    fighterB = bulwarkFighter;
   }
 
   console.log("");
