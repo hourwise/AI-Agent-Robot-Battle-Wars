@@ -505,8 +505,9 @@ independent fresh graphs with mutation detection, governance inventory
 reading is exact (dotfiles included, sorted, regular files only), fighter
 input ancestry is inspected from the filesystem root via `lstat`, and the
 physical replay bundle is inventory-validated before any content is read.
-No real beta match or suspension marker was created; Milestone 0.2C remains
-incomplete pending independent Phase 3G.1 review.
+No real beta match or suspension marker was created during Phase 3G.1; the
+hardening remains in force and unchanged through the authorised GRID-BETA-001
+smoke run.
 
 Phase 3G.1.1 closed the final beta trust-boundary gaps without running a beta
 match or creating a marker. The production beta service is now unbypassable:
@@ -543,9 +544,28 @@ general dependency contract keeps the injectable filesystem, source-commit
 reader, UUID, clock and a non-result-producing `onExecutionStart` observer
 (which only counts entry into the fixed `executeGridBetaMatch` call and cannot
 cancel, replace or mutate execution). No real beta match or marker was
-created; Milestone 0.2C remains incomplete pending independent Phase 3G.1.2
-review. No real beta match or marker was created; Milestone 0.2C remains
-incomplete pending independent Phase 3G.1.1 review.
+created during implementation; the production API was independently reviewed
+at commit `8b96161bb22f927179cfd350d390fdca23b062fd`.
+
+## Milestone 0.2C closure and GRID-BETA-001
+
+Independent review passed Phase 3G.1.2 at
+`8b96161bb22f927179cfd350d390fdca23b062fd` and **Milestone 0.2C is COMPLETE**.
+The first tightly controlled internal grid-beta match, **GRID-BETA-001**, was
+authorised and executed exactly once as an operational smoke test of the
+completed 0.2C beta surface: seed `20260807`, `beta-smoke-01` vs
+`beta-smoke-01` (a deliberate mirror match, not comparative balance
+evidence), match ID `19c41607-21d0-48e1-a419-23d4721e4be4`, winner
+`fighter_b` by judges in 20 rounds. The immutable ten-file bundle under
+`data/beta/grid-matches/19c41607-21d0-48e1-a419-23d4721e4be4/` passed the
+complete production bundle validator, and both the text replay and the ASCII
+replay validated the full physical bundle before display. The suspension
+marker remained absent after completion and all seven official governance
+hashes stayed unchanged. Run 001 is an operational smoke test only: it is not
+balance evidence, not readiness evidence, not adaptation evidence, not
+held-out evaluation, does not authorise grid as the default, does not
+authorise public/ranked/tournament/monetised play, and does not begin
+Milestone 0.2D.
 
 ### Replay
 

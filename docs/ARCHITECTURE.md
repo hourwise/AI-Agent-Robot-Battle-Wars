@@ -1210,9 +1210,9 @@ regular-file identity with `lstat` before and after every read plus a final
 exact ten-entry inventory check before semantic validation, so a
 regular-file-to-symlink substitution during reading rejects through the
 physical rule even when the read returns valid bytes. The suspension-marker
-schema is now strict (cleanup only). No real beta match or marker was
-created; the first real internal beta match remains not yet authorised,
-pending independent Phase 3G.1.1 review.
+schema is now strict (cleanup only). No real beta match or marker was created
+during Phase 3G.1.1; the hardening remains in force and unchanged through the
+authorised GRID-BETA-001 smoke run.
 
 Phase 3G.1.2 sealed the production API boundary. The exported
 `runGridBetaMatchWithEnvironment` runner and the `GridBetaMatchEnvironment`
@@ -1240,9 +1240,22 @@ canonical constants, and no alternate-root beta runner exists anywhere in
 production source. Runtime regressions execute the complete beta path through
 `runGridBetaMatch` itself with the mapped filesystem, proving logical
 production paths are requested and a valid ten-file temporary bundle results
-while real `data/beta` stays absent. No real beta match or marker was
-created; the first real internal beta match remains not yet authorised,
-pending independent Phase 3G.1.2 review.
+while real `data/beta` stays absent. No real beta match or marker was created
+during implementation; Phase 3G.1.2 passed independent review at
+`8b96161…`, and Milestone 0.2C is **COMPLETE**.
+
+GRID-BETA-001 (2026-08-07) executed the completed 0.2C beta surface once as a
+controlled internal operational smoke test: seed `20260807`, `beta-smoke-01`
+vs `beta-smoke-01` mirror, match `19c41607-21d0-48e1-a419-23d4721e4be4`,
+winner `fighter_b` by judges in 20 rounds, primary/repeat result checksums
+identical (`867b2df6…`). The immutable ten-file bundle passed the complete
+production bundle validator; the text replay and the ASCII replay each
+validated the full physical bundle before display; the suspension marker
+remained absent after completion; and all seven official governance hashes
+stayed unchanged. Run 001 is an operational smoke test only — not balance,
+readiness or adaptation evidence, not held-out evaluation, does not authorise
+grid as the default, does not authorise public/ranked/tournament/monetised
+play, and does not begin Milestone 0.2D.
 
 ### Agent usage tracking
 

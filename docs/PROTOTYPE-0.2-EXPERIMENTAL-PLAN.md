@@ -736,9 +736,9 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   never following a symbolic-link ancestor; replay validates physical
   regular-file identity before and after every read plus a final exact
   inventory check before semantic validation; the suspension-marker schema is
-  now strict (cleanup only). No real beta match or marker was created; no
-  official artifact was altered; the first real internal beta match remains
-  **not yet authorised**, pending independent Phase 3G.1.1 review.
+  now strict (cleanup only). No real beta match or marker was created during
+  Phase 3G.1.1; the hardening remains in force and unchanged through the
+  authorised GRID-BETA-001 smoke run.
 - Grid-beta production API sealing (Phase 3G.1.2): **complete**. The final
   exported alternate-root production service was removed:
   `runGridBetaMatchWithEnvironment` and the `GridBetaMatchEnvironment` type
@@ -758,9 +758,25 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   (counts entry into the fixed core only). Static API-boundary and runtime
   regressions through `runGridBetaMatch` itself pass; the pre-simulation and
   pre-publication race tests run through the real entry point with unchanged
-  safety outcomes. No real beta match or marker was created; no official
-  artifact was altered; the first real internal beta match remains **not yet
-  authorised**, pending independent Phase 3G.1.2 review.
+  safety outcomes. No real beta match or marker was created during
+  implementation; independently reviewed at `8b96161…`.
+- Milestone 0.2C closure and GRID-BETA-001 (2026-08-07): **Milestone 0.2C
+  COMPLETE**. Independent review passed Phase 3G.1.2 at
+  `8b96161bb22f927179cfd350d390fdca23b062fd`, and the first tightly
+  controlled internal grid-beta match was authorised and executed exactly
+  once as an operational smoke test: seed `20260807`, `beta-smoke-01` vs
+  `beta-smoke-01` mirror (local smoke fighter checksum
+  `e168c618…`, build total cost 94/100, frozen before the run and not tuned),
+  match `19c41607-21d0-48e1-a419-23d4721e4be4`, winner `fighter_b` by judges
+  in 20 rounds, primary/repeat result checksums identical
+  (`867b2df6…`). The complete production bundle validator passed the ten-file
+  bundle; the text replay and the ASCII replay each validated the full
+  physical bundle before display; the suspension marker remained absent after
+  completion; all seven official governance hashes stayed unchanged. Run 001
+  is an operational smoke test only — not balance/readiness/adaptation
+  evidence, not held-out evaluation, does not authorise grid as the default,
+  does not authorise public/ranked/tournament/monetised play, and does not
+  begin Milestone 0.2D.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

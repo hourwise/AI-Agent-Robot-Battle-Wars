@@ -2247,6 +2247,129 @@ balance qualification:                   not performed
 Milestone 0.2C:                          not complete pending independent Phase 3G.1.2 review
 ```
 
+## D58: Close Milestone 0.2C and authorise bounded internal grid beta operation (2026-08-07)
+
+Independent review passed Phase 3G.1.2 at commit
+`8b96161bb22f927179cfd350d390fdca23b062fd`. Milestone 0.2C is therefore
+**COMPLETE**, and the first tightly controlled internal grid-beta match was
+authorised and executed exactly once as an operational smoke test of the
+completed 0.2C beta surface. It is not Milestone 0.2D and must not become
+balance evaluation, opponent-suite work or tuning. No benchmark seed bank was
+opened, no readiness/grapple-supplement/governance generation ran, no provider
+or external API was called, and held-out and `all` remained sealed.
+
+- **GRID-BETA-001 (Run 001).** Seed `20260807`; `beta-smoke-01` vs
+  `beta-smoke-01` — a deliberate mirror match so the first operational run is
+  not treated as comparative balance evidence. The local smoke fighter
+  `data/beta/grid-fighters/beta-smoke-01.json` was constructed only from the
+  public catalogue-v1 definitions, the authoritative fighter schema and
+  existing ordinary unit-test examples; it was validated through the
+  authoritative `parseGridBetaFighterSpec` and catalogue validator (build
+  total cost 94/100) with canonical SHA-256 checksum
+  `e168c618fea8eff284add2a2df1c150c7db0fc0f6e11779b24114ce1effff21f`, frozen
+  before the run, and never tuned after any result.
+- **Result.** Match ID `19c41607-21d0-48e1-a419-23d4721e4be4`, createdAt
+  `2026-08-07T10:00:01.907Z`, winner `fighter_b`, method `judges`, 20 rounds.
+  Primary and repeat result checksums are identical
+  (`867b2df6d1eabeb48e22534070bd9c411db1e383be40b6dee45fc97f56aa9aec`);
+  the selection seed is exactly `20260807`; acknowledgement is true; the C2
+  ID/checksum (`component-impact-c2` / `13548462df34a183`), the frozen grid
+  runtime identity (`0.3.0 / grid-3x3-v1 / 0.2.0 / 1`) and the governance
+  decision (`58e8cd87-…`,
+  `approved_for_bounded_opt_in_beta_implementation`) are exact; agent usage is
+  empty; the protected-source preflight is the canonical pass; suspension
+  status is clear; result/report/replay agreement holds; no legacy fallback
+  occurred. The complete production bundle validator passed the ten persisted
+  artifacts.
+- **Persisted artifact hashes (ten exact byte SHA-256).** manifest
+  `b6b4622e240d3af9fc84cfbfac287cd07875e685108a8e686b1d229277f9c338`;
+  selection `7d9a652218636f4be06c2d365aa90503fc2c46a1841421b0fa4e3427000ddd72`;
+  fighter-a `e168c618fea8eff284add2a2df1c150c7db0fc0f6e11779b24114ce1effff21f`;
+  fighter-b `e168c618fea8eff284add2a2df1c150c7db0fc0f6e11779b24114ce1effff21f`
+  (identical to fighter-a for the mirror match); execution-attestation
+  `946687dca49ad1d5cf51a69fc6958117d81a641450a4fb4e8b0fdd5b9bbf64a6`;
+  match `6add38fa003b0069669460594dc439bc768b27e4ef7a8be0307219aad4f641e9`;
+  factual-report `f89bf40973d1a68526dba6fc6ca5e48f0747c6cbb0f2b9d5e2d33e9628c374cb`;
+  text-replay `7eadf08b3982a3be32b42c0f15220fc9f5679bd0a57711819b3d10e67bf0d724`;
+  ascii-replay `2c66ad557ff18d8f8373339f95fcfe8901ff060d078742bb8db6766cda1c7d07`;
+  review-prompt `08c1c3d1a67dab61a14e773bd357d8467dc43f4d13db59005b99052167587bd4`.
+  The fighter-a and fighter-b artifact bytes are identical for this mirror
+  match and equal the frozen pre-run fighter checksum.
+- **Real replay validated.** `replay:grid:beta --match
+19c41607-21d0-48e1-a419-23d4721e4be4` (text) and the `--ascii` variant both
+  validated the complete physical ten-file bundle before display and
+  completed successfully; no simulation ran during replay.
+- **Post-run integrity.** The suspension marker
+  `data/beta/GRID_BETA_SUSPENDED` remained absent after completion. All seven
+  official governance hashes recomputed unchanged (manifest
+  `0f143dde…`, source-state `5721585d…`, base-reference `972d99b9…`,
+  supplement-reference `0cc07da6…`, beta-contract `5f345ce4…`, decision
+  `da377b33…`, report `63259937…`). Official readiness, grapple-supplement and
+  governance artifacts unchanged; C1/C2/AB2 unchanged with C2 default;
+  legacy normal match/series/replay source unchanged; both canaries
+  unchanged; no benchmark/seed-bank/held-out/provider access occurred. The
+  only real beta operational data created is
+  `data/beta/grid-fighters/beta-smoke-01.json` and
+  `data/beta/grid-matches/19c41607-21d0-48e1-a419-23d4721e4be4/` (plus the
+  parent directories), which remain local and untracked (gitignored).
+- **Scope.** Run 001 is an operational smoke test only. It is not balance
+  evidence. It is not readiness evidence. It is not adaptation evidence. It
+  is not held-out evaluation. It does not authorise grid as the default. It
+  does not authorise public, ranked, tournament or monetised play. It does
+  not begin Milestone 0.2D.
+
+Status:
+
+```
+Milestone 0.2C:
+COMPLETE
+
+Official v3 readiness evidence:
+complete and unchanged
+
+Official grapple supplement:
+complete and unchanged
+
+Official Phase 3F governance decision:
+complete, unchanged and source-anchored
+
+Phase 3G bounded beta implementation:
+complete
+
+Phase 3G.1 safety/provenance hardening:
+complete
+
+Phase 3G.1.1 trust-boundary hardening:
+complete
+
+Phase 3G.1.2 production API sealing:
+complete and independently reviewed
+
+controlled internal grid beta:
+authorised
+
+GRID-BETA-001:
+complete
+
+legacy default:
+yes
+
+grid default activation:
+no
+
+public rollout:
+not authorised
+
+ranked/tournament:
+not authorised
+
+balance qualification:
+not performed
+
+Milestone 0.2D:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

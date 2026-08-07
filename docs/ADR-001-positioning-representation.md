@@ -2263,8 +2263,23 @@ balance tuning and does not begin Milestone 0.2D.
   beta path through `runGridBetaMatch` itself with the mapped filesystem,
   proving logical production paths are requested and a valid ten-file
   temporary bundle results while real `data/beta` stays absent. No real beta
-  match or marker was created; no official artifact was altered; the first
-  real internal beta match remains not yet authorised.
+  match or marker was created during implementation.
+- **Milestone 0.2C closure and GRID-BETA-001 (2026-08-07).** Independent
+  review passed Phase 3G.1.2 at
+  `8b96161bb22f927179cfd350d390fdca23b062fd`; **Milestone 0.2C is COMPLETE**.
+  The first tightly controlled internal grid-beta match, GRID-BETA-001, was
+  authorised and executed exactly once as an operational smoke test of the
+  completed 0.2C beta surface: seed `20260807`, `beta-smoke-01` vs
+  `beta-smoke-01` (deliberate mirror match — not comparative balance
+  evidence), match `19c41607-21d0-48e1-a419-23d4721e4be4`, winner
+  `fighter_b` by judges in 20 rounds. The immutable ten-file bundle passed
+  the complete production bundle validator; the text replay and the ASCII
+  replay each validated the full physical bundle before display; the
+  suspension marker remained absent after completion; and all seven official
+  governance hashes stayed unchanged. Run 001 is an operational smoke test
+  only — it is not balance, readiness or adaptation evidence, not held-out
+  evaluation, does not authorise grid as the default, does not authorise
+  public/ranked/tournament/monetised play, and does not begin Milestone 0.2D.
 
 ### 9.20 Phase 3E1 status
 
@@ -2375,15 +2390,24 @@ genuine checkout; general dependency contract keeps injectable filesystem,
 source-commit reader, UUID, clock and a non-result-producing
 `onExecutionStart` observer; static API-boundary and runtime regressions
 through `runGridBetaMatch` itself; no real beta match or marker created;
-official artifacts unchanged); governance
+official artifacts unchanged; independently reviewed at `8b96161…`); Phase
+3G.1.2 **passed independent review**; **Milestone 0.2C COMPLETE**; controlled
+internal grid beta **authorised**; GRID-BETA-001 **complete** (operational
+smoke test only: seed `20260807`, `beta-smoke-01` mirror, match
+`19c41607-21d0-48e1-a419-23d4721e4be4`, winner `fighter_b` by judges in 20
+rounds, primary/repeat result checksums identical
+`867b2df6…`, complete bundle validator pass, text and ASCII replay
+validation pass, suspension marker absent after completion, all seven
+governance hashes unchanged; not balance/readiness/adaptation evidence, not
+held-out evaluation, does not authorise grid as default or
+public/ranked/tournament play, does not begin Milestone 0.2D); governance
 outcome **`approved_for_bounded_opt_in_beta_implementation`**; bounded opt-in
-beta implementation **implemented, not yet authorised for first real
-execution**; grid runtime enabled **no**; legacy default
+beta implementation **operational (single controlled smoke run; legacy
+remains default)**; grid runtime enabled **no**; legacy default
 **yes**; public rollout **not authorised**; balance qualification **not
 performed**; opt-in beta decision **performed (approval for bounded
 implementation)**; default grid activation **not performed**; Milestone 0.2C
-**not complete** pending a separately authorised activation-readiness
-decision and independent Phase 3G.1.2 review.
+**COMPLETE**; Milestone 0.2D **not started**.
 
 ## 10. Still out of scope
 
