@@ -6,6 +6,15 @@
 grid-beta work (D54–D60), legacy default runtime `0.2.0` and opt-in grid
 runtime `0.3.0 / grid-3x3-v1`.
 **Related decisions:** D61 (Milestone 0.2D opponent-suite governance).
+**Implementation note (D62, 2026-08-07):** Milestone 0.2D Phase 1 implements
+this contract as the generic fixture foundation (`src/opponents/opponent-fixture.ts`
+and `src/opponents/opponent-fixture-loader.ts`) without changing it: strict
+v1 schema, exact-key strictness at every object level, canonical identity/
+SHA-256 checksum over the complete validated build, byte-exact canonical
+persisted serialization, secure fixed-root `data/opponents` loader, and deep
+immutability. No canonical fixture exists yet; Bulwark is not migrated in
+Phase 1; the runtime-compatibility model remains data-only (loading never
+activates a runtime or executes a match).
 
 ## 1. Problem
 

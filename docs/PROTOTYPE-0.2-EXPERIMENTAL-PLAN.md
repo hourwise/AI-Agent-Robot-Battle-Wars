@@ -1252,14 +1252,17 @@ removed without touching live legacy behaviour (normal matches remain
 
 ---
 
-### Milestone 0.2D — Opponent Suite (Phase 0: DEFINED, NOT IMPLEMENTED — 2026-08-07, D61)
+### Milestone 0.2D — Opponent Suite (Phase 0: DEFINED; Phase 1 foundation COMPLETE — 2026-08-07, D61/D62)
 
 Milestone 0.2C is COMPLETE and Observation Window A is ACCEPTED. Phase 0
 defines the opponent-suite governance, the fixture contract (ADR-004), the
 runtime relationship, the evidence firewall and the phased implementation
 sequence. No opponent fixture, no fixture JSON, no runner and no tournament/
 cross-opponent execution is implemented in Phase 0; no package script changed
-and no `data/opponents/` tree was created.
+and no `data/opponents/` tree was created. Phase 1 (D62) implements ONLY the
+generic opponent-fixture foundation (schema, canonical identity/checksum,
+secure fixed-root loader) — no canonical opponent fixtures, no Bulwark
+migration, no runner, no opponent matches.
 
 **Authorised research/engineering question (the only question 0.2D may
 answer):**
@@ -1298,6 +1301,20 @@ not authorise public or ranked play.
 - Grid default: no
 - Public/ranked/tournament: not authorised
 - Milestone 0.2E: not started
+
+**Implementation status (Phase 1, D62):**
+
+- Milestone 0.2D: IN PROGRESS
+- Phase 0 governance: complete and independently reviewed
+- Phase 1 fixture foundation: complete
+- Opponent fixture schema: implemented
+- Canonical identity/checksum: implemented
+- Secure fixed-root loader: implemented
+- Canonical opponent fixtures: 0
+- Bulwark migrated: no
+- Six-opponent suite: not implemented
+- Opponent-suite runner: not implemented
+- Opponent matches executed: 0
 
 **Scope (Phase 0):** opponent fixture format governance (ADR-004), runtime
 relationship decision, six conceptual archetype envelopes, evidence firewall,
@@ -1354,23 +1371,97 @@ baseline vs redesign, test overfitting or use held-out seeds. Dependency:
 fixtures → 0.2E separately governed adaptation evaluation`, without implying
 0.2E is automatically authorised.
 
+**Phase 1 implementation (D62, 2026-08-07) — opponent fixture foundation:**
+
+- **Modules.** `src/opponents/opponent-fixture.ts` (strict v1 schema,
+  exact-key strictness preflight, canonical identity/checksum, deep
+  immutability) and `src/opponents/opponent-fixture-loader.ts` (secure
+  fixed-root loader). No runner, no execution orchestration, no canonical
+  fixtures.
+- **Schema v1.** `OPPONENT_FIXTURE_SCHEMA_VERSION = "1"`; strict identifier
+  `^[a-z0-9][a-z0-9_-]{0,63}$` (rejects `/`, `\`, `..`, `:`, `%`, NUL,
+  absolute paths, URLs, drive syntax); positive integer `fixtureVersion`;
+  canonical filename `<opponentId>.v<fixtureVersion>.json`. Persisted fields:
+  `schemaVersion`, `opponentId`, `fixtureVersion`, `displayName`, `build`,
+  `validatedBuild`, `policy`, `catalogueVersion`, `rulesetCompatibility`,
+  `runtimeCompatibility`, `description`, `archetypeIntent`, `fixtureChecksum`.
+  No balance labels (`tier`, `powerLevel`, `difficultyRating`, `balanced`,
+  `meta`, `optimal`).
+- **Strictness boundary.** The global `machineBuildProposalSchema`/
+  `actionPolicySchema` are unchanged. The fixture parser runs an exact-key
+  preflight at every object level (fixture top level, `build`, `build.armour`,
+  `policy`, ruleset/runtime compatibility, `validatedBuild` + `proposal`)
+  before the authoritative schemas; unknown authoritative fields are rejected
+  and never silently stripped. Value/enum/budget validation stays
+  authoritative (`machineBuildProposalSchema`, `actionPolicySchema`,
+  `validateBuild(…, CATALOGUE_V1)`).
+- **Validated-build binding.** The persisted `validatedBuild` must equal the
+  COMPLETE authoritative build returned by `validateBuild(build,
+CATALOGUE_V1)` (proposal, totalCost, armourCost, totalArmourPoints,
+  catalogueVersion; no subset comparison, no hand-computed costs);
+  `validatedBuild.catalogueVersion == catalogueVersion ==
+CATALOGUE_V1.version`.
+- **Ruleset compatibility.** Strict binding to exact `RULESET_VERSION`
+  (`0.2.0`) with status `supported`; unknown ruleset identities rejected.
+- **Runtime compatibility.** Strict binding to the frozen
+  `LEGACY_RUNTIME_IDENTITY` (`0.2.0 / legacy-five-zone-v1`) and
+  `GRID_RUNTIME_IDENTITY` (`0.3.0 / grid-3x3-v1`) with explicit
+  `supported | incompatible` per runtime; both entries mandatory; no unknown
+  runtime; at least one `supported`; data only — loading never activates a
+  runtime or executes a match.
+- **Text fields.** `displayName` non-empty, bounded (≤20), terminal-safe,
+  agrees with the build `machineName` under the sanitised-name convention;
+  `description` (≤500) and `archetypeIntent` (≤200) bounded and terminal-safe.
+- **Canonical identity/checksum.** Deterministic identity payload (all fields
+  except `fixtureChecksum`, including the COMPLETE `validatedBuild`) with
+  recursive object-key ordering (array order preserved; no timestamps/random
+  IDs/environment-dependent fields) → SHA-256 via `sha256Hex`;
+  `fixtureChecksum` excluded from its own input. Canonical persisted
+  serialization includes `fixtureChecksum` with fixed ordering/formatting; a
+  loaded file must already equal it byte-for-byte (rejects alternative key
+  order, extra whitespace, CRLF, trailing junk, unknown fields, valid-semantic
+  noncanonical bytes). Fail closed; never auto-rewritten.
+- **Deep immutability.** Parse/load deeply freezes fixture, build, armour,
+  validatedBuild, validatedBuild.proposal, policy and compatibility objects.
+- **Secure loader.** `loadOpponentFixture(opponentId, fixtureVersion,
+dependencies?)` with the fixed logical root `data/opponents`; no
+  alternate-root API (selection is identifier + version); canonical filename
+  only; path-escape rejection; `lstat`-based symlink/junction ancestry
+  inspection; regular-file requirement; bounded JSON size; post-read
+  re-`lstat`; strict schema + canonical bytes + build/policy/compatibility/
+  checksum binding; deeply frozen result. All failures are
+  `OpponentFixtureError`; no beta suspension marker involvement.
+- **Tests.** Synthetic test-only fixtures (none of the six archetypes).
+  Positive/determinism/round-trip/deep-freeze; semantic corruption (including
+  coherent-tamper cases with recomputed checksums); physical/TOCTOU races
+  (missing/directory/symlink/junction ancestry/traversal/oversized/deletion/
+  replacement/noncanonical bytes/malformed JSON); static scope regressions
+  proving later 0.2D phases are not implemented. Test-only path remapping in
+  `tests/helpers/opponent-fixture-mapped-fs.ts`; no real `data/opponents/`
+  tree created.
+
 **Affected modules (Phase 0):** none — documentation only
 (`docs/ADR-004-multi-opponent-fixture-format.md`, this plan, README,
 ARCHITECTURE, DECISIONS).
 
-**Schema implications (Phase 0):** the opponent fixture schema is defined
-conceptually in ADR-004; no code schema ships in Phase 0.
+**Schema implications (Phase 0):** the opponent fixture schema was defined
+conceptually in ADR-004; no code schema shipped in Phase 0. Phase 1 (D62)
+implements the strict v1 schema, canonical identity/checksum and secure
+fixed-root loader in `src/opponents/`.
 
-**Version implications:** fixture version field is defined in ADR-004; no code
-change in Phase 0.
+**Version implications:** fixture version field was defined in ADR-004; no code
+change in Phase 0. Phase 1 ships the `fixtureVersion` positive-integer
+contract and the canonical `<opponentId>.v<fixtureVersion>.json` filename.
 
-**Tests (Phase 0):** none added — documentation/design only.
+**Tests (Phase 0):** none added — documentation/design only. Phase 1 adds
+57 fixture tests (schema/semantic corruption/loader TOCTOU/static scope).
 
 **Acceptance criteria (Phase 0):** ADR-004 accepted; stale 0.2C status
 corrected; D61 recorded; no implementation artefacts created.
 
 **Rollback (Phase 0):** revert the documentation-only commit; no code exists
-to remove.
+to remove. Phase 1 rollback removes `src/opponents/` and the fixture test
+files/helpers (no canonical fixtures, runner or `data/opponents/` exist).
 
 ---
 
@@ -1403,14 +1494,14 @@ to remove.
 
 Decision questions to resolve before implementation. Recommended order reflects dependencies.
 
-| #       | ADR                                | Question                                                                                                                                                                                                                                                                                                                                                 | Depends on                  |
-| ------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| ADR-001 | Positioning representation         | **Accepted for phased implementation:** 3×3 grid frozen in `docs/ADR-001-positioning-representation.md`; Phases 1–3C implemented (geometry, schema v3/replay, opt-in grid runtime core, hardening, momentum correction, lateral/flank integration). The grid runtime is opt-in (`runGridMatch`, simulator `0.3.0`); default activation remains deferred. | Nothing                     |
-| ADR-002 | Component damage lifecycle         | **Accepted:** healthy→damaged→disabled. Candidate C1 is implemented and viable for lifecycle coverage, but 0.2B acceptance awaits split gates and diagnostic fixtures.                                                                                                                                                                                   | Volatility benchmark (0.2A) |
-| ADR-003 | Deterministic seed-bank evaluation | Fixed seeds, sample size, held-out protocol?                                                                                                                                                                                                                                                                                                             | Nothing                     |
-| ADR-004 | Multi-opponent fixture format      | **Accepted (Milestone 0.2D Phase 0, 2026-08-07):** immutable/versioned fixture identity, canonical SHA-256 fixture checksum, runtime-neutral fixture with runtime-specific execution, six archetype envelopes, Bulwark migration rule — frozen in `docs/ADR-004-multi-opponent-fixture-format.md`. No implementation yet.                                | Nothing                     |
-| ADR-005 | Simulator version compatibility    | How do old matches replay under new rules? Version-gating vs separate code paths?                                                                                                                                                                                                                                                                        | ADR-001, ADR-002            |
-| ADR-006 | Adaptation success metrics         | What thresholds define improvement? How is overfitting detected?                                                                                                                                                                                                                                                                                         | ADR-003                     |
+| #       | ADR                                | Question                                                                                                                                                                                                                                                                                                                                                                                                                                               | Depends on                  |
+| ------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
+| ADR-001 | Positioning representation         | **Accepted for phased implementation:** 3×3 grid frozen in `docs/ADR-001-positioning-representation.md`; Phases 1–3C implemented (geometry, schema v3/replay, opt-in grid runtime core, hardening, momentum correction, lateral/flank integration). The grid runtime is opt-in (`runGridMatch`, simulator `0.3.0`); default activation remains deferred.                                                                                               | Nothing                     |
+| ADR-002 | Component damage lifecycle         | **Accepted:** healthy→damaged→disabled. Candidate C1 is implemented and viable for lifecycle coverage, but 0.2B acceptance awaits split gates and diagnostic fixtures.                                                                                                                                                                                                                                                                                 | Volatility benchmark (0.2A) |
+| ADR-003 | Deterministic seed-bank evaluation | Fixed seeds, sample size, held-out protocol?                                                                                                                                                                                                                                                                                                                                                                                                           | Nothing                     |
+| ADR-004 | Multi-opponent fixture format      | **Accepted (Milestone 0.2D Phase 0, 2026-08-07):** immutable/versioned fixture identity, canonical SHA-256 fixture checksum, runtime-neutral fixture with runtime-specific execution, six archetype envelopes, Bulwark migration rule — frozen in `docs/ADR-004-multi-opponent-fixture-format.md`. Phase 1 (D62) implements the generic fixture foundation (schema, canonical identity/checksum, secure fixed-root loader); no canonical fixtures yet. | Nothing                     |
+| ADR-005 | Simulator version compatibility    | How do old matches replay under new rules? Version-gating vs separate code paths?                                                                                                                                                                                                                                                                                                                                                                      | ADR-001, ADR-002            |
+| ADR-006 | Adaptation success metrics         | What thresholds define improvement? How is overfitting detected?                                                                                                                                                                                                                                                                                                                                                                                       | ADR-003                     |
 
 Recommended order: ADR-003 and ADR-004 can be resolved immediately (they are independent). ADR-001 is accepted for phased implementation; Phases 1–3C (geometry, schema v3/replay, opt-in grid runtime core, hardening, momentum correction, lateral/flank integration) are complete and the grid runtime is opt-in with default activation deferred. ADR-002's lifecycle and Candidate C qualification architecture are accepted; Candidate C1 is implemented, but split gate approval and diagnostic fixture confirmation remain outstanding. ADR-004 is now resolved as Milestone 0.2D Phase 0 governance (`docs/ADR-004-multi-opponent-fixture-format.md`) with no implementation. ADR-005 depends on decisions made in ADR-001 and ADR-002. ADR-006 is last — it needs the evaluation protocol defined.
 

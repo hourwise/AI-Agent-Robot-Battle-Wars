@@ -640,6 +640,82 @@ rankings, prizes, matchmaking or public/ranked play. No seed bank, held-out
 partition or `all` is opened; adaptation and balance evaluation are not
 authorised; legacy remains default; Milestone 0.2E is not started.
 
+## Milestone 0.2D Phase 1 — Opponent fixture foundation
+
+Milestone 0.2D Phase 0 passed independent review (D62, 2026-08-07). Phase 1
+implements ONLY the generic opponent-fixture foundation: the strict v1
+fixture schema, the canonical identity/checksum machinery, and the secure
+fixed-root loader under `src/opponents/`. No canonical opponent fixture
+exists, Bulwark is not migrated, no opponent-suite runner exists and no
+opponent match has been executed.
+
+- **Schema (`src/opponents/opponent-fixture.ts`).** `OPPONENT_FIXTURE_SCHEMA_VERSION
+= "1"`; strict identifier contract `^[a-z0-9][a-z0-9_-]{0,63}$` (rejects
+  `/`, `\`, `..`, `:`, `%`, NUL, absolute paths, URLs, drive syntax); positive
+  integer `fixtureVersion`; canonical filename `<opponentId>.v<fixtureVersion>.json`.
+  Persisted fields: `schemaVersion`, `opponentId`, `fixtureVersion`,
+  `displayName`, `build`, `validatedBuild`, `policy`, `catalogueVersion`,
+  `rulesetCompatibility`, `runtimeCompatibility`, `description`,
+  `archetypeIntent`, `fixtureChecksum`.
+- **Strictness boundary.** The global build/policy schemas are unchanged. The
+  fixture parser runs an exact-key preflight at every object level (fixture
+  top level, `build`, `build.armour`, `policy`, ruleset/runtime compatibility
+  and the persisted validated-build snapshot) before the authoritative
+  schemas, so unknown authoritative fields are rejected and never silently
+  stripped. Value/enum/budget validation stays authoritative
+  (`machineBuildProposalSchema`, `actionPolicySchema`, `validateBuild`).
+- **Validated-build binding.** After `validateBuild(build, CATALOGUE_V1)`, the
+  persisted `validatedBuild` must equal the COMPLETE returned authoritative
+  build (proposal, totalCost, armourCost, totalArmourPoints, catalogueVersion
+  — no subset comparison, no hand-computed costs), and
+  `catalogueVersion == CATALOGUE_V1.version`.
+- **Compatibility contracts.** `rulesetCompatibility` binds exact
+  `RULESET_VERSION` (`0.2.0`) with status `supported`; `runtimeCompatibility`
+  binds the complete frozen identities (`legacy` `0.2.0 /
+legacy-five-zone-v1`; `grid` `0.3.0 / grid-3x3-v1`) with explicit
+  `supported | incompatible` per runtime, both entries mandatory, at least
+  one `supported`, no unknown runtime accepted. Compatibility is data only —
+  loading never activates a runtime or executes a match.
+- **Text fields.** `displayName` (bounded, terminal-safe, agrees with the
+  build `machineName` under the sanitised-name convention), `description` and
+  `archetypeIntent` (bounded, terminal-safe). No balance labels (`tier`,
+  `powerLevel`, `difficultyRating`, `balanced`, `meta`, `optimal`) exist in
+  the schema.
+- **Canonical identity/checksum.** A deterministic identity payload (every
+  field except `fixtureChecksum`, with the COMPLETE `validatedBuild`)
+  serialized with recursive object-key ordering (array order preserved) →
+  SHA-256 (`sha256Hex`). `fixtureChecksum` is not part of its own input. The
+  persisted file must equal the canonical serialization byte-for-byte
+  (rejects alternative key order, extra whitespace, CRLF, trailing junk,
+  unknown fields); malformed/noncanonical fixtures fail closed, never
+  auto-rewritten.
+- **Secure loader (`src/opponents/opponent-fixture-loader.ts`).**
+  `loadOpponentFixture(opponentId, fixtureVersion, dependencies?)` uses the
+  fixed logical root `data/opponents` (no alternate-root API; selection is
+  identifier + version). It validates the ID/version, constructs only the
+  canonical filename, rejects path escape, inspects ancestry with `lstat`
+  (rejects symlink/junction ancestry), requires a regular final file, bounds
+  JSON size, re-`lstat`s after reading, parses JSON, enforces the strict
+  schema + canonical bytes + build/policy/compatibility/checksum binding, and
+  returns a deeply frozen fixture. All failures are `OpponentFixtureError`
+  input/fixture validation failures; no beta suspension marker involvement.
+- **Test isolation.** A test-only path-remapping filesystem under
+  `tests/helpers/opponent-fixture-mapped-fs.ts` redirects the canonical
+  logical root onto temp directories; no real `data/opponents/` tree is
+  created. Tests cover positive/determinism/deep-freeze, semantic corruption
+  (including coherent-tamper cases with recomputed checksums), physical
+  TOCTOU races (missing/directory/symlink/junction ancestry/traversal/
+  oversized/deletion/replacement/noncanonical bytes/malformed JSON) and
+  static scope regressions proving later 0.2D phases are not implemented.
+
+Status (D62): Milestone 0.2D IN PROGRESS; Phase 0 governance complete and
+independently reviewed; Phase 1 fixture foundation complete; canonical
+opponent fixtures 0; Bulwark migrated no; six-opponent suite not implemented;
+opponent-suite runner not implemented; opponent matches executed 0;
+adaptation/balance evaluation not authorised; seed-bank/held-out access none;
+provider/API use none; legacy default yes; grid default no;
+public/ranked/tournament not authorised; Milestone 0.2E not started.
+
 ### Replay
 
 ```bash

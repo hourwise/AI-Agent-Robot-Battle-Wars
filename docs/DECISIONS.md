@@ -2760,6 +2760,189 @@ Milestone 0.2E:
 not started
 ```
 
+## D62: Implement opponent fixture foundation (2026-08-07)
+
+Milestone 0.2D Phase 0 passed independent review and ADR-004/D61 are
+accepted. This task implements ONLY the generic opponent-fixture foundation
+for Milestone 0.2D Phase 1: the strict v1 fixture schema, the canonical
+identity/checksum machinery and the secure fixed-root loader. No canonical
+opponent fixture exists; Bulwark is NOT migrated in Phase 1; no
+opponent-suite runner, package script, opponent match execution or
+tournament/ranking code is introduced; no `data/opponents/` tree is created.
+
+- **Module structure.** `src/opponents/opponent-fixture.ts` (schema,
+  strictness, identity/checksum, parse) and
+  `src/opponents/opponent-fixture-loader.ts` (secure fixed-root loader). No
+  runner and no execution orchestration.
+- **Schema v1.** `OPPONENT_FIXTURE_SCHEMA_VERSION = "1"`. Strict identifier
+  `^[a-z0-9][a-z0-9_-]{0,63}$` (rejects `/`, `\`, `..`, `:`, `%`, NUL,
+  absolute paths, URLs, drive syntax). Positive integer `fixtureVersion`;
+  canonical filename `<opponentId>.v<fixtureVersion>.json`. Persisted fields:
+  `schemaVersion`, `opponentId`, `fixtureVersion`, `displayName`, `build`,
+  `validatedBuild`, `policy`, `catalogueVersion`, `rulesetCompatibility`,
+  `runtimeCompatibility`, `description`, `archetypeIntent`, `fixtureChecksum`.
+  No balance labels (`tier`, `powerLevel`, `difficultyRating`, `balanced`,
+  `meta`, `optimal`).
+- **Strictness without global schema changes.** The global
+  `machineBuildProposalSchema`/`actionPolicySchema` are NOT modified. The
+  fixture parser runs an exact-key preflight at every object level (fixture
+  top level, `build`, `build.armour`, `policy`, `rulesetCompatibility`,
+  `runtimeCompatibility` + entries, `validatedBuild` + its `proposal`) before
+  the authoritative schemas, so unknown fields are rejected and never
+  silently stripped. Value/enum/budget validation remains authoritative
+  (`machineBuildProposalSchema`, `actionPolicySchema`, `validateBuild(…,
+CATALOGUE_V1)`). Regression tests prove an otherwise-valid build/policy plus
+  one unknown property is rejected at every level.
+- **Complete validated-build binding.** After
+  `validateBuild(build, CATALOGUE_V1)`, the persisted `validatedBuild` must
+  equal the COMPLETE returned authoritative build (proposal, totalCost,
+  armourCost, totalArmourPoints, catalogueVersion — no subset comparison, no
+  hand-computed costs); `validatedBuild.catalogueVersion == catalogueVersion
+== CATALOGUE_V1.version`.
+- **Ruleset compatibility.** Strict structure binding exact `RULESET_VERSION`
+  (`0.2.0`) with status `supported`; unknown ruleset identities rejected;
+  global ruleset never changed.
+- **Runtime compatibility.** Strict structure binding the complete frozen
+  `LEGACY_RUNTIME_IDENTITY` (`0.2.0 / legacy-five-zone-v1`) and
+  `GRID_RUNTIME_IDENTITY` (`0.3.0 / grid-3x3-v1`) with explicit
+  `supported | incompatible` per runtime; both entries mandatory; no unknown
+  runtime; at least one `supported`; compatibility is data only — loading
+  never activates a runtime or executes a match; never inferred from policy.
+- **Text fields.** `displayName` non-empty, bounded (≤20), terminal-safe and
+  agreeing with the build `machineName` under the sanitised-name convention;
+  `description` (≤500) and `archetypeIntent` (≤200) bounded and
+  terminal-safe.
+- **Canonical identity/checksum.** Deterministic identity payload (all
+  fields except `fixtureChecksum`, including the COMPLETE `validatedBuild`)
+  serialized with recursive object-key ordering (array order preserved; no
+  timestamps/random IDs/environment-dependent fields) →
+  SHA-256 via `sha256Hex`. `fixtureChecksum` is excluded from its own input.
+  Canonical persisted serialization includes `fixtureChecksum` with fixed
+  ordering/formatting; a loaded file must already equal it byte-for-byte
+  (rejects alternative key order, extra whitespace, CRLF, trailing junk,
+  unknown fields, valid-semantic noncanonical bytes). Malformed/noncanonical
+  fixtures fail closed; never auto-rewritten.
+- **Deep immutability.** Successful parse/load deeply freezes fixture, build,
+  armour, validatedBuild, validatedBuild.proposal, policy and compatibility
+  objects. Tests prove mutation attempts throw and cannot alter the checksum
+  of a later parse.
+- **Fixed production root.** `loadOpponentFixture(opponentId, fixtureVersion,
+dependencies?)` uses the fixed logical root `data/opponents`; no production
+  API accepts an alternate opponent root (`root`/`outputRoot`/`fixtureRoot`/
+  `opponentRoot`/`path` are never caller-controlled fixture locations).
+  Selection is identifier + version only. The injectable general filesystem
+  remains for testability; test-only path remapping lives in
+  `tests/helpers/opponent-fixture-mapped-fs.ts`; no real `data/opponents/`
+  directory is created.
+- **Secure loader.** Validates ID/version → constructs only the canonical
+  filename → resolves under the fixed root → rejects path escape → inspects
+  ancestry with `lstat` (rejects symlink/junction and missing/non-directory
+  ancestors) → requires a regular final file → bounds JSON byte size → reads
+  → re-`lstat`s the final entry after reading → parses JSON → enforces strict
+  schema → enforces exact canonical persisted bytes → validates build through
+  `validateBuild(…, CATALOGUE_V1)` → compares the COMPLETE returned
+  `ValidatedBuild` to the persisted one → validates policy through the
+  authoritative contract → verifies catalogue/ruleset/runtime declarations →
+  recomputes/verifies `fixtureChecksum` → deeply freezes and returns. All
+  failures are `OpponentFixtureError` input/fixture validation failures; no
+  beta suspension marker involvement.
+- **Physical/TOCTOU tests.** Missing file; directory instead of file;
+  symlink final file; symlink/junction ancestry; path traversal identifiers;
+  oversized JSON; deletion while reading; regular-file → symlink substitution
+  after initial inspection; noncanonical bytes; malformed JSON. Race tests use
+  injected filesystem behaviour.
+- **Semantic corruption tests.** Wrong internal opponentId; wrong
+  fixtureVersion (loader-bound); unknown top-level/build/armour/policy/
+  compatibility/validated-build fields; unsupported catalogue version; wrong
+  ruleset identity; wrong legacy/grid runtime identity; both runtimes
+  incompatible; invalid build budget; persisted validatedBuild totalCost/
+  armourCost/armour-points/proposal/catalogue mismatches; wrong checksum;
+  coherently-tampered-but-invalid-build with recomputed downstream checksum
+  fields (rejection proves semantic binding, not stale-checksum detection);
+  subjective balance field (`tier`); unsafe display text.
+- **Positive tests.** Deterministic parse, canonical serialization, checksum;
+  exact round-trip; deep freeze; legacy-only, grid-only and dual-compatible
+  fixtures validate; repeated loads return equivalent immutable identities;
+  catalogue-validator-derived build fully bound. Synthetic test-only fixtures
+  only; none of the six real archetypes created.
+- **Static scope regressions.** No `data/opponents/` files; no
+  `run-opponent-suite` app runner; no opponent-suite package script; no
+  opponent match execution function; no tournament/ranking code; no provider
+  import in `src/opponents/`; no benchmark/held-out import in
+  `src/opponents/`; no grid-beta result import for fixture selection; no
+  production loader API accepts caller-controlled fixture-location roots.
+- **Frozen constraints preserved.** Simulator semantics, ruleset constants,
+  catalogue, action policy semantics, build validation semantics, grid beta,
+  readiness/governance evidence, normal match/series/replay, canaries,
+  package scripts and public/default runtime selection are unchanged. No
+  opponent match was run; `data/opponents/` does not exist; no package script
+  added; no provider call; no held-out or seed-bank access. Full suite,
+  `npm run check`, `npm run lint` and `npm run format:check` all pass.
+
+Status:
+
+```
+Milestone 0.2D:
+IN PROGRESS
+
+Phase 0 governance:
+complete and independently reviewed
+
+Phase 1 fixture foundation:
+complete
+
+Opponent fixture schema:
+implemented
+
+Canonical identity/checksum:
+implemented
+
+Secure fixed-root loader:
+implemented
+
+Canonical opponent fixtures:
+0
+
+Bulwark migrated:
+no
+
+Six-opponent suite:
+not implemented
+
+Opponent-suite runner:
+not implemented
+
+Opponent matches executed:
+0
+
+Adaptation:
+not authorised
+
+Balance evaluation:
+not authorised
+
+Seed-bank access:
+none
+
+Held-out access:
+none
+
+Provider/API use:
+none
+
+Legacy default:
+yes
+
+Grid default:
+no
+
+Public/ranked/tournament:
+not authorised
+
+Milestone 0.2E:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

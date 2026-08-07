@@ -1299,6 +1299,35 @@ runner → factual cross-opponent report) is defined but not started; each
 phase requires independent review. No opponent fixture, runner, package
 script or `src/` change was made in Phase 0.
 
+Milestone 0.2D Phase 1 (D62, 2026-08-07) implements the opponent-fixture
+foundation only: `src/opponents/opponent-fixture.ts` (strict v1 fixture
+schema, strictness preflight, canonical identity/checksum, deep immutability)
+and `src/opponents/opponent-fixture-loader.ts` (secure fixed-root loader).
+The fixture schema is strict at every object level via an exact-key preflight
+before the authoritative non-strict build/policy schemas (never silently
+stripping unknown fields; value/enum/budget validation remains
+`machineBuildProposalSchema`, `actionPolicySchema`, `validateBuild(…,
+CATALOGUE_V1)`). The persisted `validatedBuild` must equal the complete
+authoritative build and `catalogueVersion == CATALOGUE_V1.version`.
+`rulesetCompatibility` binds exact `RULESET_VERSION`; `runtimeCompatibility`
+binds the frozen `LEGACY_RUNTIME_IDENTITY`/`GRID_RUNTIME_IDENTITY` with both
+entries explicit and at least one `supported`; compatibility is data only.
+`fixtureChecksum` is SHA-256 over the canonical identity serialization
+(deterministic recursive key ordering, complete `validatedBuild`, no
+timestamps/random IDs, `fixtureChecksum` excluded from its own input), and a
+persisted fixture must already equal the canonical serialization
+byte-for-byte (fail closed, no auto-rewrite). `loadOpponentFixture(opponentId,
+fixtureVersion, dependencies?)` uses the fixed logical root `data/opponents`
+with no alternate-root API: identifier+version selection, canonical filename
+only, path-escape rejection, `lstat`-based symlink/junction ancestry
+inspection, regular-file requirement, bounded JSON size, post-read re-`lstat`,
+strict schema + canonical-bytes + build/policy/compatibility/checksum binding,
+and a deeply frozen result; all failures are `OpponentFixtureError`.
+Test-only path remapping lives in `tests/helpers/opponent-fixture-mapped-fs.ts`;
+no real `data/opponents/` tree exists. Phase 1 adds no runner, no canonical
+fixture, no package script, no provider/benchmark/held-out/grid-beta
+dependency and no runtime/default change.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.
