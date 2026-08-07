@@ -261,10 +261,18 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
 
   it("never creates a real beta artifact or marker in official storage", async () => {
     if (!env) return;
-    // The temp environment only ever wrote under the temp root.
+    // The temp environment only ever wrote under the temp root. Real
+    // `data/beta` may legitimately contain prior operational smoke-run
+    // artifacts (e.g. GRID-BETA-001), so the test proves it never leaked its
+    // own test match ID or any marker into real beta storage.
     expect(env.root).toContain(tmpdir());
     expect(existsSync(join(env.root, "..", "data", "beta", "grid-matches"))).toBe(false);
-    expect(existsSync(join(process.cwd(), "data", "beta"))).toBe(false);
+    expect(
+      existsSync(join(process.cwd(), "data", "beta", "grid-matches", BETA_TEST_MATCH_ID)),
+    ).toBe(false);
+    expect(existsSync(join(process.cwd(), "data", "beta", "GRID_BETA_SUSPENDED"))).toBe(
+      false,
+    );
   });
 
   // ── Phase 3G.1 pre-simulation race closure (Phases 1 and 15) ─────────────
@@ -740,8 +748,15 @@ describe("grid beta runtime through runGridBetaMatch (Phase 3G.1.2 Phase 5)", ()
     expect(requested.every((p) => !p.includes(env!.root.replaceAll("\\", "/")))).toBe(
       true,
     );
-    // No real beta tree or marker was created.
+    // No real beta tree, marker or test match was created by this run. Real
+    // `data/beta` may legitimately contain prior operational smoke-run
+    // artifacts, so the assertion is scoped to the test match ID and marker.
     expect(existsSync(marker)).toBe(false);
-    expect(existsSync(join(process.cwd(), "data", "beta"))).toBe(false);
+    expect(
+      existsSync(join(process.cwd(), "data", "beta", "grid-matches", BETA_TEST_MATCH_ID)),
+    ).toBe(false);
+    expect(existsSync(join(process.cwd(), "data", "beta", "GRID_BETA_SUSPENDED"))).toBe(
+      false,
+    );
   });
 });
