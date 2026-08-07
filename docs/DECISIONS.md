@@ -3760,6 +3760,69 @@ Milestone 0.2E:
 not started
 ```
 
+## D69: Make successor V2 service tests portable across clean checkouts (2026-08-07)
+
+Independent review of Commit G found no production/governance blocker. One
+narrow TEST-ONLY reproducibility blocker remained before final acceptance:
+the new `tests/unit/grid-beta-service-v2.test.ts` setup unconditionally called
+`createBetaTempEnvironment()`, which copies the official seven-file governance
+bundle from `data/readiness/grid-governance/58e8cd87-504e-4b5f-9bac-f6b81d82377b/`.
+`data/readiness/` is intentionally gitignored, so those official bytes may
+exist on an established working tree but are NOT guaranteed on a fresh Git
+checkout. This decision records the test-only correction: the V2 service test
+now follows the established evidence-availability contract used by
+`tests/unit/grid-beta-match-service.test.ts` — setup runs only when
+`officialGovernanceBundleAvailable()` is true, cleanup is unconditional, and
+every environment-dependent case keeps its `if (!env) return;` guard. When
+official local governance evidence is available, all six V2 service cases
+continue to run and pass; when it is absent, no operational-governance
+service fixture is attempted. No official governance bytes were fabricated or
+embedded; no production governance anchor was weakened; tests do not bypass
+governance validation. Production governance remains mandatory.
+
+Status:
+
+```
+Commit G production/governance review:
+PASS
+
+Commit G final acceptance:
+pending this test-only correction
+
+Issue:
+new V2 service test assumed ignored local official governance evidence existed
+
+Production defect:
+no
+
+Governance defect:
+no
+
+Correction:
+conditional test setup matching existing beta service test policy
+
+Production source changed:
+no
+
+Successor baseline v2 changed:
+no
+
+Successor baseline checksum:
+134e7ce29650a170d8965b2fdde691e75afd2420620de143ba720601c666909e
+
+Commit M protected bytes changed:
+no
+
+Canonical opponent fixtures changed:
+no
+
+Operational beta:
+NOT AUTHORISED pending independent review
+
+Real beta matches:
+0
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

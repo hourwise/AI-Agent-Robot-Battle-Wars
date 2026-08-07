@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
@@ -13,16 +13,27 @@ import { createGridBetaMappedFs } from "../helpers/grid-beta-mapped-fs.js";
 import {
   BETA_TEST_MATCH_ID,
   createBetaTempEnvironment,
+  officialGovernanceBundleAvailable,
   readBetaBundle,
 } from "../helpers/grid-beta-builder.js";
 import { buildDualCommitInMemorySourceReader } from "../helpers/grid-beta-successor-builder.js";
 
 /**
- * Milestone 0.2D Phase 3C (Commit G) — service V2 tests. The production
- * service now requires BOTH authorities (original v1 governance anchor +
- * successor v2 source anchor/current preflight) and emits Selection V2 +
+ * Milestone 0.2D Phase 3C.1 — service V2 tests are clean-checkout safe. The
+ * production service requires BOTH authorities (original v1 governance anchor
+ * + successor v2 source anchor/current preflight) and emits Selection V2 +
  * Manifest V2. All paths are temporary/mapped; no real beta artifact or
  * marker is created.
+ *
+ * The test-environment setup is conditional on the official local governance
+ * evidence being present. `data/readiness/` is intentionally gitignored, so
+ * the official seven-file governance bundle is operator evidence, NOT
+ * repository content: it may exist on an established working tree but is not
+ * guaranteed on a fresh Git checkout. This guard is therefore REQUIRED for
+ * clean-checkout reproducibility. It does NOT mean governance is optional in
+ * production — production governance remains mandatory. It only means: when
+ * the official local evidence bytes are absent, no operational-governance
+ * service fixture is attempted.
  */
 
 let env: Awaited<ReturnType<typeof createBetaTempEnvironment>> | null = null;
@@ -72,8 +83,19 @@ function deps(
 
 describe("grid beta service successor v2 (0.2D Phase 3C)", () => {
   beforeAll(async () => {
+    // Guard required: `data/readiness/` is intentionally gitignored and the
+    // official seven-file governance bundle is operator evidence, not
+    // repository content, so it is not guaranteed on a fresh checkout. When
+    // the official local evidence is absent we do not attempt an
+    // operational-governance service fixture; every case below guards with
+    // `if (!env) return;`.
+    if (!officialGovernanceBundleAvailable()) return;
     env = await createBetaTempEnvironment();
   }, 120_000);
+
+  afterAll(async () => {
+    if (env) await env.cleanup();
+  });
 
   it("emits Selection V2 and Manifest V2 with the dual source-authority identity and a passing bundle", async () => {
     if (!env) return;
