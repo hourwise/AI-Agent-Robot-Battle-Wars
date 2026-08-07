@@ -382,12 +382,29 @@ export function serializeOpponentFixture(fixture: OpponentFixtureV1): string {
 }
 
 /**
+ * Exact-key preflight for a complete build proposal. The fixture `build` and
+ * the persisted `validatedBuild.proposal` are structurally identical build
+ * proposals, so both MUST receive identical nested strictness: the build
+ * proposal key set AND the nested armour key set. Reusing one helper for both
+ * locations prevents the two authoritative build-proposal copies from
+ * drifting apart in strictness later.
+ */
+function assertExactBuildProposalKeys(
+  value: unknown,
+  where: string,
+): asserts value is Record<string, unknown> {
+  assertExactKeys(value, BUILD_KEYS, where);
+  assertExactKeys(value.armour, ARMOUR_KEYS, `${where}.armour`);
+}
+
+/**
  * Parses and validates an opponent fixture from raw JSON.
  *
  * Strictness: unknown fields are rejected at every object level (top level,
- * build, build.armour, policy, ruleset compatibility, runtime compatibility
- * and the persisted validated-build snapshot) by the exact-key preflight, so
- * the authoritative non-strict schemas never silently strip an unknown field.
+ * build, build.armour, policy, ruleset compatibility, runtime compatibility,
+ * the persisted validated-build snapshot and validatedBuild.proposal.armour)
+ * by the exact-key preflight, so the authoritative non-strict schemas never
+ * silently strip an unknown field.
  *
  * Binding: `build` passes through the authoritative `validateBuild(...,
  * CATALOGUE_V1)`; the persisted `validatedBuild` must equal the COMPLETE
@@ -407,13 +424,13 @@ export function parseOpponentFixture(
   // 1. Exact-key preflight at every object level (the strictness boundary).
   assertExactKeys(raw, FIXTURE_KEYS, "opponent fixture");
   const data = raw;
-  assertExactKeys(data.build, BUILD_KEYS, "fixture build");
-  assertExactKeys(data.build.armour, ARMOUR_KEYS, "fixture build.armour");
+  // `build` and `validatedBuild.proposal` receive identical nested-armour
+  // strictness through the shared build-proposal preflight helper.
+  assertExactBuildProposalKeys(data.build, "fixture build");
   assertExactKeys(data.policy, POLICY_KEYS, "fixture policy");
   assertExactKeys(data.validatedBuild, VALIDATED_BUILD_KEYS, "fixture validatedBuild");
-  assertExactKeys(
+  assertExactBuildProposalKeys(
     data.validatedBuild.proposal,
-    BUILD_KEYS,
     "fixture validatedBuild.proposal",
   );
   assertExactKeys(

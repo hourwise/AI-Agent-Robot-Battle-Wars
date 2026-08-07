@@ -14,6 +14,7 @@ import {
   opponentFixtureDeepEqual,
   parseOpponentFixture,
   serializeOpponentFixture,
+  type OpponentFixtureV1,
 } from "../../src/opponents/opponent-fixture.js";
 import {
   OPPONENT_FIXTURE_ROOT,
@@ -440,6 +441,72 @@ describe("opponent fixture secure loader (0.2D Phase 1)", () => {
       await expect(
         loadOpponentFixture("synthetic", 1, { fs: mappedFs(tempRoot) }),
       ).rejects.toThrow(OpponentFixtureError);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it("rejects a persisted unknown nested armour field in validatedBuild.proposal even with stale or coherent checksum (Phase 1.1)", async () => {
+    const { tempRoot, cleanup } = await createEnv();
+    try {
+      // Stale checksum: the original valid checksum is unchanged and the
+      // unknown field is injected. Rejection must come from the strictness
+      // boundary, not from a stale-checksum or canonical-byte check.
+      const stale = makeSyntheticOpponentFixture();
+      stale.validatedBuild = JSON.parse(JSON.stringify(stale.validatedBuild)) as Record<
+        string,
+        unknown
+      >;
+      (
+        (stale.validatedBuild.proposal as Record<string, unknown>).armour as Record<
+          string,
+          unknown
+        >
+      ).bottom = 1;
+      await writeFile(
+        join(tempRoot, "synthetic.v1.json"),
+        JSON.stringify(stale),
+        "utf-8",
+      );
+      await expect(
+        loadOpponentFixture("synthetic", 1, { fs: mappedFs(tempRoot) }),
+      ).rejects.toThrow(
+        /fixture validatedBuild\.proposal\.armour must not contain unknown field "bottom"/,
+      );
+
+      // Coherent checksum: recomputed over the tampered raw object.
+      const coherent = makeSyntheticOpponentFixture();
+      coherent.validatedBuild = JSON.parse(
+        JSON.stringify(coherent.validatedBuild),
+      ) as Record<string, unknown>;
+      (
+        (coherent.validatedBuild.proposal as Record<string, unknown>).armour as Record<
+          string,
+          unknown
+        >
+      ).bottom = 1;
+      coherent.fixtureChecksum = opponentFixtureChecksum(
+        coherent as unknown as OpponentFixtureV1,
+      );
+      await writeFile(
+        join(tempRoot, "synthetic.v1.json"),
+        JSON.stringify(coherent),
+        "utf-8",
+      );
+      await expect(
+        loadOpponentFixture("synthetic", 1, { fs: mappedFs(tempRoot) }),
+      ).rejects.toThrow(
+        /fixture validatedBuild\.proposal\.armour must not contain unknown field "bottom"/,
+      );
+
+      // The canonical persisted-byte validation remains intact: a valid
+      // canonical fixture still loads.
+      const canonical = canonicalSyntheticFixtureBytes(makeSyntheticOpponentFixture());
+      await writeFile(join(tempRoot, "synthetic.v1.json"), canonical, "utf-8");
+      const loaded = await loadOpponentFixture("synthetic", 1, {
+        fs: mappedFs(tempRoot),
+      });
+      expect(loaded.fixtureChecksum).toMatch(/^[0-9a-f]{64}$/);
     } finally {
       await cleanup();
     }

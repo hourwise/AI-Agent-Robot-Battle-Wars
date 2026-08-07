@@ -1440,6 +1440,19 @@ dependencies?)` with the fixed logical root `data/opponents`; no
   `tests/helpers/opponent-fixture-mapped-fs.ts`; no real `data/opponents/`
   tree created.
 
+**Phase 1.1 (D63, 2026-08-07) — complete nested validated-build strictness:**
+independent review of Phase 1 found one blocker: the exported parser's
+exact-key preflight covered `build`, `build.armour`, `validatedBuild` and
+`validatedBuild.proposal` but not `validatedBuild.proposal.armour`. The build
+exact-key logic was refactored into a shared `assertExactBuildProposalKeys`
+helper (build-proposal key set + nested armour key set) now used identically
+for both `build` and `validatedBuild.proposal`, closing the gap so no unknown
+authoritative field can be silently stripped at any level. Regressions cover
+the direct parser (stale checksum), a coherent-tamper recomputed checksum, and
+the fixed-root loader (stale and coherent checksums); canonical persisted-byte
+validation and the checksum algorithm are unchanged. Phase 1 remains complete
+pending independent Phase 1.1 review; Phase 2 not started.
+
 **Affected modules (Phase 0):** none — documentation only
 (`docs/ADR-004-multi-opponent-fixture-format.md`, this plan, README,
 ARCHITECTURE, DECISIONS).

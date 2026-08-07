@@ -8,6 +8,7 @@ import {
 import { validateBuild } from "../../src/validation/build-validator.js";
 import {
   OPPONENT_FIXTURE_SCHEMA_VERSION,
+  OpponentFixtureError,
   opponentFixtureChecksum,
   opponentFixtureDeepEqual,
   parseOpponentFixture,
@@ -295,6 +296,82 @@ describe("opponent fixture schema v1 (0.2D Phase 1)", () => {
     const rawProposalTampered = makeSyntheticOpponentFixture({ validatedBuild });
     expect(() => parse(rawProposalTampered, "synthetic")).toThrow(
       /fixture validatedBuild\.proposal must not contain unknown field "extra"/,
+    );
+  });
+
+  it("rejects an unknown nested armour field in validatedBuild.proposal.armour directly at the parser (Phase 1.1)", () => {
+    const raw = makeSyntheticOpponentFixture();
+    // Deep-copy validatedBuild so the injected field cannot alias the top-level
+    // build (validateBuild returns proposal as the same build reference).
+    raw.validatedBuild = JSON.parse(JSON.stringify(raw.validatedBuild)) as Record<
+      string,
+      unknown
+    >;
+    // The original valid fixtureChecksum is left unchanged: it is still valid
+    // for the pre-injection payload, which is exactly the old failure mode
+    // (Zod strips the unknown field, the derived build becomes canonical
+    // again, and the original checksum remains valid). The parser must now
+    // reject at the strictness boundary regardless.
+    (
+      (raw.validatedBuild.proposal as Record<string, unknown>).armour as Record<
+        string,
+        unknown
+      >
+    ).bottom = 1;
+    expect(raw.fixtureChecksum).toMatch(/^[0-9a-f]{64}$/);
+    expect(() => parseOpponentFixture(raw, "synthetic")).toThrow(OpponentFixtureError);
+    expect(() => parseOpponentFixture(raw, "synthetic")).toThrow(
+      /fixture validatedBuild\.proposal\.armour must not contain unknown field "bottom"/,
+    );
+  });
+
+  it("rejects the same nested armour field with a coherently recomputed checksum (Phase 1.1)", () => {
+    const raw = makeSyntheticOpponentFixture();
+    raw.validatedBuild = JSON.parse(JSON.stringify(raw.validatedBuild)) as Record<
+      string,
+      unknown
+    >;
+    (
+      (raw.validatedBuild.proposal as Record<string, unknown>).armour as Record<
+        string,
+        unknown
+      >
+    ).bottom = 1;
+    // Recompute the checksum over the tampered raw object so strictness is
+    // proven independent of checksum state.
+    raw.fixtureChecksum = opponentFixtureChecksum(raw as unknown as OpponentFixtureV1);
+    expect(raw.fixtureChecksum).toBe(
+      opponentFixtureChecksum(raw as unknown as OpponentFixtureV1),
+    );
+    expect(() => parseOpponentFixture(raw, "synthetic")).toThrow(OpponentFixtureError);
+    expect(() => parseOpponentFixture(raw, "synthetic")).toThrow(
+      /fixture validatedBuild\.proposal\.armour must not contain unknown field "bottom"/,
+    );
+  });
+
+  it("applies identical nested armour strictness to build.armour and validatedBuild.proposal.armour (Phase 1.1)", () => {
+    // build.armour.
+    const buildArmour = makeSyntheticOpponentFixture();
+    (
+      (buildArmour.build as Record<string, unknown>).armour as Record<string, unknown>
+    ).bottom = 1;
+    expect(() => parse(buildArmour, "synthetic")).toThrow(
+      /fixture build\.armour must not contain unknown field "bottom"/,
+    );
+
+    // validatedBuild.proposal.armour (same unknown armour key, same rejection
+    // contract) — proves both authoritative build-proposal locations receive
+    // identical nested strictness without a brittle source-string test.
+    const proposalArmour = makeSyntheticOpponentFixture();
+    proposalArmour.validatedBuild = JSON.parse(
+      JSON.stringify(proposalArmour.validatedBuild),
+    ) as Record<string, unknown>;
+    (
+      (proposalArmour.validatedBuild.proposal as Record<string, unknown>)
+        .armour as Record<string, unknown>
+    ).bottom = 1;
+    expect(() => parse(proposalArmour, "synthetic")).toThrow(
+      /fixture validatedBuild\.proposal\.armour must not contain unknown field "bottom"/,
     );
   });
 

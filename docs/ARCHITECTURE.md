@@ -1328,6 +1328,16 @@ no real `data/opponents/` tree exists. Phase 1 adds no runner, no canonical
 fixture, no package script, no provider/benchmark/held-out/grid-beta
 dependency and no runtime/default change.
 
+Phase 1.1 (D63, 2026-08-07) completes the nested strictness boundary: the
+exported parser's exact-key preflight now also covers
+`validatedBuild.proposal.armour` via a shared `assertExactBuildProposalKeys`
+helper used identically for `build` and `validatedBuild.proposal` (both with
+their nested armour), so no unknown authoritative field can be silently
+stripped by the non-strict global schemas at any level. Direct-parser,
+coherent-tamper and loader regressions prove fail-closed behaviour; the
+checksum algorithm, canonical serialization, loader API, fixed root,
+compatibility contracts and global schemas are unchanged.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

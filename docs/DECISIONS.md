@@ -2943,6 +2943,90 @@ Milestone 0.2E:
 not started
 ```
 
+## D63: Complete opponent fixture nested strictness (2026-08-07)
+
+Independent review of Milestone 0.2D Phase 1 (D62) found ONE remaining
+strictness blocker. The exact-key preflight validated `build`, `build.armour`,
+`validatedBuild` and `validatedBuild.proposal`, but not
+`validatedBuild.proposal.armour`. Because the reused
+`machineBuildProposalSchema`/`armourDistributionSchema` are not globally
+strict, an object passed directly to the exported `parseOpponentFixture()`
+could contain `validatedBuild.proposal.armour.bottom`; Zod would silently
+strip it, the derived build would become canonical again, and the original
+checksum would remain valid — allowing the parser to accept. The fixed-root
+file loader's canonical-byte check caught persisted noncanonical bytes, but
+the exported parser itself must also fail closed. ADR-004 and Phase 1 require
+no silent stripping at any authoritative object level.
+
+- **Correction (Phase 1).** In `src/opponents/opponent-fixture.ts`, the
+  duplicated build exact-key logic was refactored into a private
+  `assertExactBuildProposalKeys(value, where)` helper that validates both the
+  complete build-proposal key set AND the nested armour key set, and it is now
+  used for BOTH `fixture build` and `fixture validatedBuild.proposal`. This
+  closes `validatedBuild.proposal.armour` and prevents the two structurally
+  identical build-proposal locations from drifting apart in strictness later.
+  The global build schema and gameplay validation are unchanged.
+- **Direct-parser regression (Phase 2).** Starting from a valid synthetic
+  fixture, `validatedBuild.proposal.armour.bottom = 1` is injected with the
+  original valid `fixtureChecksum` unchanged; a direct
+  `parseOpponentFixture(...)` call now rejects with `OpponentFixtureError` at
+  the strictness boundary (`fixture validatedBuild.proposal.armour must not
+contain unknown field "bottom"`). This proves the old failure mode (Zod
+  strips → derived build canonical again → original checksum valid → parser
+  accepts) can no longer happen.
+- **Coherent-tamper regression (Phase 3).** The same unknown nested armour
+  field with the checksum recomputed over the tampered raw object is still
+  rejected at the exact-key boundary, proving strictness is independent of
+  checksum state.
+- **Loader regression (Phase 4).** A persisted fixture with
+  `validatedBuild.proposal.armour.bottom` rejects on load with both a stale
+  checksum and a coherently recomputed checksum; canonical persisted-byte
+  validation is unchanged and a valid canonical fixture still loads.
+- **Static/behavioural regression (Phase 6).** A behavioural test asserts
+  `build.armour` and `validatedBuild.proposal.armour` receive identical
+  nested-armour strictness (same unknown key, same rejection contract) — no
+  brittle source-string test.
+- **Preserved.** Fixture schema fields, checksum algorithm, canonical
+  serialization, fixed production root, loader API, filesystem abstraction,
+  runtime/ruleset compatibility, `ValidatedBuild` contents, build/policy
+  semantics, simulator, ruleset, catalogue, beta, governance/readiness and
+  package scripts are all unchanged. No `data/opponents/` tree, no Bulwark,
+  no canonical opponent, no runner, no opponent match.
+
+Status:
+
+```
+Phase 1 review:
+one nested strictness blocker found
+
+Affected path:
+validatedBuild.proposal.armour
+
+Correction:
+exact-key validation added before authoritative non-strict schema parsing
+
+Direct parser silent stripping:
+closed
+
+Canonical loader:
+unchanged
+
+Fixture checksum:
+unchanged
+
+Canonical fixtures:
+0
+
+Opponent matches:
+0
+
+Milestone 0.2D Phase 1:
+complete pending independent Phase 1.1 review
+
+Milestone 0.2D Phase 2:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

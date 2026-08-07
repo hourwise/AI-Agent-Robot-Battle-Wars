@@ -716,6 +716,19 @@ adaptation/balance evaluation not authorised; seed-bank/held-out access none;
 provider/API use none; legacy default yes; grid default no;
 public/ranked/tournament not authorised; Milestone 0.2E not started.
 
+**Phase 1.1 — complete nested validated-build strictness (D63, 2026-08-07).**
+Independent Phase 1 review found one blocker: the exported parser's exact-key
+preflight did not cover `validatedBuild.proposal.armour`, so an unknown nested
+armour field could be silently stripped by the non-strict global schema while
+the original checksum stayed valid. The build exact-key logic was refactored
+into a shared `assertExactBuildProposalKeys` helper now used for both `build`
+and `validatedBuild.proposal` (each including its nested armour), closing the
+gap. Direct-parser, coherent-tamper and loader regressions prove the parser
+and the loader fail closed at the strictness boundary regardless of checksum
+state; canonical persisted-byte validation and the checksum algorithm are
+unchanged. Phase 1 remains complete pending independent Phase 1.1 review;
+Phase 2 is not started.
+
 ### Replay
 
 ```bash
