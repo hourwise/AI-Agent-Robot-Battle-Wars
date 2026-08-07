@@ -3823,6 +3823,194 @@ Real beta matches:
 0
 ```
 
+## D70: Implement development-only legacy opponent-suite runner v1 (2026-08-07)
+
+Milestone 0.2D Phase 3 is complete and independently reviewed (Commit M
+`e6d981f…`, Commit G `334c028…`, Phase 3C.1 portability `2102db6…`, successor
+baseline v2 `134e7ce2…`). ADR-004 does NOT authorise a general grid
+cross-opponent matrix runner, so this phase implements the opponent-suite
+runner as LEGACY RUNTIME ONLY, answering only: can the frozen canonical suite
+be executed locally and deterministically through the unchanged legacy
+runtime, respecting explicit fixture compatibility and producing reproducible
+factual match outputs?
+
+- **Frozen suite identity v1.** `src/opponents/opponent-suite-v1.ts` freezes
+  schema version `1`, suiteId `canonical-opponent-suite-v1`, suite version
+  `1`, the exact ordered six opponent IDs (`bulwark`, `skirmisher`, `crusher`,
+  `spinner`, `controller`, `generalist`), fixture version `1`, the exact six
+  D65 fixture checksums and the exact declared legacy compatibility
+  (supported: bulwark/crusher/spinner/generalist; incompatible:
+  skirmisher/controller). The deterministic suite checksum
+  `2a276edc8fe6958cb06b0f2a844dd261a878ccf092da238f8ddc2b381c1b8fae` binds
+  schema version, suite ID, suite version, ruleset version, the ordered
+  opponent IDs, fixture versions, fixture checksums and declared legacy
+  compatibility — never match outcomes. The definition includes all six
+  fixtures; the two incompatible ones are visible factual members, never
+  silently removed.
+- **Explicit runtime contract.** The runner requires an explicit runtime and
+  only `"legacy"` is authorised. `--runtime grid` is recognised and rejected
+  with a clear separate-authorisation message; any other runtime fails; no
+  ambient/default runtime inference; no fallback.
+- **Canonical loading + compatibility preflight.** All six fixtures load
+  through the reviewed fixed-root `loadOpponentFixture`; each must match the
+  frozen suite anchor (opponentId, fixtureVersion 1, exact fixtureChecksum,
+  supported ruleset, persisted validation) and the declared legacy
+  compatibility must match the fixture's legacy runtime status. The two
+  incompatible fixtures are never executed, translated, fallen back, silently
+  omitted or counted as losses/draws, and do not fail the valid suite.
+  Unexpected compatibility state, missing fixture, checksum mismatch or
+  validation failure fails the complete invocation closed.
+- **Exact legacy matchup plan.** The four runnable fixtures execute exactly
+  12 ordered role-aware matchups per caller seed (no self matches, every
+  unordered pair twice with reverse roles): bulwark vs crusher, bulwark vs
+  spinner, bulwark vs generalist, crusher vs bulwark, crusher vs spinner,
+  crusher vs generalist, spinner vs bulwark, spinner vs crusher, spinner vs
+  generalist, generalist vs bulwark, generalist vs crusher, generalist vs
+  spinner. No slot-fairness or slot-bias interpretation.
+- **Legacy execution core.** `src/opponents/opponent-suite-runner.ts` uses
+  the unchanged legacy `runMatch` with normal `MatchConfig` values built from
+  `fixture.validatedBuild`/`fixture.policy` and the frozen
+  `RULESET_VERSION`, `CATALOGUE_V1.version` and
+  `DEFAULT_COMPONENT_QUALIFICATION_ID`. No `runGridMatch`/`runGridBetaMatch`/
+  `executeGridBetaMatch`/`runSeries`; no `validateBuild` re-invocation; no new
+  qualification configuration; C2 untouched.
+- **Primary/repeat determinism guard.** Every matchup executes twice (fresh
+  MatchConfig graphs) requiring exact equality of runtime, resolved config,
+  initial state, ordered events, result and rounds plus identical result
+  checksums; any difference fails the whole run. One factual entry per
+  matchup: 12 planned factual matches and 24 internal executions per seed.
+- **Input immutability.** Canonical fixture serialized bytes, checksums,
+  build/armour, validatedBuild, validatedBuild.proposal, policy and runtime
+  compatibility are verified unchanged before and after execution; mutation
+  fails closed. Deep freezing is not weakened.
+- **Deterministic match IDs + result checksums.** Match IDs are
+  `opponent-suite-match-v1:<64hex>` over suiteId, suiteVersion, runtime,
+  seed, plan index and both fighters' opponentId + fixtureChecksum — never
+  time/random/provider/filesystem. The result checksum is a generic
+  `sha256Hex(JSON.stringify(result))` over the complete returned legacy
+  MatchResult (not the grid-beta-specific checksum).
+- **Stable factual schema.** `OpponentSuiteRunV1` is deeply frozen and
+  contains schemaVersion, suiteId, suiteVersion, suiteChecksum, runtime
+  identity, seed, the six-entry fixture inventory, runnableOpponentIds,
+  incompatibleOpponentIds and exactly 12 factual match entries
+  (matchId, planIndex, fighterA/B identities, runtime, seed, winner mapped to
+  canonical opponent ID or null, method, rounds, resultChecksum).
+- **No aggregate interpretation.** No standings/leaderboard/rank/tier/
+  strength/power/difficulty/balanceScore/winRate/best/worst/recommended/meta/
+  optimal fields; no per-opponent win aggregation; no sorting by outcomes; no
+  narrative conclusions. Phase 5 will handle separately governed factual
+  reporting.
+- **Development-only CLI.** `src/app/run-opponent-suite.ts` (no package
+  script) requires `--runtime legacy --seed <non-negative safe integer>`,
+  rejects duplicate/unknown/positional arguments, rejects `--runtime grid`
+  with the separate-authorisation message, and prints deterministic JSON only
+  (no timestamp, no paths, no random IDs). Identical repository bytes and
+  seed produce identical JSON bytes.
+- **No persistence, no AI/provider, no evidence access.** No
+  `data/opponent-suite/`/`data/matches/`/`data/series/`/`data/beta/`/
+  `data/readiness/` writes, no manifest/report bundle, no database/repository.
+  No DeepSeek/provider/ArenaAgent/series/review/benchmark/readiness/held-out
+  imports or calls; no adaptation; no reading prior suite results. The runner
+  uses only canonical fixtures, public catalogue/runtime constants, the
+  deterministic legacy simulator and the fixture/runtime validation contracts.
+  Test seed `44001` is an ordinary unit-test seed with no evaluation meaning
+  and is not added to any seed registry.
+- **Source-governance.** None of the 23 successor-V2 protected paths, the v1
+  snapshot/preflight modules, the v2 baseline/preflight modules, the six
+  canonical fixtures, `docs/OPPONENT-SUITE-V1-SELECTION.md` or `package.json`
+  were changed. No successor baseline v3.
+
+Status:
+
+```
+Milestone 0.2D:
+IN PROGRESS
+
+Phase 3:
+complete and independently reviewed
+
+Commit G production/governance:
+accepted
+
+Phase 3C.1:
+accepted
+
+Successor baseline v2:
+unchanged
+
+Successor baseline checksum:
+134e7ce29650a170d8965b2fdde691e75afd2420620de143ba720601c666909e
+
+Bounded explicit grid beta:
+separately governed / not used by opponent-suite runner
+
+Opponent-suite runner:
+implemented
+
+Opponent-suite suite ID:
+canonical-opponent-suite-v1
+
+Opponent-suite suite checksum:
+2a276edc8fe6958cb06b0f2a844dd261a878ccf092da238f8ddc2b381c1b8fae
+
+Opponent-suite runtime authorised:
+legacy only
+
+Explicit runtime selection:
+required
+
+General grid opponent-suite runner:
+NOT authorised
+
+Canonical suite members:
+6
+
+Legacy runnable members:
+4
+
+Legacy incompatible members:
+2
+
+Legacy matchup plan:
+12 ordered cross-opponent matches per caller seed
+
+Self matches:
+0
+
+Internal deterministic executions:
+24 per caller seed
+
+Runtime fallback:
+none
+
+Provider/API calls:
+none
+
+Adaptation:
+none
+
+Persistence:
+none
+
+Balance/ranking interpretation:
+none
+
+Benchmark access:
+none
+
+Held-out access:
+none
+
+Operational grid-beta matches in this phase:
+0
+
+Phase 5 factual report:
+not started
+
+Milestone 0.2E:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

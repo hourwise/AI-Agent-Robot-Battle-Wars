@@ -1605,6 +1605,46 @@ are unchanged; the full repository suite passes. **Operational grid beta
 remains NOT AUTHORISED pending independent review of Commit G; no real beta
 match executed and no real suspension marker created/cleared.**
 
+**Phase 4 (D70, 2026-08-07) — development-only legacy opponent-suite runner
+v1 (LEGACY RUNTIME ONLY).** ADR-004 does NOT authorise a general grid
+cross-opponent matrix runner and the bounded beta service is not used as a
+matrix runner. `src/opponents/opponent-suite-v1.ts` freezes the canonical
+suite identity (`canonical-opponent-suite-v1`, schema `1`, suite version `1`,
+ruleset `0.2.0`, exact ordered six opponent IDs, fixture version `1`, the six
+D65 fixture checksums and exact declared legacy compatibility) with
+deterministic suite checksum
+`2a276edc8fe6958cb06b0f2a844dd261a878ccf092da238f8ddc2b381c1b8fae`.
+`src/opponents/opponent-suite-runner.ts` adds: the explicit runtime contract
+(`"legacy"` only; `"grid"` recognised and rejected as separately
+unauthorised; no ambient inference; no fallback); canonical suite loading and
+compatibility preflight through the reviewed fixed-root `loadOpponentFixture`
+(all six fixtures anchor by opponentId/fixtureVersion 1/exact
+fixtureChecksum/supported ruleset/persisted validation, and declared legacy
+compatibility must match the fixture's legacy runtime status; the two
+incompatible fixtures are visible factual members, never executed, and do not
+fail the valid suite); the exact frozen 12-entry ordered role-aware matchup
+plan (no self matches; every unordered pair twice with reverse roles); the
+unchanged legacy `runMatch` with normal MatchConfig from
+`fixture.validatedBuild`/`fixture.policy` and frozen
+`RULESET_VERSION`/`CATALOGUE_V1.version`/`DEFAULT_COMPONENT_QUALIFICATION_ID`;
+a primary/repeat determinism guard (fresh config graphs; exact equality of
+runtime/config/initial-state/ordered-events/result/rounds and identical
+result checksums; any difference fails the whole run; 12 factual entries and
+24 internal executions per seed); deterministic match IDs
+(`opponent-suite-match-v1:<64hex>`); a generic
+`sha256Hex(JSON.stringify(result))` result checksum (not the grid-beta
+checksum); canonical fixture immutability verified before/after (mutation
+fails closed); and a deeply frozen factual `OpponentSuiteRunV1` with no
+aggregate/ranking/balance/tier fields. `src/app/run-opponent-suite.ts` is a
+development-only CLI (no package script; direct `npx tsx ... --runtime legacy
+--seed <N>`; duplicate/unknown/positional args rejected; `--runtime grid`
+rejected with a separate-authorisation message; deterministic JSON only). No
+persistence, no AI/provider/adaptation, no benchmark/held-out/readiness/beta
+access. Test seed `44001` is ordinary test-only. None of the 23 successor-V2
+protected paths, the v1/v2 snapshot/preflight modules, the six canonical
+fixtures, `docs/OPPONENT-SUITE-V1-SELECTION.md` or `package.json` were
+changed; no successor baseline v3. Phase 5 factual report not started.
+
 **Affected modules (Phase 0):** none — documentation only
 (`docs/ADR-004-multi-opponent-fixture-format.md`, this plan, README,
 ARCHITECTURE, DECISIONS).

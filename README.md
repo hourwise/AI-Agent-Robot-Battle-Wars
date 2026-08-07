@@ -856,6 +856,32 @@ the v1 snapshot/preflight modules) are byte-unchanged. **Operational grid beta
 remains NOT AUTHORISED pending independent review of Commit G; no real beta
 match was executed and no real suspension marker was created/cleared.**
 
+**Development-only legacy opponent-suite runner v1 (D70, 2026-08-07).** ADR-004
+does NOT authorise a general grid cross-opponent matrix runner, so Phase 4 is
+LEGACY RUNTIME ONLY. `src/opponents/opponent-suite-v1.ts` freezes the canonical
+suite identity (`canonical-opponent-suite-v1`, schema `1`, suite version `1`,
+exact ordered six opponent IDs, fixture version `1`, the six D65 fixture
+checksums, exact declared legacy compatibility) with deterministic suite
+checksum `2a276edc8fe6958cb06b0f2a844dd261a878ccf092da238f8ddc2b381c1b8fae`.
+`src/opponents/opponent-suite-runner.ts` executes the four legacy-compatible
+fixtures (bulwark/crusher/spinner/generalist) through the unchanged legacy
+`runMatch` with an explicit `runtime: "legacy"` contract (grid rejected as
+separately unauthorised), exactly 12 ordered role-aware matchups per seed
+(no self matches, both role assignments), a primary/repeat determinism guard
+(24 internal executions per seed, one factual entry per matchup), deterministic
+match IDs, generic result checksums, canonical fixture immutability verified
+before/after, and a deeply frozen factual `OpponentSuiteRunV1` with no
+ranking/balance/tier interpretation. The two legacy-incompatible fixtures
+(skirmisher/controller) are visible factual members, never executed.
+Development invocation (no package script):
+
+```bash
+npx tsx src/app/run-opponent-suite.ts --runtime legacy --seed 44001
+```
+
+Prints deterministic JSON only. No persistence, no provider, no
+benchmark/held-out/readiness access; Phase 5 factual report not started.
+
 ### Replay
 
 ```bash

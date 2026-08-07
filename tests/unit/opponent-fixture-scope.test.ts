@@ -16,7 +16,8 @@ import { OPPONENT_FIXTURE_ROOT } from "../../src/opponents/opponent-fixture-load
  *
  * Proves the opponent-fixture module scope boundaries: exactly the six
  * canonical suite v1 fixtures exist under `data/opponents/` (Phase 2 exact
- * inventory), no opponent-suite runner, no package script, no match
+ * inventory), the development-only legacy opponent-suite runner exists as of
+ * Phase 4 (invoked directly with tsx, with no package script), no match
  * execution, no tournament/ranking code, no provider/benchmark/held-out/
  * grid-beta imports in `src/opponents/`, and no production loader API that
  * accepts a caller-controlled fixture-location root.
@@ -88,8 +89,10 @@ describe("opponent fixture scope regressions (0.2D Phase 1 Phase 15, Phase 2 inv
     expect(resolveDataOpponents()).toBe(OPPONENT_FIXTURE_ROOT);
   });
 
-  it("adds no opponent-suite application runner and no package script", () => {
-    expect(existsSync(join(ROOT, "src", "app", "run-opponent-suite.ts"))).toBe(false);
+  it("adds the development-only legacy opponent-suite runner with no package script", () => {
+    // Phase 4 legitimately adds the dev-only runner (invoked directly with
+    // tsx). It must NOT add a package script for it.
+    expect(existsSync(join(ROOT, "src", "app", "run-opponent-suite.ts"))).toBe(true);
     const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
     expect(
       Object.keys(pkg.scripts).some((k) => k.toLowerCase().includes("opponent")),
