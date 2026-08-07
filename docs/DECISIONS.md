@@ -3027,6 +3027,85 @@ Milestone 0.2D Phase 2:
 not started
 ```
 
+## D64: Freeze canonical opponent suite v1 selection (2026-08-07)
+
+Milestone 0.2D Phase 1.1 passed independent review; the opponent-fixture
+foundation is COMPLETE. Before any canonical fixture file exists, this decision
+freezes the complete authoritative human-selected values for the six-fixture
+canonical opponent suite v1 in `docs/OPPONENT-SUITE-V1-SELECTION.md`. This is
+the provenance boundary: the fixture choices exist in Git before fixture
+generation and before any future opponent execution. The selection is frozen
+and must not be amended because of fixture validation or future match results.
+
+- **Selection method.** The five new fixtures (`skirmisher`, `crusher`,
+  `spinner`, `controller`, `generalist`) were selected structurally from
+  ADR-004's conceptual archetype envelopes, public catalogue component
+  semantics, the public policy schema, and deliberately simple human-readable
+  armour distributions — with no performance data. They are diversity
+  fixtures, not difficulty tiers and not purportedly balanced opponents.
+  `bulwark` is the sole historical migration candidate and reproduces its
+  existing authoritative build/policy exactly (`BULWARK_BUILD_PROPOSAL`,
+  `BULWARK_POLICY`); it is not reinterpreted or improved.
+- **Shared identity (all six).** `schemaVersion "1"`, `fixtureVersion 1`,
+  `catalogueVersion "1"`, `rulesetCompatibility { rulesetVersion "0.2.0",
+status "supported" }`. Runtime compatibility uses the canonical frozen
+  runtime identity values (`LEGACY_RUNTIME_IDENTITY`, `GRID_RUNTIME_IDENTITY`).
+- **bulwark.v1 — The Bulwark.** heavy/tracks/ram/reinforced_drive, armour
+  {60,15,15,0,0}; rush/close/85/front/front/10/90/desperate_attack; legacy
+  supported, grid supported. Structural arithmetic: 90 points / cost 9 /
+  total 94. Build/policy must exactly equal the historical Bulwark constants.
+- **skirmisher.v1 — Iron Cicada.** light/wheels/grappler/traction_boost,
+  armour {20,10,10,10,10}; flank/close/70/rear/left/35/80/retreat; legacy
+  INCOMPATIBLE (lateral intent depends on translated grid circling), grid
+  supported. Structural arithmetic: 60 points / cost 6 / total 63.
+- **crusher.v1 — Hammerfall.** heavy/tracks/hammer/cooling, armour
+  {30,20,20,15,15}; cautious/medium/55/top/front/20/70/defend; legacy
+  supported, grid supported. Structural arithmetic: 100 points / cost 10 /
+  total 100 (reaching the budget limit is a consequence of the frozen
+  structural choice, not an optimisation result).
+- **spinner.v1 — Whirlwind.** medium/wheels/horizontal_spinner/cooling, armour
+  {25,15,15,10,15}; rush/close/75/front/left/20/75/desperate_attack; legacy
+  supported, grid supported. Structural arithmetic: 80 points / cost 8 /
+  total 85.
+- **controller.v1 — Lockdown.** medium/legs/grappler/traction_boost, armour
+  {20,15,15,10,10}; cautious/close/60/rear/left/30/80/defend; legacy
+  INCOMPATIBLE (ADR-004 controller definition; grapple repositioning exists
+  only in the grid runtime), grid supported. Structural arithmetic: 70 points
+  / cost 7 / total 87.
+- **generalist.v1 — Sentinel.** medium/wheels/flipper/cooling, armour
+  {20,15,15,15,15}; hold/medium/65/front/top/30/80/defend; legacy supported,
+  grid supported. Structural arithmetic: 80 points / cost 8 / total 80.
+- **Evidence firewall (absolute).** Only `CATALOGUE_V1`, the authoritative
+  build schema/validator, the authoritative policy schema, ADR-004 envelopes,
+  the historical Bulwark constants, ordinary unit-test mechanics and the
+  reviewed fixture foundation were used. Nothing was inspected or used from
+  benchmark seeds/results, held-out seeds/results, `all`, readiness execution
+  results, grapple-supplement results, GRID-BETA-001–005 outcomes, previous AI
+  redesign performance, adaptation results, or provider/model optimisation. No
+  simulator was run and no opponent match exists.
+- **No implementation in this commit.** No `data/opponents/` tree, no fixture
+  file, no generator, no package script and no `src/` change. `src/opponents/`
+  is byte-unchanged from the reviewed foundation.
+
+Status (frozen at this commit):
+
+```
+Milestone 0.2D Phase 2 selection:
+frozen before fixture creation
+
+Canonical opponent fixtures:
+0 (files not yet created)
+
+Opponent matches executed:
+0
+
+Benchmark/held-out/provider access:
+none
+
+Milestone 0.2D Phase 3:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.
