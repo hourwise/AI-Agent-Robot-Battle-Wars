@@ -187,4 +187,77 @@ describe("grid beta replay (Phase 3G Phase 11)", () => {
       loadValidatedGridBetaReplayBundle(env!.outputRoot, BETA_TEST_MATCH_ID, changingFs),
     ).rejects.toThrow(/cross-agreement|missing or unreadable/);
   });
+
+  // ── Phase 3G.1.1 physical replay pre/read/post validation (Phase 3) ──────
+
+  it("rejects a regular-file to symbolic-link substitution during reading via the physical rule", async () => {
+    if (!artifactDirectory) return;
+    const symlinkEntry = {
+      isFile: () => false,
+      isDirectory: () => false,
+      isSymbolicLink: () => true,
+    };
+    let recordLstats = 0;
+    const racingFs = {
+      ...defaultCanaryFs,
+      lstat: async (path: string) => {
+        const normalized = path.replaceAll("\\", "/");
+        if (normalized.endsWith(`/${GRID_BETA_MATCH_RECORD_ARTIFACT}`)) {
+          recordLstats += 1;
+          // The initial inventory reports the artifact as a regular file
+          // (first lstat); the immediately following pre-read lstat reports
+          // it as a symbolic link.
+          if (recordLstats === 2) return symlinkEntry;
+          return defaultCanaryFs.lstat(path);
+        }
+        return defaultCanaryFs.lstat(path);
+      },
+      readFile: async (path: string, encoding: "utf-8") => {
+        // The injected FS may even return the original valid bytes; replay
+        // must still reject through the physical regular-file rule, never
+        // through semantic corruption.
+        return defaultCanaryFs.readFile(path, encoding);
+      },
+    };
+    await expect(
+      loadValidatedGridBetaReplayBundle(env!.outputRoot, BETA_TEST_MATCH_ID, racingFs),
+    ).rejects.toThrow(/regular file.*symbolic link/);
+  });
+
+  it("rejects an artifact deleted during reading", async () => {
+    if (!artifactDirectory) return;
+    const deletedFs = {
+      ...defaultCanaryFs,
+      readFile: async (path: string, encoding: "utf-8") => {
+        if (path.replaceAll("\\", "/").endsWith(`/${GRID_BETA_MATCH_RECORD_ARTIFACT}`)) {
+          const err = new Error("ENOENT") as Error & { code?: string };
+          err.code = "ENOENT";
+          throw err;
+        }
+        return defaultCanaryFs.readFile(path, encoding);
+      },
+    };
+    await expect(
+      loadValidatedGridBetaReplayBundle(env!.outputRoot, BETA_TEST_MATCH_ID, deletedFs),
+    ).rejects.toThrow(/missing or unreadable/);
+  });
+
+  it("rejects a physical inventory change after one artifact has been read", async () => {
+    if (!artifactDirectory) return;
+    let readdirCalls = 0;
+    const sneakingFs = {
+      ...defaultCanaryFs,
+      readdir: async (path: string) => {
+        const names = await defaultCanaryFs.readdir(path);
+        readdirCalls += 1;
+        // The first listing is the initial inventory (valid); the second
+        // listing (required again after all reads) gains an extra entry.
+        if (readdirCalls === 2) return [...names, "sneaked.txt"];
+        return names;
+      },
+    };
+    await expect(
+      loadValidatedGridBetaReplayBundle(env!.outputRoot, BETA_TEST_MATCH_ID, sneakingFs),
+    ).rejects.toThrow(/inventory changed while it was being read/);
+  });
 });

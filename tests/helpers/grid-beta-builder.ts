@@ -4,10 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defaultCanaryFs } from "../../src/canary/immutable-canary-bundle.js";
 import { sha256Hex } from "../../src/canary/grid-canary-digest.js";
-import {
-  GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR,
-  runGridBetaMatch,
-} from "../../src/app/grid-beta-match.js";
+import { GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR } from "../../src/app/grid-beta-match.js";
+import { runGridBetaMatchWithTestEnvironment } from "../../src/app/grid-beta-match-test-harness.js";
 import {
   GRID_BETA_MATCH_BUNDLE_ENTRIES,
   GRID_BETA_MATCH_MANIFEST_FILE,
@@ -141,12 +139,14 @@ export async function runBetaMatchToTemp(
     markerPath?: string;
   } = {},
 ) {
-  return runGridBetaMatch(
+  return runGridBetaMatchWithTestEnvironment(
     {
       seed: options.seed ?? BETA_TEST_SEED,
       fighterA: options.fighterA ?? "alpha",
       fighterB: options.fighterB ?? "beta",
       acknowledgement: true,
+    },
+    {
       outputRoot: env.outputRoot,
       fighterRoot: env.fighterRoot,
       governanceBundleDir: env.governanceDir,

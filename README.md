@@ -508,6 +508,29 @@ physical replay bundle is inventory-validated before any content is read.
 No real beta match or suspension marker was created; Milestone 0.2C remains
 incomplete pending independent Phase 3G.1 review.
 
+Phase 3G.1.1 closed the final beta trust-boundary gaps without running a beta
+match or creating a marker. The production beta service is now unbypassable:
+the public match request contains only `seed`, `fighterA`, `fighterB` and
+`acknowledgement` (no root overrides), the production dependency contract has
+no alternate execution seam, and every production invocation enters the fixed
+`executeGridBetaMatch` core (which hard-codes `runGridMatch`) using exactly
+`data/beta/grid-fighters`, `data/beta/grid-matches`,
+`data/readiness/grid-governance/58e8cd87-504e-4b5f-9bac-f6b81d82377b` and
+`data/beta/GRID_BETA_SUSPENDED`. Tests use a structurally separate
+`runGridBetaMatchWithTestEnvironment` harness with temporary roots and an
+`onExecutionStart` observer that only counts entry into the fixed execution
+core (never an alternate result-producing simulator); no production source
+imports the harness. Suspension-marker parent creation no longer performs
+recursive `mkdir` before inspecting existing ancestors: the ancestry is walked
+from the filesystem root with `lstat`, every existing component must be a real
+directory, and missing directories are created incrementally beneath the last
+verified real directory so no symbolic-link ancestor is ever followed. Replay
+validates physical regular-file identity before and after every read (plus a
+final exact inventory check before semantic validation), closing the
+regular-file-to-symlink substitution window. The suspension-marker schema is
+now strict. No real beta match or marker was created; Milestone 0.2C remains
+incomplete pending independent Phase 3G.1.1 review.
+
 ### Replay
 
 ```bash

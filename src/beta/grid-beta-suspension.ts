@@ -58,18 +58,20 @@ export function isGridBetaSuspensionTrigger(
   );
 }
 
-export const gridBetaSuspensionMarkerV1Schema = z.object({
-  schemaVersion: z.literal("1"),
-  kind: z.literal("grid-beta-suspension"),
-  implementationId: z.literal(GRID_OPT_IN_BETA_MATCH_IMPLEMENTATION_ID),
-  contractId: z.literal("grid-opt-in-beta-contract-v1"),
-  governanceDecisionId: z.literal("58e8cd87-504e-4b5f-9bac-f6b81d82377b"),
-  trigger: z.custom<GridBetaSuspensionTrigger>((value) =>
-    isGridBetaSuspensionTrigger(value),
-  ),
-  message: z.string().min(1),
-  createdAt: z.string().datetime(),
-});
+export const gridBetaSuspensionMarkerV1Schema = z
+  .object({
+    schemaVersion: z.literal("1"),
+    kind: z.literal("grid-beta-suspension"),
+    implementationId: z.literal(GRID_OPT_IN_BETA_MATCH_IMPLEMENTATION_ID),
+    contractId: z.literal("grid-opt-in-beta-contract-v1"),
+    governanceDecisionId: z.literal("58e8cd87-504e-4b5f-9bac-f6b81d82377b"),
+    trigger: z.custom<GridBetaSuspensionTrigger>((value) =>
+      isGridBetaSuspensionTrigger(value),
+    ),
+    message: z.string().min(1),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
 
 export interface GridBetaSuspensionMarkerV1 {
   readonly schemaVersion: "1";
@@ -137,30 +139,92 @@ function ancestryPaths(absPath: string): string[] {
 }
 
 /**
- * Securely creates the marker parent when missing and inspects the complete
- * ancestry from the filesystem root. Symbolic links, junctions and
- * non-directory components are rejected. Runs before exclusive marker
- * creation and again immediately after creation.
+ * Walks the complete ancestry from the filesystem root toward `parent` using
+ * `lstat`, requiring every existing component to be a real directory
+ * (symbolic links, junctions, files and other entries are rejected). Returns
+ * the index of the first missing component, or -1 when every component
+ * exists. No directory is created here; the walk only inspects.
  */
-async function assertSecureMarkerParent(
+async function inspectMarkerParentAncestry(
   fs: CanaryFileSystem,
-  markerPath: string,
-): Promise<void> {
-  const parent = dirname(resolve(markerPath));
-  await fs.mkdir(parent, { recursive: true });
-  for (const path of ancestryPaths(parent)) {
+  parent: string,
+): Promise<{ ancestors: string[]; firstMissing: number }> {
+  const ancestors = ancestryPaths(parent);
+  for (let i = 0; i < ancestors.length; i++) {
+    const path = ancestors[i]!;
     const kind = await fsEntryKind(fs, path);
-    if (kind === null) {
-      throw new GridBetaSuspensionError(
-        `suspension marker parent component does not exist: ${path}`,
-      );
-    }
+    if (kind === null) return { ancestors, firstMissing: i };
     if (kind !== "directory") {
       throw new GridBetaSuspensionError(
         `suspension marker parent component is not a real directory (${kind}; symbolic links and junctions are rejected): ${path}`,
       );
     }
   }
+  return { ancestors, firstMissing: -1 };
+}
+
+/**
+ * Creates the missing marker-parent components incrementally beneath the last
+ * verified real directory. Each component is created with a non-recursive
+ * `mkdir` (never following a symbolic-link ancestor to create a missing
+ * descendant) and immediately re-inspected with `lstat`, requiring a real
+ * directory. A concurrent creator that created the same component first is
+ * tolerated only if the resulting entry is a verified real directory.
+ */
+async function createMissingMarkerParentComponents(
+  fs: CanaryFileSystem,
+  ancestors: readonly string[],
+  firstMissing: number,
+): Promise<void> {
+  for (let i = firstMissing; i < ancestors.length; i++) {
+    const path = ancestors[i]!;
+    try {
+      await fs.mkdir(path);
+    } catch (e) {
+      if (!isFsCode(e, "EEXIST")) {
+        throw new GridBetaSuspensionError(
+          `suspension marker parent component could not be created: ${path}: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
+    }
+    const kind = await fsEntryKind(fs, path);
+    if (kind !== "directory") {
+      throw new GridBetaSuspensionError(
+        `suspension marker parent component is not a real directory after creation (${kind}; symbolic links and junctions are rejected): ${path}`,
+      );
+    }
+  }
+}
+
+/**
+ * Securely prepares the marker parent (Milestone 0.2C Phase 3G.1.1,
+ * Phase 2).
+ *
+ * The parent is resolved and the complete ancestry is walked from the
+ * filesystem root using `lstat`. Every existing component must be a real
+ * directory (symbolic links, junctions, files and other entries are
+ * rejected). The walk stops at the first missing component and missing
+ * directories are created incrementally — one non-recursive `mkdir` at a
+ * time beneath the last verified real directory — so no recursive mkdir ever
+ * follows an existing symbolic-link ancestor to create a missing descendant.
+ * Each created component is immediately `lstat`-verified as a real directory.
+ * Finally the complete ancestry is re-inspected before exclusive marker
+ * creation. The caller re-inspects the complete ancestry again after
+ * creation.
+ */
+async function assertSecureMarkerParent(
+  fs: CanaryFileSystem,
+  markerPath: string,
+): Promise<void> {
+  const parent = dirname(resolve(markerPath));
+  const first = await inspectMarkerParentAncestry(fs, parent);
+  if (first.firstMissing !== -1) {
+    await createMissingMarkerParentComponents(fs, first.ancestors, first.firstMissing);
+  }
+  // Re-inspect the complete ancestry before exclusive marker creation.
+  await inspectMarkerParentAncestry(fs, parent);
 }
 
 export interface CreateGridBetaSuspensionMarkerInput {
@@ -171,17 +235,21 @@ export interface CreateGridBetaSuspensionMarkerInput {
 
 /**
  * Creates the suspension marker exclusively (Milestone 0.2C Phase 3G.1,
- * Phase 3).
+ * Phase 3; Phase 3G.1.1, Phase 2).
  *
- * The marker parent is securely created when missing and the complete
- * ancestry is inspected from the filesystem root before and after creation
- * (rejecting symbolic links, junctions and non-directory components). The
- * final marker path is then created directly with an exclusive/no-clobber
- * write (`wx`): it can never replace an existing file, malformed marker,
- * directory, symbolic link or junction; concurrent creators result in
- * exactly one created marker and one closed failure; a partial marker still
- * means suspended. No temporary-marker rename is used and the existing
- * marker bytes are never replaced.
+ * The marker parent is securely prepared when missing: the complete ancestry
+ * is walked from the filesystem root with `lstat` and every existing
+ * component must be a real directory (symbolic links, junctions, files and
+ * other entries are rejected); missing directories are created incrementally
+ * beneath the last verified real directory so no recursive mkdir ever follows
+ * a symbolic-link ancestor. The complete ancestry is re-inspected immediately
+ * before and immediately after the exclusive marker creation. The final
+ * marker path is then created directly with an exclusive/no-clobber write
+ * (`wx`): it can never replace an existing file, malformed marker, directory,
+ * symbolic link or junction; concurrent creators result in exactly one
+ * created marker and one closed failure; a partial marker still means
+ * suspended. No temporary-marker rename is used and the existing marker bytes
+ * are never replaced.
  */
 export async function createGridBetaSuspensionMarker(
   fs: CanaryFileSystem,

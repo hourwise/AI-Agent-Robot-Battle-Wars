@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { CATALOGUE_V1 } from "../../src/catalogue/catalogue.v1.js";
 import { RULESET_VERSION, SIMULATOR_VERSION } from "../../src/simulator/constants.js";
@@ -16,6 +16,17 @@ const ROOT = join(__dirname, "..", "..");
 
 function read(path: string): string {
   return readFileSync(join(ROOT, path), "utf-8");
+}
+
+/** Recursively lists every TypeScript source path under `src/`. */
+function listSourceFiles(dir: string): string[] {
+  const files: string[] = [];
+  for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) files.push(...listSourceFiles(full));
+    else if (entry.name.endsWith(".ts")) files.push(full);
+  }
+  return files;
 }
 
 const BETA_SOURCE_FILES = [
@@ -91,6 +102,26 @@ describe("grid beta regressions (Phase 3G Phase 13)", () => {
     expect(/from\s+["'][^"']*simulator\/grid-runtime/.test(core)).toBe(true);
     expect(core.includes("runGridMatch")).toBe(true);
     expect(core.includes("executeGridBetaMatchWithRunner")).toBe(true);
+  });
+
+  it("keeps the test-only runner/environment structurally separate (Phase 3G.1.1 Phase 1)", () => {
+    // The production beta service has a fixed execution boundary: no
+    // alternate roots and no alternate execution implementation. Only the
+    // explicitly named test harness may override roots and observe execution,
+    // and no production source may import it.
+    const harnessPath = "src/app/grid-beta-match-test-harness.ts";
+    expect(existsSync(join(ROOT, harnessPath)), "harness must exist").toBe(true);
+    const offenders = listSourceFiles("src").filter((file) => {
+      if (file === harnessPath) return false;
+      return read(file).includes("grid-beta-match-test-harness");
+    });
+    expect(offenders, "no production source may import the test harness").toEqual([]);
+    // At least the test helper imports the harness (only test files use it).
+    expect(read("tests/helpers/grid-beta-builder.ts")).toContain(
+      "grid-beta-match-test-harness",
+    );
+    // The production dependency contract has no execution seam.
+    expect(read("src/app/grid-beta-match.ts")).not.toContain("execute?");
   });
 
   it("does not modify normal match/series and leaves them on legacy", () => {

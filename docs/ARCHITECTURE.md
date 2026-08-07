@@ -1189,6 +1189,35 @@ nested entries) before any content is read. No real beta match or marker was
 created; the beta is implemented but not yet authorised for its first real
 execution.
 
+Phase 3G.1.1 closed the final beta trust-boundary gaps without running a beta
+match or creating a marker. The production beta service is unbypassable: the
+public match request contains only `seed`, `fighterA`, `fighterB` and
+`acknowledgement` (no `outputRoot`/`fighterRoot`/`governanceBundleDir`/
+`suspensionMarkerPath` overrides) and the production dependency contract has
+no `execute?` seam, so every production invocation enters the fixed imported
+`executeGridBetaMatch` (which hard-codes `runGridMatch`) and always uses
+exactly `data/beta/grid-fighters`, `data/beta/grid-matches`,
+`data/readiness/grid-governance/58e8cd87-504e-4b5f-9bac-f6b81d82377b` and
+`data/beta/GRID_BETA_SUSPENDED`. Tests use the structurally separate
+`runGridBetaMatchWithTestEnvironment` harness with temporary roots and an
+`onExecutionStart` observer that only counts entry into the fixed execution
+core (never an alternate result-producing simulator); no production source
+imports the harness and a static regression proves only test files use it.
+Suspension-marker parent creation never follows an ancestor: the complete
+ancestry is walked from the filesystem root with `lstat` before any `mkdir`,
+every existing component must be a real directory (symbolic links, junctions,
+files and other entries reject), and missing directories are created
+incrementally with one non-recursive `mkdir` at a time beneath the last
+verified real directory, with the complete ancestry re-inspected before and
+after the exclusive (`wx`) marker creation. Replay validates physical
+regular-file identity with `lstat` before and after every read plus a final
+exact ten-entry inventory check before semantic validation, so a
+regular-file-to-symlink substitution during reading rejects through the
+physical rule even when the read returns valid bytes. The suspension-marker
+schema is now strict (cleanup only). No real beta match or marker was
+created; the first real internal beta match remains not yet authorised,
+pending independent Phase 3G.1.1 review.
+
 ### Agent usage tracking
 
 Every agent result (design, policy, review) produces an `AgentUsageRecord` capturing token usage, cost, latency and fallback status. The `AgentPhase` enum (`design` | `policy` | `review` | `design_correction`) tracks which stage each record belongs to.

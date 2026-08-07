@@ -2211,6 +2211,33 @@ balance tuning and does not begin Milestone 0.2D.
   and the physical replay bundle is inventory-validated before any content is
   read. No real beta match or marker was created; no official artifact was
   altered; the beta remains not authorised for its first real execution.
+- **Final grid-beta trust-boundary hardening (Phase 3G.1.1).** Independent
+  review confirmed Phase 3G.1 closed the major concurrency, provenance and
+  persisted-artifact issues. Three narrow trust-boundary gaps were closed
+  before any real beta match may be authorised: (1) the production beta
+  service is unbypassable — the public match request contains only `seed`,
+  `fighterA`, `fighterB` and `acknowledgement` (no `outputRoot`/`fighterRoot`/
+  `governanceBundleDir`/`suspensionMarkerPath` overrides), the production
+  dependency contract has no `execute?` seam, and every production invocation
+  enters the fixed imported `executeGridBetaMatch` (which hard-codes
+  `runGridMatch`) using exactly the frozen canonical roots; (2)
+  suspension-marker parent creation never follows an ancestor — the complete
+  ancestry is walked from the filesystem root with `lstat` before any
+  directory is created, every existing component must be a real directory,
+  and missing directories are created incrementally with one non-recursive
+  `mkdir` at a time beneath the last verified real directory, with the
+  complete ancestry re-inspected before and after exclusive creation; (3)
+  replay validates physical regular-file identity with `lstat` before and
+  after every read plus a final exact inventory check before semantic
+  validation, so a regular-file-to-symlink substitution during reading
+  rejects through the physical rule even when the read returns valid bytes.
+  Tests use a structurally separate `runGridBetaMatchWithTestEnvironment`
+  harness (temporary roots plus an `onExecutionStart` observer that only
+  counts entry into the fixed execution core; no alternate result-producing
+  simulator; no production source imports the harness). The suspension-marker
+  schema is now strict (cleanup only, no frozen identity change). No real
+  beta match or marker was created; no official artifact was altered; the
+  first real internal beta match remains not yet authorised.
 
 ### 9.20 Phase 3E1 status
 
@@ -2299,7 +2326,19 @@ creation with secure parent, strict beta schemas, authoritative fighter/build
 and complete C2 metadata binding, canonical preflight, primary execution
 checksum binding, deterministic repeat input isolation, exact governance
 inventory, filesystem-root fighter ancestry, physical replay inventory; no
-real beta match or marker created; official artifacts unchanged); governance
+real beta match or marker created; official artifacts unchanged); Phase
+3G.1.1 final trust-boundary hardening **complete** (unbypassable production
+service: request carries no root overrides and dependencies carry no
+`execute?` seam, fixed canonical roots and fixed `executeGridBetaMatch`
+core; structurally separate `runGridBetaMatchWithTestEnvironment` test
+harness with an entry observer only, no alternate simulator, no production
+source imports the harness; marker-parent creation walks the complete
+ancestry with `lstat` before any `mkdir` and creates missing directories
+incrementally beneath the last verified real directory, never following a
+symbolic-link ancestor; replay validates physical regular-file identity
+before and after every read plus a final exact inventory check; strict
+suspension-marker schema cleanup; no real beta match or marker created;
+official artifacts unchanged); governance
 outcome **`approved_for_bounded_opt_in_beta_implementation`**; bounded opt-in
 beta implementation **implemented, not yet authorised for first real
 execution**; grid runtime enabled **no**; legacy default
@@ -2307,7 +2346,7 @@ execution**; grid runtime enabled **no**; legacy default
 performed**; opt-in beta decision **performed (approval for bounded
 implementation)**; default grid activation **not performed**; Milestone 0.2C
 **not complete** pending a separately authorised activation-readiness
-decision and independent Phase 3G.1 review.
+decision and independent Phase 3G.1.1 review.
 
 ## 10. Still out of scope
 

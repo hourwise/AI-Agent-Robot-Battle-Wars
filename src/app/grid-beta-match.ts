@@ -81,8 +81,6 @@ import {
 import {
   executeGridBetaMatch,
   gridBetaMatchResultChecksum,
-  type ExecuteGridBetaMatchInput,
-  type GridBetaExecutionOutcome,
 } from "../beta/grid-beta-execution-core.js";
 import {
   assertSuspensionMarkerAbsent,
@@ -135,10 +133,6 @@ export interface GridBetaMatchRequest {
   readonly fighterA: string;
   readonly fighterB: string;
   readonly acknowledgement: true;
-  readonly outputRoot?: string;
-  readonly fighterRoot?: string;
-  readonly governanceBundleDir?: string;
-  readonly suspensionMarkerPath?: string;
 }
 
 export interface GridBetaMatchDependencies {
@@ -146,13 +140,30 @@ export interface GridBetaMatchDependencies {
   readonly now?: () => Date;
   readonly fs?: CanaryFileSystem;
   readonly sourceCommitReader?: GridOptInBetaSourceCommitReader;
+}
+
+/**
+ * Internal execution boundary of the shared service flow (Milestone 0.2C
+ * Phase 3G.1.1, Phase 1).
+ *
+ * The production entry point `runGridBetaMatch` always supplies the frozen
+ * canonical roots and no execution observer. Only the test-only harness
+ * (`runGridBetaMatchWithTestEnvironment`) supplies temporary roots and an
+ * optional entry observer. The execution core is always the fixed imported
+ * `executeGridBetaMatch`; the observer may only count entry into it and can
+ * never replace or modify the execution or its result.
+ */
+export interface GridBetaMatchEnvironment {
+  readonly outputRoot: string;
+  readonly fighterRoot: string;
+  readonly governanceBundleDir: string;
+  readonly suspensionMarkerPath: string;
   /**
-   * Execution-call seam (defaults to the fixed `executeGridBetaMatch`).
-   * Injected only by tests to count execution calls; the production path never
-   * supplies an alternate simulator — `executeGridBetaMatch` hard-codes the
-   * real `runGridMatch`.
+   * Optional execution-entry observer (test harness only). Invoked exactly
+   * when the service enters the fixed `executeGridBetaMatch` core; it must
+   * not replace or modify the execution result.
    */
-  readonly execute?: (input: ExecuteGridBetaMatchInput) => GridBetaExecutionOutcome;
+  readonly onExecutionStart?: () => void;
 }
 
 export interface GridBetaMatchResult {
@@ -293,8 +304,47 @@ async function suspendBeta(
   );
 }
 
+/**
+ * Production grid beta match entry point (Milestone 0.2C Phase 3G.1.1,
+ * Phase 1).
+ *
+ * This is the one fixed execution boundary. It always uses exactly the frozen
+ * canonical roots (`data/beta/grid-fighters`, `data/beta/grid-matches`,
+ * `data/readiness/grid-governance/58e8cd87-504e-4b5f-9bac-f6b81d82377b` and
+ * `data/beta/GRID_BETA_SUSPENDED`) and always enters the fixed imported
+ * `executeGridBetaMatch` (which hard-codes `runGridMatch`). The public match
+ * request contains only `seed`, `fighterA`, `fighterB` and `acknowledgement`;
+ * there are no root overrides and no alternate execution injection. Only the
+ * structurally separate test harness
+ * (`runGridBetaMatchWithTestEnvironment`) may supply temporary roots and an
+ * execution-entry observer.
+ */
 export async function runGridBetaMatch(
   request: GridBetaMatchRequest,
+  dependencies: GridBetaMatchDependencies = {},
+): Promise<GridBetaMatchResult> {
+  return runGridBetaMatchWithEnvironment(
+    request,
+    {
+      outputRoot: GRID_OPT_IN_BETA_MATCH_OUTPUT_ROOT,
+      fighterRoot: GRID_OPT_IN_BETA_FIGHTER_ROOT,
+      governanceBundleDir: GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR,
+      suspensionMarkerPath: GRID_OPT_IN_BETA_SUSPENSION_MARKER_PATH,
+    },
+    dependencies,
+  );
+}
+
+/**
+ * Shared service flow with an explicit environment. Only the production
+ * `runGridBetaMatch` (fixed canonical roots, fixed execution core) and the
+ * test-only harness `runGridBetaMatchWithTestEnvironment` call this function;
+ * no other production caller supplies an environment, and the execution core
+ * is always the fixed `executeGridBetaMatch`.
+ */
+export async function runGridBetaMatchWithEnvironment(
+  request: GridBetaMatchRequest,
+  environment: GridBetaMatchEnvironment,
   dependencies: GridBetaMatchDependencies = {},
 ): Promise<GridBetaMatchResult> {
   const createUuid = dependencies.createUuid ?? randomUUID;
@@ -302,13 +352,10 @@ export async function runGridBetaMatch(
   const fs = dependencies.fs ?? defaultCanaryFs;
   const sourceCommitReader =
     dependencies.sourceCommitReader ?? new GitSourceCommitReader();
-  const execute = dependencies.execute ?? executeGridBetaMatch;
-  const outputRoot = request.outputRoot ?? GRID_OPT_IN_BETA_MATCH_OUTPUT_ROOT;
-  const fighterRoot = request.fighterRoot ?? GRID_OPT_IN_BETA_FIGHTER_ROOT;
-  const governanceDir =
-    request.governanceBundleDir ?? GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR;
-  const markerPath =
-    request.suspensionMarkerPath ?? GRID_OPT_IN_BETA_SUSPENSION_MARKER_PATH;
+  const outputRoot = environment.outputRoot;
+  const fighterRoot = environment.fighterRoot;
+  const governanceDir = environment.governanceBundleDir;
+  const markerPath = environment.suspensionMarkerPath;
 
   // 0. Input validation (user errors — never a suspension trigger).
   if (request.acknowledgement !== true) {
@@ -448,10 +495,14 @@ export async function runGridBetaMatch(
   }
 
   // 11. Execute the same grid beta match twice with identical but independent
-  //     inputs and require deterministic equality of all simulator facts.
+  //     inputs and require deterministic equality of all simulator facts. The
+  //     execution core is always the fixed imported `executeGridBetaMatch`
+  //     (which hard-codes `runGridMatch`); only the test harness may observe
+  //     entry into it via `onExecutionStart`.
   let primary: GridMatchResult;
   try {
-    const execution = execute({
+    environment.onExecutionStart?.();
+    const execution = executeGridBetaMatch({
       seed: request.seed,
       fighterA: createGridBetaFighterExecutionValues(fighterALoad.spec),
       fighterB: createGridBetaFighterExecutionValues(fighterBLoad.spec),

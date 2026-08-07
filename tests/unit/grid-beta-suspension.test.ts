@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { existsSync } from "node:fs";
 import {
   mkdir,
   mkdtemp,
@@ -138,6 +139,23 @@ describe("grid beta suspension switch (Phase 3G Phase 5)", () => {
     }
   });
 
+  it("strictly rejects unknown fields in the marker schema (Phase 3G.1.1 Phase 4)", () => {
+    const valid = {
+      schemaVersion: "1",
+      kind: "grid-beta-suspension",
+      implementationId: "grid-opt-in-beta-match-v1",
+      contractId: "grid-opt-in-beta-contract-v1",
+      governanceDecisionId: "58e8cd87-504e-4b5f-9bac-f6b81d82377b",
+      trigger: "governance_anchor_failure",
+      message: "x",
+      createdAt: "2026-08-06T00:00:00.000Z",
+    };
+    expect(gridBetaSuspensionMarkerV1Schema.safeParse(valid).success).toBe(true);
+    expect(
+      gridBetaSuspensionMarkerV1Schema.safeParse({ ...valid, extra: "unknown" }).success,
+    ).toBe(false);
+  });
+
   it("fails closed on exclusive marker-write failure and never replaces a raced entry", async () => {
     const { path, cleanup } = await tempMarker();
     try {
@@ -227,6 +245,69 @@ describe("grid beta suspension switch (Phase 3G Phase 5)", () => {
       ).rejects.toThrow(GridBetaSuspensionError);
       // The junction parent must never be followed: no marker is created.
       expect((await readdir(outside)).includes("GRID_BETA_SUSPENDED")).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("never follows a symbolic-link ancestor to create a missing descendant (Phase 3G.1.1 Phase 2)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "beta-suspend-nofollow-"));
+    const outside = await mkdtemp(join(tmpdir(), "beta-suspend-nofollow-outside-"));
+    const link = join(root, "link");
+    await symlink(outside, link, "junction");
+    try {
+      await writeFile(join(outside, "keep.txt"), "keep", "utf-8");
+      // real root/
+      //   link -> outside/
+      // marker path: real root/link/missing/GRID_BETA_SUSPENDED
+      const path = join(link, "missing", "GRID_BETA_SUSPENDED");
+      await expect(
+        createGridBetaSuspensionMarker(defaultCanaryFs, path, {
+          trigger: "governance_anchor_failure",
+          message: "x",
+          createdAt: "2026-08-06T00:00:00.000Z",
+        }),
+      ).rejects.toThrow(GridBetaSuspensionError);
+      // The missing descendant must never be created through the link, no
+      // marker may exist outside, and existing outside contents are unchanged.
+      expect(existsSync(join(outside, "missing"))).toBe(false);
+      expect(existsSync(join(outside, "GRID_BETA_SUSPENDED"))).toBe(false);
+      expect(existsSync(join(outside, "link"))).toBe(false);
+      expect(await readFile(join(outside, "keep.txt"), "utf-8")).toBe("keep");
+      expect(await readdir(outside)).toEqual(["keep.txt"]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects before any mkdir when a symbolic-link ancestor exists (Phase 3G.1.1 Phase 2)", async () => {
+    const root = await mkdtemp(join(tmpdir(), "beta-suspend-nomkdir-"));
+    const outside = await mkdtemp(join(tmpdir(), "beta-suspend-nomkdir-outside-"));
+    const link = join(root, "link");
+    await symlink(outside, link, "junction");
+    try {
+      const mkdirCalls: string[] = [];
+      const guardingFs = {
+        ...defaultCanaryFs,
+        mkdir: async (path: string, options?: { recursive?: boolean }) => {
+          mkdirCalls.push(path);
+          return defaultCanaryFs.mkdir(path, options);
+        },
+      };
+      const path = join(link, "missing", "deep", "GRID_BETA_SUSPENDED");
+      await expect(
+        createGridBetaSuspensionMarker(guardingFs, path, {
+          trigger: "governance_anchor_failure",
+          message: "x",
+          createdAt: "2026-08-06T00:00:00.000Z",
+        }),
+      ).rejects.toThrow(GridBetaSuspensionError);
+      // The complete ancestry is walked (and the symbolic-link component is
+      // rejected) before any directory is created.
+      expect(mkdirCalls).toEqual([]);
+      expect(existsSync(join(outside, "missing"))).toBe(false);
     } finally {
       await rm(root, { recursive: true, force: true });
       await rm(outside, { recursive: true, force: true });

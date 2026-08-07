@@ -2054,13 +2054,105 @@ Official grapple supplement:             complete and unchanged
 Official Phase 3F governance decision:   complete, unchanged and source-anchored
 Phase 3G bounded beta implementation:    complete
 Phase 3G.1 safety/provenance hardening:  complete
-explicit internal beta command:          implemented, not yet authorised for first real execution
+Phase 3G.1.1 final trust-boundary hardening: complete
+first real internal beta match:          not yet authorised
 legacy default:                          yes
 grid default activation:                 no
 public rollout:                          not authorised
-ranked/tournament use:                   not authorised
+ranked/tournament:                       not authorised
 balance qualification:                   not performed
-Milestone 0.2C:                          not complete pending independent Phase 3G.1 review
+Milestone 0.2C:                          not complete pending independent Phase 3G.1.1 review
+```
+
+## D56: Close the final grid-beta trust boundaries (Phase 3G.1.1, 2026-08-07)
+
+Independent review confirmed that Phase 3G.1 closed the major concurrency,
+provenance and persisted-artifact issues. Three narrow trust-boundary issues
+remained before the first real beta match may be authorised, and Phase 3G.1.1
+corrects only those. Phase 3G.1 itself remained unexecuted (no real beta
+match or suspension marker was ever created), no official readiness,
+supplement or governance artifact was altered, and no beta command ran.
+
+- **Unbypassable production beta service.** The public match request now
+  contains only `seed`, `fighterA`, `fighterB` and `acknowledgement`; the
+  production-request overrides for `outputRoot`, `fighterRoot`,
+  `governanceBundleDir` and `suspensionMarkerPath` were removed. The
+  production dependency contract no longer contains an `execute?` seam, so
+  no production caller can replace the simulator or execution core: every
+  production invocation enters the fixed imported `executeGridBetaMatch`
+  (which hard-codes `runGridMatch`) and always uses exactly
+  `data/beta/grid-fighters`, `data/beta/grid-matches`,
+  `data/readiness/grid-governance/58e8cd87-504e-4b5f-9bac-f6b81d82377b` and
+  `data/beta/GRID_BETA_SUSPENDED`.
+- **Structurally separate test harness.** Tests use the explicitly named
+  `runGridBetaMatchWithTestEnvironment` harness, which accepts temporary
+  filesystem roots and an optional `onExecutionStart` observer. The observer
+  only counts entry into the fixed `executeGridBetaMatch` core and can never
+  replace or modify the execution result; there is no alternate
+  result-producing simulator anywhere in the production service. No
+  production source imports the harness; a static regression proves only
+  test files use it, and a runtime regression proves the observer counts
+  exactly one entry into the real fixed execution core. The pure
+  execution-core test seam (`executeGridBetaMatchWithRunner`) remains only
+  for direct unit testing of repeat-input mutation detection.
+- **Marker-parent creation never follows an ancestor.** The marker parent is
+  resolved and its complete ancestry is walked from the filesystem root with
+  `lstat` before any directory is created. Every existing component must be a
+  real directory (symbolic links, junctions, files and other entries are
+  rejected). The walk stops at the first missing component and missing
+  directories are created incrementally — one non-recursive `mkdir` at a time
+  beneath the last verified real directory — so no recursive `mkdir` ever
+  follows an existing symbolic-link ancestor to create a missing descendant.
+  Each created component is immediately `lstat`-verified, and the complete
+  ancestry is re-inspected before and after exclusive (`wx`) marker creation.
+  A real-link test proves that `real root/link -> outside/` with marker path
+  `real root/link/missing/GRID_BETA_SUSPENDED` rejects with `outside/missing`
+  never created, no marker outside and existing outside contents unchanged.
+- **Physical replay validation before and after every read.** Replay keeps
+  the initial exact ten-entry inventory check, then for each artifact uses a
+  stable regular-file read sequence: `lstat` before read (require a regular
+  non-symbolic-link file), read the exact contents, `lstat` after read
+  (require a regular non-symbolic-link file). After all ten reads the exact
+  inventory is required once more before semantic validation. A deterministic
+  injected-filesystem race proves that a regular-file-to-symbolic-link
+  substitution immediately after the inventory rejects through the physical
+  regular-file rule even when `readFile` returns the original valid bytes;
+  deletion during reading and a physical inventory change after one artifact
+  has been read also reject. Extra/hidden/nested entries, semantic byte
+  corruption, valid immutable bundles and replay-while-suspended behaviour
+  are unchanged.
+- **Schema consistency cleanup.** The beta-owned suspension-marker object
+  schema is now strict (unknown fields reject) without altering any generated
+  marker field or frozen identity.
+- **Scope and status.** Phase 3G.1 remained unexecuted; no real beta match
+  or marker was created; no readiness, supplement or governance command ran;
+  no benchmark ran; no seed bank was opened; held-out and `all` remained
+  sealed; no provider or external API call occurred; normal match/series/
+  replay remained unchanged on legacy; both canaries remained unchanged;
+  official readiness, supplement and governance bytes (all seven hashes)
+  remained unchanged; governance source snapshot, policy-contract checksum
+  and C1/C2/AB2 (with C2 default) remained frozen; simulator/ruleset/
+  catalogue identities remained unchanged; no default/public/ranked/
+  tournament activation occurred; no balance conclusion was made; Milestone
+  0.2D did not begin. The first real internal beta match remains not yet
+  authorised, pending independent Phase 3G.1.1 review.
+
+Status:
+
+```
+Official v3 readiness evidence:          complete and unchanged
+Official grapple supplement:             complete and unchanged
+Official Phase 3F governance decision:   complete, unchanged and source-anchored
+Phase 3G bounded beta implementation:    complete
+Phase 3G.1 safety/provenance hardening:  complete
+Phase 3G.1.1 final trust-boundary hardening: complete
+first real internal beta match:          not yet authorised
+legacy default:                          yes
+grid default activation:                 no
+public rollout:                          not authorised
+ranked/tournament:                       not authorised
+balance qualification:                   not performed
+Milestone 0.2C:                          not complete pending independent Phase 3G.1.1 review
 ```
 
 ## D24: Candidate C component-impact qualification

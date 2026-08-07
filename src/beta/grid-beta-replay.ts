@@ -39,6 +39,15 @@ export interface LoadedGridBetaReplayBundle {
 /**
  * Reads and fully validates a stored beta match bundle. The complete bundle
  * is validated before any replay text is displayed.
+ *
+ * Physical regular-file identity is required before and after every read
+ * (Milestone 0.2C Phase 3G.1.1, Phase 3): the exact ten-entry inventory is
+ * required first, then each artifact is `lstat`-verified as a regular
+ * non-symbolic-link file before reading, read exactly, and `lstat`-verified
+ * again immediately after reading, then the exact inventory is required once
+ * more before semantic validation. A substitution from regular file to
+ * symbolic link — even when the read returns the original bytes — rejects
+ * through the physical regular-file rule, never through semantic corruption.
  */
 export async function loadValidatedGridBetaReplayBundle(
   outputRoot: string,
@@ -49,9 +58,7 @@ export async function loadValidatedGridBetaReplayBundle(
   // Phase 13: before reading any replay content, require the physical match
   // directory to contain exactly the ten expected entries as regular files
   // (no symbolic links, no directories, no hidden or unexpected file, no
-  // missing artifact). An eleventh file, a hidden file, a nested directory, a
-  // symbolic-link artifact or a changed artifact between inventory inspection
-  // and read-back all reject before display.
+  // missing artifact).
   try {
     await assertExactBundleInventory(fs, dir, GRID_BETA_MATCH_BUNDLE_ENTRIES);
   } catch (e) {
@@ -62,16 +69,44 @@ export async function loadValidatedGridBetaReplayBundle(
   }
   const contents: Record<string, string> = {};
   for (const name of GRID_BETA_MATCH_BUNDLE_ENTRIES) {
+    const path = join(dir, name);
     try {
-      contents[name] = await fs.readFile(join(dir, name), "utf-8");
+      // lstat before read: require a regular non-symbolic-link file.
+      const before = await fs.lstat(path);
+      if (before.isSymbolicLink() || !before.isFile()) {
+        throw new GridBetaReplayError(
+          `Grid beta replay artifact ${name} must be a regular file, not a symbolic link or directory (before read): ${path}`,
+        );
+      }
+      // Read the exact contents.
+      contents[name] = await fs.readFile(path, "utf-8");
+      // lstat after read: require a regular non-symbolic-link file again.
+      const after = await fs.lstat(path);
+      if (after.isSymbolicLink() || !after.isFile()) {
+        throw new GridBetaReplayError(
+          `Grid beta replay artifact ${name} changed while being read (not a regular file after read): ${path}`,
+        );
+      }
     } catch (e) {
+      if (e instanceof GridBetaReplayError) throw e;
       throw new GridBetaReplayError(
-        `Grid beta replay bundle is missing or unreadable at ${join(dir, name)}: ${
+        `Grid beta replay bundle is missing or unreadable at ${path}: ${
           e instanceof Error ? e.message : String(e)
         }`,
         { cause: e },
       );
     }
+  }
+  // Re-run the exact inventory after all ten reads, before semantic
+  // validation, so any physical inventory change while the bundle was being
+  // read rejects.
+  try {
+    await assertExactBundleInventory(fs, dir, GRID_BETA_MATCH_BUNDLE_ENTRIES);
+  } catch (e) {
+    throw new GridBetaReplayError(
+      `Grid beta replay bundle inventory changed while it was being read at ${dir}: ${e instanceof Error ? e.message : String(e)}`,
+      { cause: e },
+    );
   }
   const validation = validateGridBetaMatchBundle(contents);
   return { contents, validation };

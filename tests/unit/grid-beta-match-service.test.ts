@@ -21,8 +21,7 @@ import {
   runBetaMatchToTemp,
 } from "../helpers/grid-beta-builder.js";
 import { buildInMemoryReviewedSourceReader } from "../helpers/grid-opt-in-beta-governance-builder.js";
-import { runGridBetaMatch } from "../../src/app/grid-beta-match.js";
-import { executeGridBetaMatch } from "../../src/beta/grid-beta-execution-core.js";
+import { runGridBetaMatchWithTestEnvironment } from "../../src/app/grid-beta-match-test-harness.js";
 
 let env: Awaited<ReturnType<typeof createBetaTempEnvironment>> | null = null;
 
@@ -45,6 +44,27 @@ function deps(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
+/**
+ * Phase 3G.1.1 test harness runner: the production `runGridBetaMatch` has a
+ * fixed execution boundary (canonical roots, fixed `executeGridBetaMatch`
+ * core, no root overrides and no alternate execution injection), so tests use
+ * the structurally separate `runGridBetaMatchWithTestEnvironment` with
+ * temporary roots and an optional execution-entry observer.
+ */
+function harnessRun(
+  request: { seed: number; fighterA: string; fighterB: string; acknowledgement: true },
+  options: {
+    outputRoot: string;
+    fighterRoot: string;
+    governanceBundleDir: string;
+    suspensionMarkerPath: string;
+    onExecutionStart?: () => void;
+  },
+  overrides: Partial<Record<string, unknown>> = {},
+) {
+  return runGridBetaMatchWithTestEnvironment(request, options, deps(overrides));
+}
+
 describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
   it("publishes a validated ten-file beta match bundle to a temp output root", async () => {
     if (!env) return;
@@ -63,18 +83,14 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     if (!env) return;
     const marker = join(env.root, "marker-ack");
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: false as never },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: false as never,
           outputRoot: env.outputRoot,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
         },
-        deps(),
       ),
     ).rejects.toThrow(/acknowledgement/);
     expect(existsSync(marker)).toBe(false);
@@ -85,18 +101,14 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     const out = join(env.root, "out-absent-gov");
     const marker = join(env.root, "marker-absent-gov");
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: join(env.root, "does-not-exist"),
           suspensionMarkerPath: marker,
         },
-        deps(),
       ),
     ).rejects.toThrow(/suspended|governance/);
     expect(existsSync(marker)).toBe(true);
@@ -119,18 +131,14 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     const out = join(env.root, "out-tampered-gov");
     const marker = join(env.root, "marker-tampered-gov");
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: govDir,
           suspensionMarkerPath: marker,
         },
-        deps(),
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -152,18 +160,15 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     const out = join(env.root, "out-forged-source");
     const marker = join(env.root, "marker-forged-source");
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
         },
-        deps({ sourceCommitReader: forgedReader }),
+        { sourceCommitReader: forgedReader },
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -190,18 +195,15 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
         },
-        deps({ fs: mutatingFs }),
+        { fs: mutatingFs },
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -229,18 +231,15 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
         },
-        deps({ fs: mutatingFs }),
+        { fs: mutatingFs },
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -267,18 +266,15 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
         },
-        deps({ fs: mutatingFs }),
+        { fs: mutatingFs },
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -322,24 +318,18 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
-        },
-        deps({
-          fs: racingFs,
-          execute: () => {
+          onExecutionStart: () => {
             executionCalls += 1;
-            throw new Error("execution must not run");
           },
-        }),
+        },
+        { fs: racingFs },
       ),
     ).rejects.toThrow(/suspended/);
     expect(executionCalls).toBe(0);
@@ -370,24 +360,18 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
-        },
-        deps({
-          fs: racingFs,
-          execute: () => {
+          onExecutionStart: () => {
             executionCalls += 1;
-            throw new Error("execution must not run");
           },
-        }),
+        },
+        { fs: racingFs },
       ),
     ).rejects.toThrow(/suspended/);
     expect(executionCalls).toBe(0);
@@ -430,28 +414,24 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
-        },
-        deps({
-          fs: racingFs,
-          execute: (input) => {
+          onExecutionStart: () => {
             executionCalls += 1;
-            return executeGridBetaMatch(input);
           },
-        }),
+        },
+        { fs: racingFs },
       ),
     ).rejects.toThrow(/suspended/);
     // Simulation may already have completed, but no final bundle and no temp
-    // directory may remain, and the marker is present.
+    // directory may remain, and the marker is present. The observer counts
+    // entry into the fixed execution core exactly once (it never replaces or
+    // modifies the execution result).
     expect(executionCalls).toBe(1);
     expect(existsSync(join(out, BETA_TEST_MATCH_ID))).toBe(false);
     expect(existsSync(join(out, `.tmp-${BETA_TEST_MATCH_ID}`))).toBe(false);
@@ -477,18 +457,15 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
         },
-        deps({ fs: racingFs }),
+        { fs: racingFs },
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(join(out, BETA_TEST_MATCH_ID))).toBe(false);
@@ -529,18 +506,15 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
         },
-        deps({ fs: racingFs }),
+        { fs: racingFs },
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(join(out, BETA_TEST_MATCH_ID))).toBe(false);
@@ -565,18 +539,15 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
         return names;
       },
     };
-    const result = await runGridBetaMatch(
+    const result = await harnessRun(
+      { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
       {
-        seed: 1,
-        fighterA: "alpha",
-        fighterB: "beta",
-        acknowledgement: true,
         outputRoot: out,
         fighterRoot: env.fighterRoot,
         governanceBundleDir: env.governanceDir,
         suspensionMarkerPath: join(env.root, "marker-gov-reordered"),
       },
-      deps({ fs: reorderingFs }),
+      { fs: reorderingFs },
     );
     expect(result.matchId).toBe(BETA_TEST_MATCH_ID);
   });
@@ -595,18 +566,15 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
         },
-        deps({ fs: extraFs }),
+        { fs: extraFs },
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -626,18 +594,15 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
         },
-        deps({ fs: extraFs }),
+        { fs: extraFs },
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -663,18 +628,15 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
         },
-        deps({ fs: symlinkFs }),
+        { fs: symlinkFs },
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -686,6 +648,7 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     const marker = join(env.root, "marker-once");
     await mkdir(out);
     let markerWrites = 0;
+    let tampered = false;
     const countingFs: CanaryFileSystem = {
       ...defaultCanaryFs,
       writeFileExclusive: async (path, data, encoding) => {
@@ -693,7 +656,10 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
         return defaultCanaryFs.writeFileExclusive(path, data, encoding);
       },
       writeFile: async (path, data, encoding) => {
-        if (path.includes(".tmp-")) {
+        // Tamper the temp governance report exactly once so the single
+        // restore below leaves the shared temp bundle byte-identical.
+        if (!tampered && path.includes(".tmp-")) {
+          tampered = true;
           const reportPath = join(env.governanceDir, "report.txt");
           const report = await defaultCanaryFs.readFile(reportPath, "utf-8");
           await defaultCanaryFs.writeFile(reportPath, `${report}\n// changed`, "utf-8");
@@ -702,18 +668,15 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      runGridBetaMatch(
+      harnessRun(
+        { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
         {
-          seed: 1,
-          fighterA: "alpha",
-          fighterB: "beta",
-          acknowledgement: true,
           outputRoot: out,
           fighterRoot: env.fighterRoot,
           governanceBundleDir: env.governanceDir,
           suspensionMarkerPath: marker,
         },
-        deps({ fs: countingFs }),
+        { fs: countingFs },
       ),
     ).rejects.toThrow(/suspended/);
     expect(markerWrites).toBe(1);
@@ -725,5 +688,99 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       report.replace("\n// changed", ""),
       "utf-8",
     );
+  });
+});
+
+// ── Phase 3G.1.1 production fixed-boundary regression (Phase 1) ────────────
+
+const PRODUCTION_SERVICE_SOURCE = readFileSync(
+  join(__dirname, "..", "..", "src", "app", "grid-beta-match.ts"),
+  "utf-8",
+);
+
+describe("grid beta production fixed boundary (Phase 3G.1.1 Phase 1)", () => {
+  it("exposes no root override on the public match request", () => {
+    const block = PRODUCTION_SERVICE_SOURCE.slice(
+      PRODUCTION_SERVICE_SOURCE.indexOf("export interface GridBetaMatchRequest"),
+      PRODUCTION_SERVICE_SOURCE.indexOf("export interface GridBetaMatchDependencies"),
+    );
+    expect(block).toContain("readonly seed");
+    expect(block).toContain("readonly fighterA");
+    expect(block).toContain("readonly fighterB");
+    expect(block).toContain("readonly acknowledgement");
+    expect(block).not.toContain("outputRoot");
+    expect(block).not.toContain("fighterRoot");
+    expect(block).not.toContain("governanceBundleDir");
+    expect(block).not.toContain("suspensionMarkerPath");
+  });
+
+  it("exposes no execution replacement in the production dependency contract", () => {
+    const block = PRODUCTION_SERVICE_SOURCE.slice(
+      PRODUCTION_SERVICE_SOURCE.indexOf("export interface GridBetaMatchDependencies"),
+      PRODUCTION_SERVICE_SOURCE.indexOf("export interface GridBetaMatchEnvironment"),
+    );
+    expect(block).not.toContain("execute?:");
+    expect(block).not.toContain("readonly execute");
+  });
+
+  it("always uses the fixed canonical roots in the production entry point", () => {
+    expect(PRODUCTION_SERVICE_SOURCE).toContain("GRID_OPT_IN_BETA_MATCH_OUTPUT_ROOT");
+    expect(PRODUCTION_SERVICE_SOURCE).toContain("GRID_OPT_IN_BETA_FIGHTER_ROOT");
+    expect(PRODUCTION_SERVICE_SOURCE).toContain("GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR");
+    expect(PRODUCTION_SERVICE_SOURCE).toContain(
+      "GRID_OPT_IN_BETA_SUSPENSION_MARKER_PATH",
+    );
+    // The production entry point must never read a root override from the
+    // request, so even programmatic production calls cannot redirect the
+    // suspension marker, output root, fighter root or governance directory.
+    expect(PRODUCTION_SERVICE_SOURCE).not.toMatch(/request\.outputRoot/);
+    expect(PRODUCTION_SERVICE_SOURCE).not.toMatch(/request\.fighterRoot/);
+    expect(PRODUCTION_SERVICE_SOURCE).not.toMatch(/request\.governanceBundleDir/);
+    expect(PRODUCTION_SERVICE_SOURCE).not.toMatch(/request\.suspensionMarkerPath/);
+    const runEntry = PRODUCTION_SERVICE_SOURCE.slice(
+      PRODUCTION_SERVICE_SOURCE.indexOf("export async function runGridBetaMatch("),
+    );
+    expect(runEntry).toContain("outputRoot: GRID_OPT_IN_BETA_MATCH_OUTPUT_ROOT");
+    expect(runEntry).toContain("fighterRoot: GRID_OPT_IN_BETA_FIGHTER_ROOT");
+    expect(runEntry).toContain(
+      "governanceBundleDir: GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR",
+    );
+    expect(runEntry).toContain(
+      "suspensionMarkerPath: GRID_OPT_IN_BETA_SUSPENSION_MARKER_PATH",
+    );
+  });
+
+  it("always enters the fixed execution core and cannot provide an alternate execution result", () => {
+    // No alternate result-producing simulator exists anywhere in the
+    // production dependency contract or service flow.
+    expect(PRODUCTION_SERVICE_SOURCE).not.toMatch(/dependencies\.execute/);
+    expect(PRODUCTION_SERVICE_SOURCE).toMatch(/environment\.onExecutionStart\?\.\(\);/);
+    // The one execution call site is the fixed imported executeGridBetaMatch.
+    expect(PRODUCTION_SERVICE_SOURCE).toContain(
+      "const execution = executeGridBetaMatch({",
+    );
+  });
+
+  it("the harness observer counts exactly one entry into the real fixed execution core", async () => {
+    if (!env) return;
+    const out = join(env.root, "out-observer-once");
+    const marker = join(env.root, "marker-observer-once");
+    await mkdir(out);
+    let executionStarts = 0;
+    const result = await harnessRun(
+      { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
+      {
+        outputRoot: out,
+        fighterRoot: env.fighterRoot,
+        governanceBundleDir: env.governanceDir,
+        suspensionMarkerPath: marker,
+        onExecutionStart: () => {
+          executionStarts += 1;
+        },
+      },
+    );
+    expect(executionStarts).toBe(1);
+    expect(result.matchId).toBe(BETA_TEST_MATCH_ID);
+    expect(existsSync(marker)).toBe(false);
   });
 });

@@ -725,6 +725,24 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   internal beta command is **implemented, not yet authorised for first real
   execution**; Milestone 0.2C remains incomplete pending independent Phase
   3G.1 review.
+- Final grid-beta trust-boundary hardening (Phase 3G.1.1): **complete**. The
+  production beta service is unbypassable (the public match request contains
+  only `seed`, `fighterA`, `fighterB` and `acknowledgement`; the production
+  dependency contract has no `execute?` seam; every production invocation
+  enters the fixed `executeGridBetaMatch` core with the frozen canonical
+  roots); tests use the structurally separate
+  `runGridBetaMatchWithTestEnvironment` harness (temporary roots plus an
+  `onExecutionStart` observer that only counts entry into the fixed execution
+  core; no alternate result-producing simulator; no production source imports
+  the harness); suspension-marker parent creation walks the complete ancestry
+  from the filesystem root with `lstat` before any `mkdir` and creates
+  missing directories incrementally beneath the last verified real directory,
+  never following a symbolic-link ancestor; replay validates physical
+  regular-file identity before and after every read plus a final exact
+  inventory check before semantic validation; the suspension-marker schema is
+  now strict (cleanup only). No real beta match or marker was created; no
+  official artifact was altered; the first real internal beta match remains
+  **not yet authorised**, pending independent Phase 3G.1.1 review.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not
