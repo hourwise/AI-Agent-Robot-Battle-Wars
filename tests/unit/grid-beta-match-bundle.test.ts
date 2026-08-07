@@ -23,6 +23,7 @@ import {
 } from "../../src/beta/grid-beta-match-bundle.js";
 import {
   BETA_TEST_MATCH_ID,
+  betaTempMappedPath,
   createBetaTempEnvironment,
   officialGovernanceBundleAvailable,
   readBetaBundle,
@@ -152,7 +153,9 @@ beforeAll(async () => {
   if (!officialGovernanceBundleAvailable()) return;
   env = await createBetaTempEnvironment();
   const result = await runBetaMatchToTemp(env);
-  baseline = await readBetaBundle(result.artifactDirectory);
+  // The production service reports the canonical logical artifact directory;
+  // translate it back onto the temporary environment for direct file access.
+  baseline = await readBetaBundle(betaTempMappedPath(env, result.artifactDirectory));
 }, 120_000);
 
 afterAll(async () => {

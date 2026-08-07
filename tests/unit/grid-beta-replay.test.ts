@@ -11,6 +11,7 @@ import {
 import { loadValidatedGridBetaReplayBundle } from "../../src/beta/grid-beta-replay.js";
 import {
   BETA_TEST_MATCH_ID,
+  betaTempMappedPath,
   createBetaTempEnvironment,
   officialGovernanceBundleAvailable,
   runBetaMatchToTemp,
@@ -23,7 +24,9 @@ beforeAll(async () => {
   if (!officialGovernanceBundleAvailable()) return;
   env = await createBetaTempEnvironment();
   const result = await runBetaMatchToTemp(env);
-  artifactDirectory = result.artifactDirectory;
+  // The production service reports the canonical logical artifact directory;
+  // translate it back onto the temporary environment for direct file access.
+  artifactDirectory = betaTempMappedPath(env, result.artifactDirectory);
 }, 120_000);
 
 afterAll(async () => {

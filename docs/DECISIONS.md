@@ -2084,15 +2084,15 @@ supplement or governance artifact was altered, and no beta command ran.
   `data/beta/grid-fighters`, `data/beta/grid-matches`,
   `data/readiness/grid-governance/58e8cd87-504e-4b5f-9bac-f6b81d82377b` and
   `data/beta/GRID_BETA_SUSPENDED`.
-- **Structurally separate test harness.** Tests use the explicitly named
-  `runGridBetaMatchWithTestEnvironment` harness, which accepts temporary
-  filesystem roots and an optional `onExecutionStart` observer. The observer
-  only counts entry into the fixed `executeGridBetaMatch` core and can never
-  replace or modify the execution result; there is no alternate
-  result-producing simulator anywhere in the production service. No
-  production source imports the harness; a static regression proves only
-  test files use it, and a runtime regression proves the observer counts
-  exactly one entry into the real fixed execution core. The pure
+- **Structurally separate test harness.** Phase 3G.1.1 introduced an explicit
+  `runGridBetaMatchWithTestEnvironment` test harness with temporary roots and
+  an optional `onExecutionStart` observer. Phase 3G.1.2 later removed that
+  source-level harness entirely and replaced it with a test-only
+  path-remapping `CanaryFileSystem` wrapper in `tests/helpers/`, so no
+  shipped `src/` module exists to bypass the fixed production paths. The
+  observer only counts entry into the fixed `executeGridBetaMatch` core and
+  can never replace or modify the execution result; there is no alternate
+  result-producing simulator anywhere in the production service. The pure
   execution-core test seam (`executeGridBetaMatchWithRunner`) remains only
   for direct unit testing of repeat-input mutation detection.
 - **Marker-parent creation never follows an ancestor.** The marker parent is
@@ -2146,13 +2146,105 @@ Official Phase 3F governance decision:   complete, unchanged and source-anchored
 Phase 3G bounded beta implementation:    complete
 Phase 3G.1 safety/provenance hardening:  complete
 Phase 3G.1.1 final trust-boundary hardening: complete
+Phase 3G.1.2 production API sealing:     complete
 first real internal beta match:          not yet authorised
 legacy default:                          yes
 grid default activation:                 no
 public rollout:                          not authorised
 ranked/tournament:                       not authorised
 balance qualification:                   not performed
-Milestone 0.2C:                          not complete pending independent Phase 3G.1.1 review
+Milestone 0.2C:                          not complete pending independent Phase 3G.1.2 review
+```
+
+## D57: Seal the grid-beta production API boundary (Phase 3G.1.2, 2026-08-07)
+
+Independent review passed all Phase 3G.1.1 filesystem and replay hardening but
+found one final architectural issue: `runGridBetaMatchWithEnvironment` was
+exported from the production module `src/app/grid-beta-match.ts`, so any
+programmatic caller could import the environment-taking function directly and
+supply alternate fighter/output/governance/suspension paths. Phase 3G.1.2
+closes that final bypass without changing any beta behaviour. Phase 3G.1
+remained unexecuted; no real beta match or suspension marker was ever created
+and no official readiness, supplement or governance artifact was altered.
+
+- **Final alternate-root runner removed.** `runGridBetaMatchWithEnvironment`
+  and the `GridBetaMatchEnvironment` type are no longer exported from
+  production source. `src/app/grid-beta-match.ts` now exposes only
+  `runGridBetaMatch(request, dependencies?)` with a request containing only
+  `seed`, `fighterA`, `fighterB` and `acknowledgement`; no exported function
+  or interface accepts alternate `outputRoot`/`fighterRoot`/
+  `governanceBundleDir`/`suspensionMarkerPath`. The production entry point
+  directly assigns the four frozen canonical roots and always enters the
+  fixed `executeGridBetaMatch` (which hard-codes `runGridMatch`); there
+  remains no alternate execution-result injection.
+- **Test-only path-remapping filesystem.** Tests still need temporary
+  storage, so a test-only `CanaryFileSystem` wrapper in `tests/helpers/`
+  (`grid-beta-mapped-fs.ts`) transparently redirects the canonical beta
+  logical paths onto an external temporary directory: `data/beta/
+grid-fighters` → `<temp>/fighters`, `data/beta/grid-matches` →
+  `<temp>/matches`, `data/beta/GRID_BETA_SUSPENDED` → `<temp>/marker` and
+  `data/readiness/grid-governance/<official-id>` → `<temp>/governance`, with
+  the marker parent `data/beta` redirected to the temp root so no real
+  `data/beta` tree is created. Production code still sees only canonical
+  logical paths; the injectable-filesystem dependency is a general
+  testability seam, not a beta-root selection API; ordinary
+  repository/source-file reads used by the protected-source preflight
+  continue to access the genuine checkout. The source-level test harness
+  (`src/app/grid-beta-match-test-harness.ts`) was deleted — all environment/
+  path remapping support lives only in `tests/helpers/`.
+- **General execution observer.** The general dependency contract now
+  carries a non-result-producing `onExecutionStart?: () => void` observer
+  that is invoked immediately before the fixed `executeGridBetaMatch(...)`
+  call. It receives no match data and cannot cancel, replace or mutate
+  execution; the existing source-commit reader, UUID and clock injection
+  remain.
+- **Static API-boundary regression.** A source regression proves
+  `runGridBetaMatchWithEnvironment` and `GridBetaMatchEnvironment` are
+  absent, no exported function/interface contains the four root fields,
+  `GridBetaMatchRequest` contains only the four authorised fields,
+  `runGridBetaMatch` directly supplies the four canonical constants, the
+  service calls only fixed `executeGridBetaMatch`, and no `execute?:`
+  dependency exists. A full `src/**/*.ts` scan proves no alternate-root beta
+  runner exists under another name (the read-only replay loader is the only
+  beta API that legitimately takes a root).
+- **Runtime regression through the real entry point.** Using the test-only
+  mapped filesystem, the complete beta path executes through production
+  `runGridBetaMatch` itself: logical production paths are requested, the
+  mapping redirects them only inside the test adapter, exactly one fixed
+  `executeGridBetaMatch` entry occurs, a valid ten-file temporary bundle
+  results, and real `data/beta` remains absent. All existing pre-simulation
+  marker/governance races and pre-publication marker/governance/source races
+  now run through `runGridBetaMatch` itself with unchanged safety outcomes.
+- **Scope and status.** No real beta match or marker was created; no
+  readiness, supplement or governance command ran; no benchmark ran; no seed
+  bank was opened; held-out and `all` remained sealed; no provider or
+  external API call occurred; normal match/series/replay remained unchanged
+  on legacy; both canaries remained unchanged; official readiness, supplement
+  and governance bytes (all seven hashes) remained unchanged; governance
+  source snapshot, policy-contract checksum and C1/C2/AB2 (with C2 default)
+  remained frozen; simulator/ruleset/catalogue identities remained unchanged;
+  no default/public/ranked/tournament activation occurred; no balance
+  conclusion was made; Milestone 0.2D did not begin. The first real internal
+  beta match remains not yet authorised, pending independent Phase 3G.1.2
+  review.
+
+Status:
+
+```
+Official v3 readiness evidence:          complete and unchanged
+Official grapple supplement:             complete and unchanged
+Official Phase 3F governance decision:   complete, unchanged and source-anchored
+Phase 3G bounded beta implementation:    complete
+Phase 3G.1 safety/provenance hardening:  complete
+Phase 3G.1.1 trust-boundary hardening:   complete
+Phase 3G.1.2 production API sealing:     complete
+first real internal beta match:          not yet authorised
+legacy default:                          yes
+grid default activation:                 no
+public rollout:                          not authorised
+ranked/tournament:                       not authorised
+balance qualification:                   not performed
+Milestone 0.2C:                          not complete pending independent Phase 3G.1.2 review
 ```
 
 ## D24: Candidate C component-impact qualification

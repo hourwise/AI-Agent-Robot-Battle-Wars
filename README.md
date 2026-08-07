@@ -516,19 +516,35 @@ no alternate execution seam, and every production invocation enters the fixed
 `executeGridBetaMatch` core (which hard-codes `runGridMatch`) using exactly
 `data/beta/grid-fighters`, `data/beta/grid-matches`,
 `data/readiness/grid-governance/58e8cd87-504e-4b5f-9bac-f6b81d82377b` and
-`data/beta/GRID_BETA_SUSPENDED`. Tests use a structurally separate
-`runGridBetaMatchWithTestEnvironment` harness with temporary roots and an
-`onExecutionStart` observer that only counts entry into the fixed execution
-core (never an alternate result-producing simulator); no production source
-imports the harness. Suspension-marker parent creation no longer performs
-recursive `mkdir` before inspecting existing ancestors: the ancestry is walked
-from the filesystem root with `lstat`, every existing component must be a real
-directory, and missing directories are created incrementally beneath the last
-verified real directory so no symbolic-link ancestor is ever followed. Replay
-validates physical regular-file identity before and after every read (plus a
-final exact inventory check before semantic validation), closing the
-regular-file-to-symlink substitution window. The suspension-marker schema is
-now strict. No real beta match or marker was created; Milestone 0.2C remains
+`data/beta/GRID_BETA_SUSPENDED`. Suspension-marker parent creation no longer
+performs recursive `mkdir` before inspecting existing ancestors: the ancestry
+is walked from the filesystem root with `lstat`, every existing component must
+be a real directory, and missing directories are created incrementally beneath
+the last verified real directory so no symbolic-link ancestor is ever
+followed. Replay validates physical regular-file identity before and after
+every read (plus a final exact inventory check before semantic validation),
+closing the regular-file-to-symlink substitution window. The suspension-marker
+schema is now strict.
+
+Phase 3G.1.2 removed the final exported alternate-root production service. The
+production module `src/app/grid-beta-match.ts` now exposes only
+`runGridBetaMatch(request, dependencies?)` with a request containing only
+`seed`, `fighterA`, `fighterB` and `acknowledgement`; the exported
+`runGridBetaMatchWithEnvironment` runner and `GridBetaMatchEnvironment` type
+are gone, and no production source exports any function that accepts alternate
+`outputRoot`/`fighterRoot`/`governanceBundleDir`/`suspensionMarkerPath`. The
+source-level test harness was deleted; all temporary path remapping now lives
+entirely in test code — a test-only `CanaryFileSystem` wrapper in
+`tests/helpers/` transparently redirects the canonical beta logical paths onto
+an external temporary directory (fighter root, match output, governance
+bundle and suspension marker), while ordinary repository/source-file reads
+used by the protected-source preflight still access the genuine checkout. The
+general dependency contract keeps the injectable filesystem, source-commit
+reader, UUID, clock and a non-result-producing `onExecutionStart` observer
+(which only counts entry into the fixed `executeGridBetaMatch` call and cannot
+cancel, replace or mutate execution). No real beta match or marker was
+created; Milestone 0.2C remains incomplete pending independent Phase 3G.1.2
+review. No real beta match or marker was created; Milestone 0.2C remains
 incomplete pending independent Phase 3G.1.1 review.
 
 ### Replay

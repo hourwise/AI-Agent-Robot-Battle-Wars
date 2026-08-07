@@ -1198,12 +1198,8 @@ no `execute?` seam, so every production invocation enters the fixed imported
 `executeGridBetaMatch` (which hard-codes `runGridMatch`) and always uses
 exactly `data/beta/grid-fighters`, `data/beta/grid-matches`,
 `data/readiness/grid-governance/58e8cd87-504e-4b5f-9bac-f6b81d82377b` and
-`data/beta/GRID_BETA_SUSPENDED`. Tests use the structurally separate
-`runGridBetaMatchWithTestEnvironment` harness with temporary roots and an
-`onExecutionStart` observer that only counts entry into the fixed execution
-core (never an alternate result-producing simulator); no production source
-imports the harness and a static regression proves only test files use it.
-Suspension-marker parent creation never follows an ancestor: the complete
+`data/beta/GRID_BETA_SUSPENDED`. Suspension-marker parent creation never
+follows an ancestor: the complete
 ancestry is walked from the filesystem root with `lstat` before any `mkdir`,
 every existing component must be a real directory (symbolic links, junctions,
 files and other entries reject), and missing directories are created
@@ -1217,6 +1213,36 @@ physical rule even when the read returns valid bytes. The suspension-marker
 schema is now strict (cleanup only). No real beta match or marker was
 created; the first real internal beta match remains not yet authorised,
 pending independent Phase 3G.1.1 review.
+
+Phase 3G.1.2 sealed the production API boundary. The exported
+`runGridBetaMatchWithEnvironment` runner and the `GridBetaMatchEnvironment`
+type were removed from `src/app/grid-beta-match.ts`; the module now exposes
+only `runGridBetaMatch(request, dependencies?)` with a four-field request and
+no exported function or interface that accepts alternate
+`outputRoot`/`fighterRoot`/`governanceBundleDir`/`suspensionMarkerPath`. The
+production entry point directly assigns the four frozen canonical roots and
+always enters the fixed `executeGridBetaMatch`. The source-level test harness
+was deleted; all temporary path remapping now lives entirely in test code — a
+test-only `CanaryFileSystem` wrapper in `tests/helpers/`
+(`grid-beta-mapped-fs.ts`) transparently redirects the canonical beta logical
+paths onto an external temporary directory (fighter root, match output,
+governance bundle and suspension marker, with the marker parent `data/beta`
+redirected to the temp root so no real `data/beta` tree is created) while
+ordinary repository/source-file reads used by the protected-source preflight
+still access the genuine checkout. The general dependency contract keeps the
+injectable filesystem, source-commit reader, UUID, clock and a
+non-result-producing `onExecutionStart` observer invoked immediately before
+the fixed `executeGridBetaMatch(...)` call (it receives no match data and
+cannot cancel, replace or mutate execution). Static API-boundary regressions
+prove the request exposes only the four fields, no root selection and no
+`execute?` seam exist, `runGridBetaMatch` directly supplies the four
+canonical constants, and no alternate-root beta runner exists anywhere in
+production source. Runtime regressions execute the complete beta path through
+`runGridBetaMatch` itself with the mapped filesystem, proving logical
+production paths are requested and a valid ten-file temporary bundle results
+while real `data/beta` stays absent. No real beta match or marker was
+created; the first real internal beta match remains not yet authorised,
+pending independent Phase 3G.1.2 review.
 
 ### Agent usage tracking
 

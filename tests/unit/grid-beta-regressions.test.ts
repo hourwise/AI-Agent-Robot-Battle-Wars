@@ -104,24 +104,46 @@ describe("grid beta regressions (Phase 3G Phase 13)", () => {
     expect(core.includes("executeGridBetaMatchWithRunner")).toBe(true);
   });
 
-  it("keeps the test-only runner/environment structurally separate (Phase 3G.1.1 Phase 1)", () => {
-    // The production beta service has a fixed execution boundary: no
-    // alternate roots and no alternate execution implementation. Only the
-    // explicitly named test harness may override roots and observe execution,
-    // and no production source may import it.
-    const harnessPath = "src/app/grid-beta-match-test-harness.ts";
-    expect(existsSync(join(ROOT, harnessPath)), "harness must exist").toBe(true);
-    const offenders = listSourceFiles("src").filter((file) => {
-      if (file === harnessPath) return false;
-      return read(file).includes("grid-beta-match-test-harness");
-    });
-    expect(offenders, "no production source may import the test harness").toEqual([]);
-    // At least the test helper imports the harness (only test files use it).
-    expect(read("tests/helpers/grid-beta-builder.ts")).toContain(
-      "grid-beta-match-test-harness",
+  it("keeps the test-only path remapping structurally separate (Phase 3G.1.2 Phase 3)", () => {
+    // No shipped src module may exist solely to bypass the fixed production
+    // paths. The source-level test harness was removed; all environment/path
+    // remapping support lives only in tests/helpers/.
+    expect(existsSync(join(ROOT, "src", "app", "grid-beta-match-test-harness.ts"))).toBe(
+      false,
     );
-    // The production dependency contract has no execution seam.
-    expect(read("src/app/grid-beta-match.ts")).not.toContain("execute?");
+    for (const file of listSourceFiles("src")) {
+      expect(read(file).includes("grid-beta-match-test-harness"), file).toBe(false);
+      expect(read(file).includes("runGridBetaMatchWithTestEnvironment"), file).toBe(
+        false,
+      );
+    }
+    // The mapped filesystem helper exists only in test code.
+    expect(existsSync(join(ROOT, "tests", "helpers", "grid-beta-mapped-fs.ts"))).toBe(
+      true,
+    );
+    expect(read("tests/helpers/grid-beta-builder.ts")).toContain("grid-beta-mapped-fs");
+    expect(read("src/app/grid-beta-match.ts")).not.toContain(
+      "runGridBetaMatchWithEnvironment",
+    );
+  });
+
+  it("scans all production source for any alternate-root beta runner (Phase 3G.1.2 Phase 4)", () => {
+    for (const file of listSourceFiles("src")) {
+      const source = read(file);
+      expect(source.includes("runGridBetaMatchWithEnvironment"), file).toBe(false);
+      expect(source.includes("GridBetaMatchEnvironment"), file).toBe(false);
+      // No exported beta match runner may accept alternate roots. The read-only
+      // replay loader (`loadValidatedGridBetaReplayBundle`) is the only beta
+      // API that legitimately takes a root, so it is the sole exclusion.
+      if (file !== "src/beta/grid-beta-replay.ts") {
+        expect(
+          /export\s+async\s+function\s+[A-Za-z0-9_]*(?:RunGridBeta|BetaMatch|GridBetaMatch|MatchGridBeta)[A-Za-z0-9_]*\([^)]*(?:outputRoot|fighterRoot|governanceBundleDir|suspensionMarkerPath)/.test(
+            source,
+          ),
+          file,
+        ).toBe(false);
+      }
+    }
   });
 
   it("does not modify normal match/series and leaves them on legacy", () => {

@@ -2231,13 +2231,40 @@ balance tuning and does not begin Milestone 0.2D.
   after every read plus a final exact inventory check before semantic
   validation, so a regular-file-to-symlink substitution during reading
   rejects through the physical rule even when the read returns valid bytes.
-  Tests use a structurally separate `runGridBetaMatchWithTestEnvironment`
-  harness (temporary roots plus an `onExecutionStart` observer that only
-  counts entry into the fixed execution core; no alternate result-producing
-  simulator; no production source imports the harness). The suspension-marker
+  The suspension-marker
   schema is now strict (cleanup only, no frozen identity change). No real
   beta match or marker was created; no official artifact was altered; the
   first real internal beta match remains not yet authorised.
+- **Production API sealing (Phase 3G.1.2).** The final exported
+  alternate-root production service was removed: `src/app/grid-beta-match.ts`
+  now exposes only `runGridBetaMatch(request, dependencies?)` with a request
+  containing only `seed`, `fighterA`, `fighterB` and `acknowledgement`. The
+  exported `runGridBetaMatchWithEnvironment` runner and the
+  `GridBetaMatchEnvironment` type are gone, so a programmatic caller can no
+  longer import any production function that accepts alternate
+  `outputRoot`/`fighterRoot`/`governanceBundleDir`/`suspensionMarkerPath`.
+  The production entry point directly supplies the four frozen canonical
+  roots and always enters the fixed `executeGridBetaMatch`. The source-level
+  test harness was deleted; all temporary path remapping now lives entirely
+  in test code — a test-only `CanaryFileSystem` wrapper in `tests/helpers/`
+  transparently redirects the canonical beta logical paths onto an external
+  temporary directory (fighter root, match output, governance bundle and
+  suspension marker) while ordinary repository/source-file reads used by the
+  protected-source preflight still access the genuine checkout, and no real
+  `data/beta` tree is created. The general dependency contract keeps the
+  injectable filesystem, source-commit reader, UUID, clock and a
+  non-result-producing `onExecutionStart` observer invoked immediately before
+  the fixed `executeGridBetaMatch` call (it receives no match data and cannot
+  cancel, replace or mutate execution). Static API-boundary regressions prove
+  the request exposes only the four fields, the dependency contract has no
+  root selection and no `execute?` seam, `runGridBetaMatch` directly supplies
+  the four canonical constants, and no alternate-root beta runner exists
+  anywhere in production source. Runtime regressions execute the complete
+  beta path through `runGridBetaMatch` itself with the mapped filesystem,
+  proving logical production paths are requested and a valid ten-file
+  temporary bundle results while real `data/beta` stays absent. No real beta
+  match or marker was created; no official artifact was altered; the first
+  real internal beta match remains not yet authorised.
 
 ### 9.20 Phase 3E1 status
 
@@ -2330,14 +2357,24 @@ real beta match or marker created; official artifacts unchanged); Phase
 3G.1.1 final trust-boundary hardening **complete** (unbypassable production
 service: request carries no root overrides and dependencies carry no
 `execute?` seam, fixed canonical roots and fixed `executeGridBetaMatch`
-core; structurally separate `runGridBetaMatchWithTestEnvironment` test
-harness with an entry observer only, no alternate simulator, no production
-source imports the harness; marker-parent creation walks the complete
+core; marker-parent creation walks the complete
 ancestry with `lstat` before any `mkdir` and creates missing directories
 incrementally beneath the last verified real directory, never following a
 symbolic-link ancestor; replay validates physical regular-file identity
 before and after every read plus a final exact inventory check; strict
 suspension-marker schema cleanup; no real beta match or marker created;
+official artifacts unchanged); Phase 3G.1.2 production API sealing
+**complete** (exported `runGridBetaMatchWithEnvironment` runner and
+`GridBetaMatchEnvironment` type removed — production exposes only
+`runGridBetaMatch(request, dependencies?)` with a four-field request, no
+exported function accepts alternate roots, no `execute?` seam; source-level
+test harness deleted and all temporary path remapping moved into a test-only
+`CanaryFileSystem` wrapper in `tests/helpers/` that redirects canonical beta
+logical paths onto an external temp directory while source-file reads use the
+genuine checkout; general dependency contract keeps injectable filesystem,
+source-commit reader, UUID, clock and a non-result-producing
+`onExecutionStart` observer; static API-boundary and runtime regressions
+through `runGridBetaMatch` itself; no real beta match or marker created;
 official artifacts unchanged); governance
 outcome **`approved_for_bounded_opt_in_beta_implementation`**; bounded opt-in
 beta implementation **implemented, not yet authorised for first real
@@ -2346,7 +2383,7 @@ execution**; grid runtime enabled **no**; legacy default
 performed**; opt-in beta decision **performed (approval for bounded
 implementation)**; default grid activation **not performed**; Milestone 0.2C
 **not complete** pending a separately authorised activation-readiness
-decision and independent Phase 3G.1.1 review.
+decision and independent Phase 3G.1.2 review.
 
 ## 10. Still out of scope
 

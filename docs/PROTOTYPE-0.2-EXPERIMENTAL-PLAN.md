@@ -730,11 +730,7 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   only `seed`, `fighterA`, `fighterB` and `acknowledgement`; the production
   dependency contract has no `execute?` seam; every production invocation
   enters the fixed `executeGridBetaMatch` core with the frozen canonical
-  roots); tests use the structurally separate
-  `runGridBetaMatchWithTestEnvironment` harness (temporary roots plus an
-  `onExecutionStart` observer that only counts entry into the fixed execution
-  core; no alternate result-producing simulator; no production source imports
-  the harness); suspension-marker parent creation walks the complete ancestry
+  roots); suspension-marker parent creation walks the complete ancestry
   from the filesystem root with `lstat` before any `mkdir` and creates
   missing directories incrementally beneath the last verified real directory,
   never following a symbolic-link ancestor; replay validates physical
@@ -743,6 +739,28 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   now strict (cleanup only). No real beta match or marker was created; no
   official artifact was altered; the first real internal beta match remains
   **not yet authorised**, pending independent Phase 3G.1.1 review.
+- Grid-beta production API sealing (Phase 3G.1.2): **complete**. The final
+  exported alternate-root production service was removed:
+  `runGridBetaMatchWithEnvironment` and the `GridBetaMatchEnvironment` type
+  no longer exist in `src/app/grid-beta-match.ts`, which exposes only
+  `runGridBetaMatch(request, dependencies?)` with a request containing only
+  `seed`, `fighterA`, `fighterB` and `acknowledgement`; no exported function
+  accepts alternate `outputRoot`/`fighterRoot`/`governanceBundleDir`/
+  `suspensionMarkerPath`. The production entry point directly supplies the
+  four frozen canonical roots and always enters the fixed
+  `executeGridBetaMatch`. The source-level test harness was deleted; all
+  temporary path remapping lives only in test code — a test-only
+  `CanaryFileSystem` wrapper in `tests/helpers/` redirects the canonical beta
+  logical paths onto an external temporary directory while source-file reads
+  use the genuine checkout, and no real `data/beta` tree is created. The
+  general dependency contract keeps the injectable filesystem, source-commit
+  reader, UUID, clock and a non-result-producing `onExecutionStart` observer
+  (counts entry into the fixed core only). Static API-boundary and runtime
+  regressions through `runGridBetaMatch` itself pass; the pre-simulation and
+  pre-publication race tests run through the real entry point with unchanged
+  safety outcomes. No real beta match or marker was created; no official
+  artifact was altered; the first real internal beta match remains **not yet
+  authorised**, pending independent Phase 3G.1.2 review.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

@@ -2,10 +2,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { defaultCanaryFs } from "../../src/canary/immutable-canary-bundle.js";
 import { sha256Hex } from "../../src/canary/grid-canary-digest.js";
-import { GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR } from "../../src/app/grid-beta-match.js";
-import { runGridBetaMatchWithTestEnvironment } from "../../src/app/grid-beta-match-test-harness.js";
+import {
+  GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR,
+  runGridBetaMatch,
+} from "../../src/app/grid-beta-match.js";
+import { createGridBetaMappedFs, gridBetaMappedPath } from "./grid-beta-mapped-fs.js";
 import {
   GRID_BETA_MATCH_BUNDLE_ENTRIES,
   GRID_BETA_MATCH_MANIFEST_FILE,
@@ -129,17 +131,22 @@ export async function createBetaTempEnvironment(): Promise<BetaTempEnvironment> 
   };
 }
 
-/** Runs one real beta match into the temp output root with fixed identity. */
+/**
+ * Runs one real beta match through the production `runGridBetaMatch` entry
+ * point. The canonical beta logical paths are transparently redirected onto
+ * the temporary environment by the test-only mapped filesystem; production
+ * code only ever sees the frozen canonical paths.
+ */
 export async function runBetaMatchToTemp(
   env: BetaTempEnvironment,
   options: {
     seed?: number;
     fighterA?: string;
     fighterB?: string;
-    markerPath?: string;
+    onExecutionStart?: () => void;
   } = {},
 ) {
-  return runGridBetaMatchWithTestEnvironment(
+  return runGridBetaMatch(
     {
       seed: options.seed ?? BETA_TEST_SEED,
       fighterA: options.fighterA ?? "alpha",
@@ -147,17 +154,36 @@ export async function runBetaMatchToTemp(
       acknowledgement: true,
     },
     {
-      outputRoot: env.outputRoot,
-      fighterRoot: env.fighterRoot,
-      governanceBundleDir: env.governanceDir,
-      suspensionMarkerPath: options.markerPath ?? env.markerPath,
-    },
-    {
       createUuid: () => BETA_TEST_MATCH_ID,
       now: () => new Date(BETA_TEST_CREATED_AT),
-      fs: defaultCanaryFs,
+      fs: createGridBetaMappedFs({
+        fighterRoot: env.fighterRoot,
+        outputRoot: env.outputRoot,
+        governanceDir: env.governanceDir,
+        markerPath: env.markerPath,
+      }),
       sourceCommitReader: env.sourceReader,
+      ...(options.onExecutionStart ? { onExecutionStart: options.onExecutionStart } : {}),
     },
+  );
+}
+
+/**
+ * Maps a canonical logical beta path (as returned by the production service,
+ * e.g. `result.artifactDirectory`) onto the corresponding temporary path.
+ */
+export function betaTempMappedPath(
+  env: BetaTempEnvironment,
+  logicalPath: string,
+): string {
+  return gridBetaMappedPath(
+    {
+      fighterRoot: env.fighterRoot,
+      outputRoot: env.outputRoot,
+      governanceDir: env.governanceDir,
+      markerPath: env.markerPath,
+    },
+    logicalPath,
   );
 }
 

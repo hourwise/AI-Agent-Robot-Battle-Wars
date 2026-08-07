@@ -13,15 +13,21 @@ import {
 } from "../../src/beta/grid-beta-match-bundle.js";
 import { GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_ENTRIES } from "../../src/readiness/grid-opt-in-beta-governance-bundle.js";
 import { gridBetaSuspensionMarkerV1Schema } from "../../src/beta/grid-beta-suspension.js";
+import { GRID_OPT_IN_BETA_SUSPENSION_MARKER_PATH } from "../../src/beta/grid-beta-identity.js";
+import {
+  GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR,
+  runGridBetaMatch,
+} from "../../src/app/grid-beta-match.js";
 import {
   BETA_TEST_MATCH_ID,
+  betaTempMappedPath,
   createBetaTempEnvironment,
   officialGovernanceBundleAvailable,
   readBetaBundle,
   runBetaMatchToTemp,
 } from "../helpers/grid-beta-builder.js";
+import { createGridBetaMappedFs } from "../helpers/grid-beta-mapped-fs.js";
 import { buildInMemoryReviewedSourceReader } from "../helpers/grid-opt-in-beta-governance-builder.js";
-import { runGridBetaMatchWithTestEnvironment } from "../../src/app/grid-beta-match-test-harness.js";
 
 let env: Awaited<ReturnType<typeof createBetaTempEnvironment>> | null = null;
 
@@ -45,24 +51,22 @@ function deps(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 /**
- * Phase 3G.1.1 test harness runner: the production `runGridBetaMatch` has a
- * fixed execution boundary (canonical roots, fixed `executeGridBetaMatch`
- * core, no root overrides and no alternate execution injection), so tests use
- * the structurally separate `runGridBetaMatchWithTestEnvironment` with
- * temporary roots and an optional execution-entry observer.
+ * Phase 3G.1.2 test-only path-remapping filesystem: production
+ * `runGridBetaMatch` always uses the frozen canonical beta paths and exposes
+ * no alternate-root API, so tests inject a `CanaryFileSystem` that
+ * transparently redirects those logical paths onto the external temporary
+ * environment. The general injectable-filesystem seam is used, never a
+ * beta-root selection API.
  */
-function harnessRun(
-  request: { seed: number; fighterA: string; fighterB: string; acknowledgement: true },
-  options: {
-    outputRoot: string;
-    fighterRoot: string;
-    governanceBundleDir: string;
-    suspensionMarkerPath: string;
-    onExecutionStart?: () => void;
-  },
-  overrides: Partial<Record<string, unknown>> = {},
-) {
-  return runGridBetaMatchWithTestEnvironment(request, options, deps(overrides));
+function mappedFs(
+  options: { out?: string; marker?: string; governanceDir?: string } = {},
+): CanaryFileSystem {
+  return createGridBetaMappedFs({
+    fighterRoot: env!.fighterRoot,
+    outputRoot: options.out ?? env!.outputRoot,
+    governanceDir: options.governanceDir ?? env!.governanceDir,
+    markerPath: options.marker ?? env!.markerPath,
+  });
 }
 
 describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
@@ -72,9 +76,12 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     expect(result.matchId).toBe(BETA_TEST_MATCH_ID);
     expect(result.winner).not.toBeUndefined();
     expect(result.rounds).toBeGreaterThan(0);
-    const files = (await readdir(result.artifactDirectory)).sort();
+    // The production service reports the canonical logical artifact directory;
+    // tests translate it back onto the temporary environment to read files.
+    const artifactDir = betaTempMappedPath(env, result.artifactDirectory);
+    const files = (await readdir(artifactDir)).sort();
     expect(files).toEqual([...GRID_BETA_MATCH_BUNDLE_ENTRIES].sort());
-    const contents = await readBetaBundle(result.artifactDirectory);
+    const contents = await readBetaBundle(artifactDir);
     expect(() => validateGridBetaMatchBundle(contents)).not.toThrow();
     expect(existsSync(env.markerPath)).toBe(false);
   });
@@ -83,14 +90,9 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     if (!env) return;
     const marker = join(env.root, "marker-ack");
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: false as never },
-        {
-          outputRoot: env.outputRoot,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
-        },
+        deps({ fs: mappedFs({ marker }) }),
       ),
     ).rejects.toThrow(/acknowledgement/);
     expect(existsSync(marker)).toBe(false);
@@ -101,14 +103,11 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     const out = join(env.root, "out-absent-gov");
     const marker = join(env.root, "marker-absent-gov");
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: join(env.root, "does-not-exist"),
-          suspensionMarkerPath: marker,
-        },
+        deps({
+          fs: mappedFs({ out, marker, governanceDir: join(env.root, "does-not-exist") }),
+        }),
       ),
     ).rejects.toThrow(/suspended|governance/);
     expect(existsSync(marker)).toBe(true);
@@ -131,14 +130,9 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     const out = join(env.root, "out-tampered-gov");
     const marker = join(env.root, "marker-tampered-gov");
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: govDir,
-          suspensionMarkerPath: marker,
-        },
+        deps({ fs: mappedFs({ out, marker, governanceDir: govDir }) }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -160,15 +154,9 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     const out = join(env.root, "out-forged-source");
     const marker = join(env.root, "marker-forged-source");
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
-        },
-        { sourceCommitReader: forgedReader },
+        deps({ fs: mappedFs({ out, marker }), sourceCommitReader: forgedReader }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -178,11 +166,13 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     if (!env) return;
     const out = join(env.root, "out-gov-race-sim");
     const marker = join(env.root, "marker-gov-race-sim");
+    await mkdir(out);
     let governanceReads = 0;
+    const fs = mappedFs({ out, marker });
     const mutatingFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       readFile: async (path, encoding) => {
-        const text = await defaultCanaryFs.readFile(path, encoding);
+        const text = await fs.readFile(path, encoding);
         const normalized = path.replaceAll("\\", "/");
         if (normalized.includes("governance") && normalized.endsWith("report.txt")) {
           governanceReads += 1;
@@ -195,15 +185,9 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
-        },
-        { fs: mutatingFs },
+        deps({ fs: mutatingFs }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -214,11 +198,13 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     if (!env) return;
     const out = join(env.root, "out-legacy-regression");
     const marker = join(env.root, "marker-legacy-regression");
+    await mkdir(out);
     let runMatchReads = 0;
+    const fs = mappedFs({ out, marker });
     const mutatingFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       readFile: async (path, encoding) => {
-        const text = await defaultCanaryFs.readFile(path, encoding);
+        const text = await fs.readFile(path, encoding);
         const normalized = path.replaceAll("\\", "/");
         if (normalized.endsWith("src/app/run-match.ts")) {
           runMatchReads += 1;
@@ -231,15 +217,9 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
-        },
-        { fs: mutatingFs },
+        deps({ fs: mutatingFs }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -250,31 +230,29 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     if (!env) return;
     const out = join(env.root, "out-marker-race");
     const marker = join(env.root, "marker-race");
+    await mkdir(out);
     let markerChecks = 0;
+    const fs = mappedFs({ out, marker });
     const mutatingFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       lstat: async (path) => {
         const normalized = path.replaceAll("\\", "/");
-        if (normalized === marker.replaceAll("\\", "/")) {
+        if (
+          normalized === GRID_OPT_IN_BETA_SUSPENSION_MARKER_PATH.replaceAll("\\", "/")
+        ) {
           markerChecks += 1;
           // Checkpoint #3 (immediately before publication) sees the marker.
           if (markerChecks === 3) {
             await defaultCanaryFs.writeFile(marker, "appeared during execution", "utf-8");
           }
         }
-        return defaultCanaryFs.lstat(path);
+        return fs.lstat(path);
       },
     };
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
-        },
-        { fs: mutatingFs },
+        deps({ fs: mutatingFs }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -286,6 +264,7 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     // The temp environment only ever wrote under the temp root.
     expect(env.root).toContain(tmpdir());
     expect(existsSync(join(env.root, "..", "data", "beta", "grid-matches"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "data", "beta"))).toBe(false);
   });
 
   // ── Phase 3G.1 pre-simulation race closure (Phases 1 and 15) ─────────────
@@ -297,10 +276,11 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     await mkdir(out);
     let executionCalls = 0;
     let createdMarker = false;
+    const fs = mappedFs({ out, marker });
     const racingFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       readFile: async (path, encoding) => {
-        const text = await defaultCanaryFs.readFile(path, encoding);
+        const text = await fs.readFile(path, encoding);
         // During the protected-source preflight (a run-match.ts read), create
         // the suspension marker so the final pre-simulation marker check sees it.
         if (
@@ -318,18 +298,14 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
+        deps({
+          fs: racingFs,
           onExecutionStart: () => {
             executionCalls += 1;
           },
-        },
-        { fs: racingFs },
+        }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(executionCalls).toBe(0);
@@ -344,10 +320,11 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     await mkdir(out);
     let executionCalls = 0;
     let tampered = false;
+    const fs = mappedFs({ out, marker });
     const racingFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       readFile: async (path, encoding) => {
-        const text = await defaultCanaryFs.readFile(path, encoding);
+        const text = await fs.readFile(path, encoding);
         if (!tampered && path.replaceAll("\\", "/").endsWith("src/app/run-match.ts")) {
           tampered = true;
           // Tamper a governance artifact during the preflight; the re-read
@@ -360,18 +337,14 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
       },
     };
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
+        deps({
+          fs: racingFs,
           onExecutionStart: () => {
             executionCalls += 1;
           },
-        },
-        { fs: racingFs },
+        }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(executionCalls).toBe(0);
@@ -399,8 +372,9 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     await mkdir(out);
     let executionCalls = 0;
     let createdMarker = false;
+    const fs = mappedFs({ out, marker });
     const racingFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       writeFile: async (path, data, encoding) => {
         if (!createdMarker && path.includes(".tmp-")) {
           createdMarker = true;
@@ -410,22 +384,18 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
             "utf-8",
           );
         }
-        return defaultCanaryFs.writeFile(path, data, encoding);
+        return fs.writeFile(path, data, encoding);
       },
     };
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
+        deps({
+          fs: racingFs,
           onExecutionStart: () => {
             executionCalls += 1;
           },
-        },
-        { fs: racingFs },
+        }),
       ),
     ).rejects.toThrow(/suspended/);
     // Simulation may already have completed, but no final bundle and no temp
@@ -444,8 +414,9 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     const marker = join(env.root, "marker-race-gov-write");
     await mkdir(out);
     let tampered = false;
+    const fs = mappedFs({ out, marker });
     const racingFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       writeFile: async (path, data, encoding) => {
         if (!tampered && path.includes(".tmp-")) {
           tampered = true;
@@ -453,19 +424,13 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
           const report = await defaultCanaryFs.readFile(reportPath, "utf-8");
           await defaultCanaryFs.writeFile(reportPath, `${report}\n// changed`, "utf-8");
         }
-        return defaultCanaryFs.writeFile(path, data, encoding);
+        return fs.writeFile(path, data, encoding);
       },
     };
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
-        },
-        { fs: racingFs },
+        deps({ fs: racingFs }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(join(out, BETA_TEST_MATCH_ID))).toBe(false);
@@ -489,10 +454,11 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     const marker = join(env.root, "marker-race-source-write");
     await mkdir(out);
     let tamperSource = false;
+    const fs = mappedFs({ out, marker });
     const racingFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       readFile: async (path, encoding) => {
-        const text = await defaultCanaryFs.readFile(path, encoding);
+        const text = await fs.readFile(path, encoding);
         if (tamperSource && path.replaceAll("\\", "/").endsWith("src/app/run-match.ts")) {
           return `${text}\n// tampered during publication`;
         }
@@ -502,19 +468,13 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
         if (path.includes(".tmp-")) {
           tamperSource = true;
         }
-        return defaultCanaryFs.writeFile(path, data, encoding);
+        return fs.writeFile(path, data, encoding);
       },
     };
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
-        },
-        { fs: racingFs },
+        deps({ fs: racingFs }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(join(out, BETA_TEST_MATCH_ID))).toBe(false);
@@ -530,24 +490,20 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
   it("tolerates reordered governance directory listings (sorted exact match)", async () => {
     if (!env) return;
     const out = join(env.root, "out-gov-reordered");
+    const marker = join(env.root, "marker-gov-reordered");
     await mkdir(out);
+    const fs = mappedFs({ out, marker });
     const reorderingFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       readdir: async (path) => {
-        const names = await defaultCanaryFs.readdir(path);
-        if (path === env.governanceDir) return [...names].reverse();
+        const names = await fs.readdir(path);
+        if (path === GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR) return [...names].reverse();
         return names;
       },
     };
-    const result = await harnessRun(
+    const result = await runGridBetaMatch(
       { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-      {
-        outputRoot: out,
-        fighterRoot: env.fighterRoot,
-        governanceBundleDir: env.governanceDir,
-        suspensionMarkerPath: join(env.root, "marker-gov-reordered"),
-      },
-      { fs: reorderingFs },
+      deps({ fs: reorderingFs }),
     );
     expect(result.matchId).toBe(BETA_TEST_MATCH_ID);
   });
@@ -557,24 +513,19 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     const out = join(env.root, "out-gov-hidden");
     const marker = join(env.root, "marker-gov-hidden");
     await mkdir(out);
+    const fs = mappedFs({ out, marker });
     const extraFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       readdir: async (path) => {
-        const names = await defaultCanaryFs.readdir(path);
-        if (path === env.governanceDir) return [...names, ".hidden"];
+        const names = await fs.readdir(path);
+        if (path === GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR) return [...names, ".hidden"];
         return names;
       },
     };
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
-        },
-        { fs: extraFs },
+        deps({ fs: extraFs }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -585,24 +536,20 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     const out = join(env.root, "out-gov-extra-dir");
     const marker = join(env.root, "marker-gov-extra-dir");
     await mkdir(out);
+    const fs = mappedFs({ out, marker });
     const extraFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       readdir: async (path) => {
-        const names = await defaultCanaryFs.readdir(path);
-        if (path === env.governanceDir) return [...names, "extra-dir"];
+        const names = await fs.readdir(path);
+        if (path === GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR)
+          return [...names, "extra-dir"];
         return names;
       },
     };
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
-        },
-        { fs: extraFs },
+        deps({ fs: extraFs }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -613,8 +560,9 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     const out = join(env.root, "out-gov-symlink");
     const marker = join(env.root, "marker-gov-symlink");
     await mkdir(out);
+    const fs = mappedFs({ out, marker });
     const symlinkFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       lstat: async (path) => {
         const normalized = path.replaceAll("\\", "/");
         if (normalized.includes("governance") && normalized.endsWith("report.txt")) {
@@ -624,19 +572,13 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
             isSymbolicLink: () => true,
           };
         }
-        return defaultCanaryFs.lstat(path);
+        return fs.lstat(path);
       },
     };
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
-        },
-        { fs: symlinkFs },
+        deps({ fs: symlinkFs }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(existsSync(marker)).toBe(true);
@@ -649,11 +591,12 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
     await mkdir(out);
     let markerWrites = 0;
     let tampered = false;
+    const fs = mappedFs({ out, marker });
     const countingFs: CanaryFileSystem = {
-      ...defaultCanaryFs,
+      ...fs,
       writeFileExclusive: async (path, data, encoding) => {
-        if (path === marker) markerWrites += 1;
-        return defaultCanaryFs.writeFileExclusive(path, data, encoding);
+        if (path === GRID_OPT_IN_BETA_SUSPENSION_MARKER_PATH) markerWrites += 1;
+        return fs.writeFileExclusive(path, data, encoding);
       },
       writeFile: async (path, data, encoding) => {
         // Tamper the temp governance report exactly once so the single
@@ -664,19 +607,13 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
           const report = await defaultCanaryFs.readFile(reportPath, "utf-8");
           await defaultCanaryFs.writeFile(reportPath, `${report}\n// changed`, "utf-8");
         }
-        return defaultCanaryFs.writeFile(path, data, encoding);
+        return fs.writeFile(path, data, encoding);
       },
     };
     await expect(
-      harnessRun(
+      runGridBetaMatch(
         { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-        {
-          outputRoot: out,
-          fighterRoot: env.fighterRoot,
-          governanceBundleDir: env.governanceDir,
-          suspensionMarkerPath: marker,
-        },
-        { fs: countingFs },
+        deps({ fs: countingFs }),
       ),
     ).rejects.toThrow(/suspended/);
     expect(markerWrites).toBe(1);
@@ -691,96 +628,120 @@ describe("grid beta match service (Phase 3G Phases 1, 8 and 12)", () => {
   });
 });
 
-// ── Phase 3G.1.1 production fixed-boundary regression (Phase 1) ────────────
+// ── Phase 3G.1.2 production API boundary regression (Phase 4) ──────────────
 
 const PRODUCTION_SERVICE_SOURCE = readFileSync(
   join(__dirname, "..", "..", "src", "app", "grid-beta-match.ts"),
   "utf-8",
 );
 
-describe("grid beta production fixed boundary (Phase 3G.1.1 Phase 1)", () => {
-  it("exposes no root override on the public match request", () => {
-    const block = PRODUCTION_SERVICE_SOURCE.slice(
+describe("grid beta production API boundary (Phase 3G.1.2 Phase 4)", () => {
+  it("does not export any alternate-root environment runner or environment type", () => {
+    expect(PRODUCTION_SERVICE_SOURCE).not.toContain("runGridBetaMatchWithEnvironment");
+    expect(PRODUCTION_SERVICE_SOURCE).not.toContain("GridBetaMatchEnvironment");
+  });
+
+  it("exposes no exported function or interface containing alternate beta roots", () => {
+    // The only exported match operation is runGridBetaMatch(request, dependencies?).
+    expect(PRODUCTION_SERVICE_SOURCE).toContain(
+      "export async function runGridBetaMatch(",
+    );
+    const requestBlock = PRODUCTION_SERVICE_SOURCE.slice(
       PRODUCTION_SERVICE_SOURCE.indexOf("export interface GridBetaMatchRequest"),
       PRODUCTION_SERVICE_SOURCE.indexOf("export interface GridBetaMatchDependencies"),
     );
-    expect(block).toContain("readonly seed");
-    expect(block).toContain("readonly fighterA");
-    expect(block).toContain("readonly fighterB");
-    expect(block).toContain("readonly acknowledgement");
-    expect(block).not.toContain("outputRoot");
-    expect(block).not.toContain("fighterRoot");
-    expect(block).not.toContain("governanceBundleDir");
-    expect(block).not.toContain("suspensionMarkerPath");
+    expect(requestBlock).toContain("readonly seed");
+    expect(requestBlock).toContain("readonly fighterA");
+    expect(requestBlock).toContain("readonly fighterB");
+    expect(requestBlock).toContain("readonly acknowledgement");
+    expect(requestBlock).not.toContain("outputRoot");
+    expect(requestBlock).not.toContain("fighterRoot");
+    expect(requestBlock).not.toContain("governanceBundleDir");
+    expect(requestBlock).not.toContain("suspensionMarkerPath");
   });
 
-  it("exposes no execution replacement in the production dependency contract", () => {
-    const block = PRODUCTION_SERVICE_SOURCE.slice(
+  it("keeps the production dependency contract free of root selection and execution replacement", () => {
+    const depsBlock = PRODUCTION_SERVICE_SOURCE.slice(
       PRODUCTION_SERVICE_SOURCE.indexOf("export interface GridBetaMatchDependencies"),
-      PRODUCTION_SERVICE_SOURCE.indexOf("export interface GridBetaMatchEnvironment"),
+      PRODUCTION_SERVICE_SOURCE.indexOf("export interface GridBetaMatchResult"),
     );
-    expect(block).not.toContain("execute?:");
-    expect(block).not.toContain("readonly execute");
+    expect(depsBlock).not.toContain("outputRoot");
+    expect(depsBlock).not.toContain("fighterRoot");
+    expect(depsBlock).not.toContain("governanceBundleDir");
+    expect(depsBlock).not.toContain("suspensionMarkerPath");
+    expect(depsBlock).not.toContain("execute?:");
+    expect(depsBlock).not.toContain("readonly execute");
+    // The only execution observation is a non-result-producing entry observer.
+    expect(depsBlock).toContain("onExecutionStart?:");
   });
 
-  it("always uses the fixed canonical roots in the production entry point", () => {
-    expect(PRODUCTION_SERVICE_SOURCE).toContain("GRID_OPT_IN_BETA_MATCH_OUTPUT_ROOT");
-    expect(PRODUCTION_SERVICE_SOURCE).toContain("GRID_OPT_IN_BETA_FIGHTER_ROOT");
-    expect(PRODUCTION_SERVICE_SOURCE).toContain("GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR");
-    expect(PRODUCTION_SERVICE_SOURCE).toContain(
-      "GRID_OPT_IN_BETA_SUSPENSION_MARKER_PATH",
-    );
-    // The production entry point must never read a root override from the
-    // request, so even programmatic production calls cannot redirect the
-    // suspension marker, output root, fighter root or governance directory.
-    expect(PRODUCTION_SERVICE_SOURCE).not.toMatch(/request\.outputRoot/);
-    expect(PRODUCTION_SERVICE_SOURCE).not.toMatch(/request\.fighterRoot/);
-    expect(PRODUCTION_SERVICE_SOURCE).not.toMatch(/request\.governanceBundleDir/);
-    expect(PRODUCTION_SERVICE_SOURCE).not.toMatch(/request\.suspensionMarkerPath/);
+  it("runGridBetaMatch directly supplies the four canonical constants and only the fixed execution core", () => {
     const runEntry = PRODUCTION_SERVICE_SOURCE.slice(
       PRODUCTION_SERVICE_SOURCE.indexOf("export async function runGridBetaMatch("),
     );
-    expect(runEntry).toContain("outputRoot: GRID_OPT_IN_BETA_MATCH_OUTPUT_ROOT");
-    expect(runEntry).toContain("fighterRoot: GRID_OPT_IN_BETA_FIGHTER_ROOT");
+    expect(runEntry).toContain("const outputRoot = GRID_OPT_IN_BETA_MATCH_OUTPUT_ROOT");
+    expect(runEntry).toContain("const fighterRoot = GRID_OPT_IN_BETA_FIGHTER_ROOT");
     expect(runEntry).toContain(
-      "governanceBundleDir: GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR",
+      "const governanceDir = GRID_OPT_IN_BETA_GOVERNANCE_BUNDLE_DIR",
     );
     expect(runEntry).toContain(
-      "suspensionMarkerPath: GRID_OPT_IN_BETA_SUSPENSION_MARKER_PATH",
+      "const markerPath = GRID_OPT_IN_BETA_SUSPENSION_MARKER_PATH",
     );
-  });
-
-  it("always enters the fixed execution core and cannot provide an alternate execution result", () => {
-    // No alternate result-producing simulator exists anywhere in the
-    // production dependency contract or service flow.
-    expect(PRODUCTION_SERVICE_SOURCE).not.toMatch(/dependencies\.execute/);
-    expect(PRODUCTION_SERVICE_SOURCE).toMatch(/environment\.onExecutionStart\?\.\(\);/);
-    // The one execution call site is the fixed imported executeGridBetaMatch.
-    expect(PRODUCTION_SERVICE_SOURCE).toContain(
-      "const execution = executeGridBetaMatch({",
+    // Even a programmatic production call cannot redirect the roots or supply
+    // an alternate execution result.
+    expect(runEntry).not.toMatch(
+      /request\.outputRoot|request\.fighterRoot|request\.governanceBundleDir|request\.suspensionMarkerPath/,
     );
+    expect(runEntry).not.toContain("dependencies.execute");
+    expect(runEntry).toContain("const execution = executeGridBetaMatch({");
+    // The observer is invoked immediately before the fixed execution call.
+    expect(runEntry).toMatch(/dependencies\.onExecutionStart\?\.\(\);/);
   });
+});
 
-  it("the harness observer counts exactly one entry into the real fixed execution core", async () => {
+// ── Phase 3G.1.2 runtime regression through the real entry point (Phase 5) ─
+
+describe("grid beta runtime through runGridBetaMatch (Phase 3G.1.2 Phase 5)", () => {
+  it("executes the complete beta path via production runGridBetaMatch and the mapped filesystem", async () => {
     if (!env) return;
-    const out = join(env.root, "out-observer-once");
-    const marker = join(env.root, "marker-observer-once");
+    const out = join(env.root, "out-logical-paths");
+    const marker = join(env.root, "marker-logical-paths");
     await mkdir(out);
     let executionStarts = 0;
-    const result = await harnessRun(
+    const requested: string[] = [];
+    const fs = mappedFs({ out, marker });
+    const recordingFs: CanaryFileSystem = {
+      ...fs,
+      readFile: async (path, encoding) => {
+        requested.push(path.replaceAll("\\", "/"));
+        return fs.readFile(path, encoding);
+      },
+    };
+    const result = await runGridBetaMatch(
       { seed: 1, fighterA: "alpha", fighterB: "beta", acknowledgement: true },
-      {
-        outputRoot: out,
-        fighterRoot: env.fighterRoot,
-        governanceBundleDir: env.governanceDir,
-        suspensionMarkerPath: marker,
+      deps({
+        fs: recordingFs,
         onExecutionStart: () => {
           executionStarts += 1;
         },
-      },
+      }),
     );
     expect(executionStarts).toBe(1);
     expect(result.matchId).toBe(BETA_TEST_MATCH_ID);
+    // A valid ten-file temporary bundle was published through the mapped root.
+    expect(existsSync(join(out, BETA_TEST_MATCH_ID))).toBe(true);
+    const files = (await readdir(join(out, BETA_TEST_MATCH_ID))).sort();
+    expect(files).toEqual([...GRID_BETA_MATCH_BUNDLE_ENTRIES].sort());
+    // Logical canonical beta paths were requested; never any temp path.
+    expect(requested.some((p) => p.includes("data/beta/grid-fighters"))).toBe(true);
+    expect(requested.some((p) => p.includes("data/readiness/grid-governance"))).toBe(
+      true,
+    );
+    expect(requested.every((p) => !p.includes(env!.root.replaceAll("\\", "/")))).toBe(
+      true,
+    );
+    // No real beta tree or marker was created.
     expect(existsSync(marker)).toBe(false);
+    expect(existsSync(join(process.cwd(), "data", "beta"))).toBe(false);
   });
 });
