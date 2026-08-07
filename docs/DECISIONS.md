@@ -3227,6 +3227,248 @@ Milestone 0.2E:
 not started
 ```
 
+## D66: Authorise versioned successor source baseline for governed legacy-source evolution (2026-08-07)
+
+Independent review of the planned Milestone 0.2D Phase 3 canonical-Bulwark
+migration confirmed a governance conflict BEFORE any Phase 3 implementation
+change. This decision is documentation/governance design only. No source,
+test, data or governance artifact is changed; the original v1 evidence is not
+rewritten; Bulwark is not migrated; `run-match.ts`/`run-series.ts` are not
+modified; no beta command runs.
+
+### Confirmed conflict
+
+1. `src/beta/grid-beta-legacy-preflight.ts` includes `src/app/run-match.ts`
+   and `src/app/run-series.ts` inside
+   `GRID_BETA_LEGACY_ISOLATION_PROTECTED_PATHS`.
+2. The current preflight compares those current checkout bytes with
+   `GRID_OPT_IN_BETA_REVIEWED_SOURCE_FILES`.
+3. The original source snapshot is:
+
+   ```
+   snapshot:          grid-opt-in-beta-reviewed-source-v1
+   source commit:     5173fd0f287465e1181969dbad2f37cee10fd47e
+   snapshot checksum: 1f984801f6e7ed1809080f88e84004e8dc426de31c2e877dfbbcb09967c3680c
+   ```
+
+4. Therefore changing normal `run-match.ts` or `run-series.ts` currently
+   causes `legacy_default_regression` and prevents further grid-beta
+   execution. This is intentional fail-closed behaviour, not a defect.
+
+### Two distinct claims
+
+- **Claim A — original governance authority (immutable).** The original
+  `grid-opt-in-beta-reviewed-source-v1` and the official Phase 3F/3F.1
+  governance bundle remain immutable historical evidence of the exact source
+  state upon which the original bounded grid-beta authorisation was made.
+  They MUST NEVER be rewritten to refer to newer source. Preserved unchanged:
+  official governance decision ID `58e8cd87-504e-4b5f-9bac-f6b81d82377b`;
+  original reviewed source commit `5173fd0f…`; original snapshot checksum
+  `1f984801…`; and the seven governance hashes:
+  manifest `0f143dde…`, source-state `5721585d…`, base-evidence-reference
+  `972d99b9…`, supplement-evidence-reference `0cc07da6…`, beta-contract
+  `5f345ce4…`, decision `da377b33…`, report `63259937…`. No old D53/D54/D55
+  wording is rewritten.
+- **Claim B — current-source compatibility (new, versioned).** A NEW concept
+  `grid-beta-legacy-isolation-reviewed-source-v2` (name may be refined) attests
+  that a later reviewed source commit remains compatible with all source
+  properties material to the existing bounded grid-beta authorisation. Its
+  purpose is NOT to re-authorise grid beta from scratch and NOT to replace the
+  original governance decision. The beta may operate against evolved source
+  only when BOTH are true: original governance authority v1 = valid AND
+  current-source successor baseline = valid. Failure of either remains fail
+  closed.
+
+### No mutable "latest" baseline
+
+Every successor baseline must be: explicitly versioned; bound to one exact Git
+commit; bound to exact reviewed file bytes; deterministically checksummed;
+independently reviewed; activated only by an explicit decision. There is no
+`latest snapshot`, no automatic approval, no "trust HEAD", no "accept any
+descendant". No automatic moving baseline.
+
+### Scope of the first successor
+
+The first permitted successor exists ONLY to allow the already-designed 0.2D
+Phase 3 canonical-Bulwark migration: normal legacy `run-match` and
+`run-series` move from hard-coded historical Bulwark combat input to the
+canonical `bulwark.v1` fixture, plus the minimum reviewed support modules for
+explicit runtime compatibility checking, fixed-root fixture loading, and one
+canonical legacy-Bulwark helper. It does NOT authorise arbitrary source
+evolution.
+
+### Required equivalence facts before v2 may become active
+
+- Global/runtime: legacy remains application default; `run-match` and
+  `run-series` still use `runMatch`; neither invokes `runGridMatch`; normal
+  paths do not invoke grid-beta; no fallback between runtimes; grid remains
+  explicit opt-in only. `SIMULATOR_VERSION 0.2.0`, `RULESET_VERSION 0.2.0`,
+  catalogue `1`, C2 unchanged and default, grid identity
+  `0.3.0 / grid-3x3-v1`, legacy identity `0.2.0 / legacy-five-zone-v1`.
+- Bulwark facts: normal application Bulwark uses exact immutable
+  `data/opponents/bulwark.v1.json` (fixtureChecksum
+  `053e61e8…`, persisted file SHA-256 `d109c73a…`); its build/policy remain
+  exactly equivalent to `BULWARK_BUILD_PROPOSAL`, `BULWARK_POLICY` and
+  `createBulwarkBuild()`. No fixture semantic change is authorised.
+- Behavioural equivalence: bounded ordinary TEST-ONLY deterministic
+  comparison proves historical hard-coded Bulwark input == canonical
+  fixture-backed Bulwark input for exact legacy simulator facts (runtime,
+  resolved config, initial state, complete ordered event stream, result,
+  rounds). No benchmark seeds, no held-out, no performance interpretation.
+- Provider ordering: canonical fixture loading and legacy-runtime
+  compatibility checking occur before any DeepSeek/provider request in normal
+  match, any DeepSeek/provider request in normal series, and creation/
+  persistence of a new series record. A fixture failure fails closed before
+  external/provider side effects.
+
+### Successor protected-source set
+
+The future v2 baseline must not merely replace the hashes for `run-match.ts`
+and `run-series.ts` while ignoring their new dependencies. The reviewed v2
+protected set must include, at minimum: every path currently protected by
+`GRID_BETA_LEGACY_ISOLATION_PROTECTED_PATHS`; the canonical fixture parser;
+canonical fixture loader; future runtime-compatibility gate; future canonical
+legacy-Bulwark helper; and any other new source module through which normal
+application runtime or Bulwark combat configuration can be selected. The
+canonical Bulwark fixture is also bound by its existing Phase 2
+checksum/file hash. The final exact v2 path list is frozen only after the
+migration candidate source exists and can be independently inspected.
+
+### Transition-state rule
+
+```
+migration candidate committed: yes
+v2 successor baseline activated: not yet
+```
+
+During that state grid beta operationally authorised: NO. No
+`match:grid:beta` command may execute. The existing preflight is expected to
+fail closed if asked; it is NOT weakened merely to make the transition
+convenient. No suspension marker is created or cleared as part of the
+migration process; the beta is simply not invoked while the candidate source
+awaits successor review. After the exact migration candidate commit has been
+independently reviewed, a later governance step may construct the v2 snapshot
+from that exact Git commit and activate it.
+
+### Required future commit structure (Phase 3 implementation)
+
+- **Commit M — migration candidate:** contains the canonical-Bulwark migration
+  and support code; does NOT rewrite v1 governance evidence; exact SHA
+  recorded. During this commit state beta is intentionally unavailable
+  (current protected bytes no longer equal v1). No operational beta command
+  runs. Migration-equivalence tests may run.
+- **Independent review of M:** verifies exact scope, Bulwark equivalence,
+  legacy remains default, no grid/beta normal path, no runtime fallback,
+  fixture anchors unchanged, no provider/benchmark/held-out access. Only after
+  M passes may v2 be anchored.
+- **Commit G — successor source governance:** constructs the successor source
+  snapshot from exact Git commit M (never from uncommitted working-tree
+  bytes); records path, Git blob SHA and content SHA-256 for every reviewed
+  path; computes the deterministic v2 snapshot checksum; updates the ACTIVE
+  current-checkout legacy-isolation preflight to compare against v2; preserves
+  the original v1 snapshot code/data and all old hashes unchanged. The full
+  test suite must pass at G. This two-commit transition MUST NOT be squashed.
+
+### Old evidence vs active source baseline
+
+Never say "the original governance snapshot was updated", "D53 now points at
+the new source", "5173fd0f was replaced", or "the old source-state hash
+changed". Correct wording: "the original v1 governance authority remains
+unchanged; a separately versioned successor current-source baseline was
+accepted; the successor proves compatibility with the invariants material to
+the original approval".
+
+### Future successor policy
+
+A v2 baseline must NOT create an evergreen bypass. After v2 activation, any
+future protected source change again fails closed. A later legitimate source
+evolution requires: a new candidate commit; independent review; a new
+successor snapshot version or explicitly governed replacement; exact
+commit/blob/content hashes; and an explicit activation decision. No hash
+update merely because tests pass.
+
+### Beta bundles already created
+
+GRID-BETA-001–005 historical provenance is preserved unchanged; their
+execution occurred under the original v1 governance/preflight state. Their
+manifests, attestations and recorded source provenance are NOT rewritten. A
+future match after v2 activation records the then-current successor source
+identity separately. Historical and future operational evidence remain
+distinguishable.
+
+### No balance implications
+
+This governance bridge makes ZERO statement about grid balance, Bulwark
+strength, opponent difficulty, slot fairness, tuning, C2 finality or fixture
+performance. It is source-governance only.
+
+Status:
+
+```
+Milestone 0.2C:
+COMPLETE
+
+Original grid-beta governance authority:
+unchanged
+
+Original reviewed source snapshot:
+grid-opt-in-beta-reviewed-source-v1
+
+Original source commit:
+5173fd0f287465e1181969dbad2f37cee10fd47e
+
+Original snapshot checksum:
+1f984801f6e7ed1809080f88e84004e8dc426de31c2e877dfbbcb09967c3680c
+
+Original seven governance hashes:
+unchanged
+
+GRID-BETA-001–005 provenance:
+unchanged
+
+0.2D Phase 3 conflict:
+confirmed
+
+Resolution:
+versioned successor current-source compatibility baseline
+
+Successor v2:
+authorised in principle, not yet created
+
+Successor source commit:
+none yet
+
+Bulwark migration:
+not yet performed
+
+Current active beta protected baseline:
+v1
+
+Operational beta during migration transition:
+not authorised
+
+Legacy default:
+yes
+
+Grid default:
+no
+
+Balance evaluation:
+not authorised
+
+Seed-bank access:
+none
+
+Held-out access:
+none
+
+Provider/API use:
+none
+
+Milestone 0.2D Phase 3 implementation:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

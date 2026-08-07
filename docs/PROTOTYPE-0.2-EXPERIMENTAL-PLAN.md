@@ -1477,6 +1477,62 @@ to the source files and deeply frozen results. NO simulator, NO opponent
 match, NO benchmark/held-out/provider access. Bulwark source-code migration
 NOT performed (Phase 3); opponent-suite runner NOT implemented.
 
+**Phase 3 governance bridge (D66, 2026-08-07) — governed source-evolution
+baseline (documentation/governance design only; Phase 3 implementation NOT
+started):** independent review confirmed that the planned Phase 3
+canonical-Bulwark migration (which must change `src/app/run-match.ts` and
+`src/app/run-series.ts`) conflicts with the bounded grid-beta governance:
+`GRID_BETA_LEGACY_ISOLATION_PROTECTED_PATHS` includes those two files, and
+the legacy-isolation preflight compares current checkout bytes against
+`GRID_OPT_IN_BETA_REVIEWED_SOURCE_FILES` (snapshot
+`grid-opt-in-beta-reviewed-source-v1`, source commit `5173fd0f…`, checksum
+`1f984801…`); any byte change to a protected normal-path file fails closed
+with `legacy_default_regression` — intentional fail-closed behaviour, not a
+defect. D66 therefore authorises a VERSIONED SUCCESSOR SOURCE BASELINE
+mechanism distinguishing Claim A (original v1 governance authority and the
+official Phase 3F/3F.1 bundle remain immutable historical evidence, never
+rewritten) from Claim B (a new versioned successor current-source
+compatibility baseline `grid-beta-legacy-isolation-reviewed-source-v2`,
+name refinable, attests a later reviewed commit remains compatible with the
+invariants material to the original approval; beta operates against evolved
+source only when BOTH v1 authority and successor baseline are valid; failure
+of either fails closed). Successor baselines are always explicitly versioned,
+bound to one exact Git commit and exact reviewed file bytes, deterministically
+checksummed, independently reviewed and activated only by an explicit decision
+— never a mutable "latest" baseline. The first permitted successor exists only
+to allow the Phase 3 migration (normal `run-match`/`run-series` move from
+historical hard-coded Bulwark input to `data/opponents/bulwark.v1.json`
+plus minimum reviewed support modules for runtime compatibility checking,
+fixed-root loading and one canonical legacy-Bulwark helper), gated on required
+equivalence facts (legacy default, `runMatch` still used, no grid/beta normal
+path, no runtime fallback, versions `0.2.0`/`0.2.0`/catalogue `1`/C2 unchanged,
+Bulwark fixture anchors `053e61e8…`/`d109c73a…` build/policy equivalent to
+`BULWARK_BUILD_PROPOSAL`/`BULWARK_POLICY`/`createBulwarkBuild()`, bounded
+TEST-ONLY behavioural equivalence, provider-ordering fail-closed before any
+DeepSeek request or series-record persistence). The reviewed v2 protected set
+includes every currently protected path plus the canonical fixture parser,
+loader, runtime-compatibility gate, legacy-Bulwark helper and any other
+runtime/Bulwark selection module. Transition rule: while the migration
+candidate is committed but v2 is not yet activated, grid beta is operationally
+NOT authorised and simply not invoked (no marker creation/clearing; preflight
+not weakened). Required Phase 3 commit structure: **Commit M** (migration
+candidate, exact SHA recorded, beta intentionally unavailable, no operational
+beta command, equivalence tests may run) → **independent review of M** (scope,
+Bulwark equivalence, legacy default, no grid/beta path, no runtime fallback,
+fixture anchors unchanged, no provider/benchmark/held-out access) → **Commit
+G** (successor snapshot built from exact Git commit M — never uncommitted
+working-tree bytes — path/blob-SHA/content-SHA-256 per reviewed path,
+deterministic v2 checksum, active preflight updated to v2, v1 preserved,
+full suite passes); M and G are never squashed. After v2 activation any future
+protected change fails closed again; later legitimate evolution requires a new
+candidate, review, new successor version, exact hashes and an explicit
+activation decision (no hash update merely because tests pass). GRID-BETA-001
+–005 provenance is preserved unchanged (executed under the v1 baseline);
+future matches record the then-current successor identity separately. The
+bridge makes ZERO balance/strength/difficulty/fairness/tuning/C2/performance
+statement — source-governance only. No source, test, data or governance
+artifact changed in this step; Bulwark migration remains not started.
+
 **Affected modules (Phase 0):** none — documentation only
 (`docs/ADR-004-multi-opponent-fixture-format.md`, this plan, README,
 ARCHITECTURE, DECISIONS).

@@ -1273,6 +1273,57 @@ benchmark/provider/seed-bank/held-out/`all` access occurred. The window is
 factual operational observation only — no balance, slot/fairness or tuning
 conclusion is drawn, and outcomes are explicitly deferred.
 
+**Governed source-evolution bridge (D66, 2026-08-07).** The bounded grid-beta
+authorisation is bound to an immutable reviewed-source baseline. The legacy
+isolation preflight (`src/beta/grid-beta-legacy-preflight.ts`) protects
+`GRID_BETA_LEGACY_ISOLATION_PROTECTED_PATHS` (which includes
+`src/app/run-match.ts` and `src/app/run-series.ts`) by comparing current
+checkout bytes against `GRID_OPT_IN_BETA_REVIEWED_SOURCE_FILES`
+(snapshot `grid-opt-in-beta-reviewed-source-v1`, source commit
+`5173fd0f…`, checksum `1f984801…`); any change to a protected normal-path
+file fails closed with `legacy_default_regression`. That is intentional
+fail-closed behaviour, not a defect. Because the planned 0.2D Phase 3
+canonical-Bulwark migration must change exactly those normal-path files, D66
+authorises a VERSIONED SUCCESSOR SOURCE BASELINE mechanism that separates two
+claims. **Claim A — original governance authority:** the v1 snapshot and the
+official Phase 3F/3F.1 governance bundle (decision `58e8cd87-…`, seven hashes
+`0f143dde…`/`5721585d…`/`972d99b9…`/`0cc07da6…`/`5f345ce4…`/`da377b33…`/
+`63259937…`) remain immutable historical evidence and are never rewritten.
+**Claim B — current-source compatibility:** a new versioned successor baseline
+`grid-beta-legacy-isolation-reviewed-source-v2` (name may be refined) attests
+that a later reviewed source commit remains compatible with the source
+properties material to the original approval; it does not re-authorise beta or
+replace the original decision. The beta may operate against evolved source
+only when BOTH are valid; failure of either fails closed. Every successor
+baseline is explicitly versioned, bound to one exact Git commit and exact
+reviewed file bytes, deterministically checksummed, independently reviewed and
+activated only by an explicit decision — no mutable "latest" baseline. The
+first permitted successor exists only to allow the Phase 3 canonical-Bulwark
+migration (normal `run-match`/`run-series` move from historical hard-coded
+Bulwark input to `data/opponents/bulwark.v1.json` plus the minimum reviewed
+support modules), with required equivalence facts (legacy remains default,
+`runMatch` still used, no grid/beta normal path, no runtime fallback, versions
+`0.2.0`/`0.2.0`/catalogue `1`/C2 unchanged, Bulwark fixture anchors
+`053e61e8…`/`d109c73a…`, test-only behavioural equivalence, provider-ordering
+fail-closed) and a successor protected set that includes every currently
+protected path plus the new fixture/runtime/loader modules. During the
+transition (migration candidate committed, v2 not yet activated) grid beta is
+operationally NOT authorised and the beta is simply not invoked; the preflight
+is not weakened. The required Phase 3 sequence is **Commit M** (migration
+candidate, exact SHA recorded, beta unavailable by design, no operational beta
+command, equivalence tests may run) → **independent review of M** → **Commit
+G** (successor source snapshot constructed from exact Git commit M — never
+uncommitted working-tree bytes — with path/blob-SHA/content-SHA-256 per
+reviewed path, deterministic v2 checksum, active preflight updated to compare
+against v2, v1 preserved unchanged, full suite passing); M and G are never
+squashed. After v2 activation any future protected change fails closed again
+and a later legitimate evolution requires a new candidate, review, new
+successor version, exact hashes and an explicit activation decision. GRID-BETA
+001–005 provenance is preserved unchanged (executed under the v1 baseline);
+future matches record the then-current successor identity separately. The
+bridge makes zero statement about balance, strength, difficulty, fairness,
+tuning, C2 finality or fixture performance — source-governance only.
+
 Milestone 0.2D Phase 0 (D61, 2026-08-07) defines — and does not implement —
 the opponent-suite governance. ADR-004 (`docs/ADR-004-multi-opponent-fixture-format.md`)
 freezes the fixture contract: immutable/versioned identity

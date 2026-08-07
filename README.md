@@ -777,6 +777,37 @@ seed-bank/held-out/provider none; legacy default yes; grid default no;
 public/ranked/tournament not authorised; Phase 3 not started; Milestone 0.2E
 not started.
 
+**Governed source-evolution bridge (D66, 2026-08-07).** Documentation/
+governance design only. Independent review confirmed that the planned 0.2D
+Phase 3 canonical-Bulwark migration would change `src/app/run-match.ts` and
+`src/app/run-series.ts`, which are protected normal-path files in the bounded
+grid-beta governance: the legacy-isolation preflight compares current checkout
+bytes against the frozen `grid-opt-in-beta-reviewed-source-v1` snapshot
+(source commit `5173fd0f…`, checksum `1f984801…`), so any byte change fails
+closed with `legacy_default_regression` (intentional fail-closed behaviour).
+D66 authorises a VERSIONED SUCCESSOR SOURCE BASELINE mechanism: the original
+v1 governance authority (decision `58e8cd87-…`, seven hashes, GRID-BETA-001
+–005 provenance) remains immutable historical evidence, while a separately
+versioned successor current-source compatibility baseline
+(`grid-beta-legacy-isolation-reviewed-source-v2`, name refinable) will attest
+that a later independently-reviewed source commit remains compatible with the
+invariants material to the original approval. The beta operates against
+evolved source only when both are valid; failure of either fails closed. No
+mutable "latest" baseline: every successor is versioned, bound to one exact
+Git commit and exact reviewed bytes, deterministically checksummed,
+independently reviewed and explicitly activated. The first permitted successor
+exists only to enable the Phase 3 Bulwark migration, gated on required
+equivalence facts (legacy default, `runMatch` still used, no grid/beta normal
+path, Bulwark fixture anchors `053e61e8…`/`d109c73a…` equivalent to the
+historical constants, test-only behavioural equivalence, provider-ordering
+fail-closed). Required Phase 3 sequence: Commit M (migration candidate) →
+independent review of M → Commit G (successor snapshot from exact Git commit
+M, active preflight updated to v2, v1 preserved) — never squashed. During the
+transition grid beta is operationally NOT authorised and simply not invoked;
+the preflight is not weakened; no marker is created/cleared. This step changes
+no source, test, data or governance artifact; Bulwark migration is not yet
+performed; Phase 3 implementation not started.
+
 ### Replay
 
 ```bash
