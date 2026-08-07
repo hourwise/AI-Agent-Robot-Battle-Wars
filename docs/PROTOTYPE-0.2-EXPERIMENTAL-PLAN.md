@@ -792,7 +792,15 @@ p95` assumption is removed); timing changes never alter a gate or decision.
   C1/C2/AB2 and C2 default unchanged, legacy normal paths unchanged, no
   benchmark/provider/seed-bank/held-out/`all` access. Factual operational
   observation only — no balance, slot/fairness or tuning conclusion; outcomes
-  explicitly deferred.
+  explicitly deferred. Execution provenance (D60): window initiated from the
+  accepted closure commit `9fcb5ec…`; a test-only correction
+  `f520270…` (`test: scope beta storage-absence assertions to test ids`,
+  changing only `tests/unit/grid-beta-match-service.test.ts`) was committed
+  before the corrected pre-run suite and the observation runs, so
+  GRID-BETA-002 through GRID-BETA-005 executed with exact Git HEAD
+  `f520270…` while their production/runtime source bytes remained identical
+  to the accepted `9fcb5ec…` state — source-equivalent provenance accepted by
+  independent review, no reruns required.
 - Active/default runtime migration: **not performed**. `SIMULATOR_VERSION` and
   `RULESET_VERSION` remain `0.2.0`, catalogue `1`; the normal application
   still uses legacy `runMatch` and persists schema v2; `runGridMatch` is not

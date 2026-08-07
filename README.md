@@ -599,6 +599,21 @@ match directory retained exactly ten immutable files; C1/C2/AB2 and the C2
 default unchanged; normal match/series/replay remain legacy; no benchmark,
 provider, seed bank, held-out or `all` access occurred.
 
+**Execution provenance (D60).** Window A was initiated from the accepted
+Milestone 0.2C closure commit `9fcb5ecab1933eacdc27eaaaec01c27928c31768`.
+Before GRID-BETA-002, the pre-run suite exposed two stale unit-test
+assertions that assumed the entire real `data/beta` tree must be absent;
+GRID-BETA-001 had legitimately created ignored operational beta data. The
+assertions were corrected in the test-only commit
+`f52027033b8e2e7550d6ed895f7dfe950da8c531`
+(`test: scope beta storage-absence assertions to test ids`), which changed
+only `tests/unit/grid-beta-match-service.test.ts` and no production source.
+GRID-BETA-002 through GRID-BETA-005 therefore executed with exact Git HEAD
+`f520270…`, while their production/runtime source bytes remained identical to
+the accepted `9fcb5ec…` state. Independent review accepts this as
+source-equivalent operational provenance; the four observation matches were
+not rerun.
+
 ### Replay
 
 ```bash

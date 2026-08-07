@@ -2421,6 +2421,49 @@ changed because of any result.
   recommendation is derived. Even though the five mirror matches produced a
   mix of outcomes, interpretation is explicitly deferred.
 
+Observation execution provenance
+
+Observation Window A was initiated from the accepted Milestone 0.2C closure
+commit:
+
+```
+9fcb5ecab1933eacdc27eaaaec01c27928c31768
+```
+
+Before GRID-BETA-002 was executed, the required pre-run full test suite exposed
+two stale unit-test assertions that still required the entire real `data/beta`
+tree to be absent. GRID-BETA-001 had legitimately created ignored operational
+beta data, so those assertions no longer represented the intended isolation
+property.
+
+The assertions were corrected in the test-only commit:
+
+```
+f52027033b8e2e7550d6ed895f7dfe950da8c531
+test: scope beta storage-absence assertions to test ids
+```
+
+That commit changed only:
+
+```
+tests/unit/grid-beta-match-service.test.ts
+```
+
+No production source, simulator, runtime, persistence, replay, governance,
+catalogue, canary or configuration byte changed.
+
+GRID-BETA-002 through GRID-BETA-005 therefore executed with exact Git HEAD:
+
+```
+f52027033b8e2e7550d6ed895f7dfe950da8c531
+```
+
+while their production/runtime source bytes remained identical to the accepted
+`9fcb5ecab1933eacdc27eaaaec01c27928c31768` state.
+
+Independent review accepts this as source-equivalent operational provenance.
+The four observation matches do not require rerun.
+
 Status:
 
 ```
@@ -2461,6 +2504,101 @@ Legacy default:
 yes
 
 Grid default activation:
+no
+
+Public/ranked/tournament:
+not authorised
+
+Milestone 0.2D:
+not started
+```
+
+## D60: Accept Observation Window A source-equivalent execution provenance (2026-08-07)
+
+Independent review ACCEPTS Bounded Beta Observation Window A operationally.
+GRID-BETA-002 through GRID-BETA-005 do NOT need to be rerun. This decision
+records the exact execution provenance of the window and resolves the
+distinction between the accepted Milestone 0.2C closure commit and the exact
+Git HEAD at which the four observation matches executed.
+
+- **Verified history.** Observation Window A was initiated from the accepted
+  Milestone 0.2C closure commit
+  `9fcb5ecab1933eacdc27eaaaec01c27928c31768`. Before the observation matches,
+  the pre-run full suite exposed two stale test assertions that assumed the
+  entire real `data/beta` tree must not exist; GRID-BETA-001 had legitimately
+  created local operational beta data, so those assertions were no longer
+  valid. The correction was committed as the test-only commit
+  `f52027033b8e2e7550d6ed895f7dfe950da8c531`
+  (`test: scope beta storage-absence assertions to test ids`), which modifies
+  exactly one file — `tests/unit/grid-beta-match-service.test.ts` — and no
+  production source.
+- **Source equivalence.** The test correction does not alter `src/**`,
+  simulator semantics, the grid runtime, the beta service, persistence,
+  replay, suspension logic, governance, catalogue, C1/C2/AB2, canaries,
+  package scripts or runtime configuration. The production/runtime source
+  bytes used for GRID-BETA-002 through GRID-BETA-005 therefore remained
+  identical to those at `9fcb5ecab1933eacdc27eaaaec01c27928c31768`.
+- **Exact execution HEAD.** Because the test correction was committed before
+  the corrected pre-run suite and observation execution, the exact Git HEAD
+  for the operational runs was
+  `f52027033b8e2e7550d6ed895f7dfe950da8c531`. This distinction is recorded
+  explicitly: the observation matches executed with exact Git HEAD
+  `f520270…` while their production/runtime source bytes were identical to
+  the accepted `9fcb5ec…` state. Independent review accepts this as
+  source-equivalent operational provenance, and the four observation matches
+  do not require rerun.
+- **Results remain accepted.** All existing GRID-BETA-001 through
+  GRID-BETA-005 results remain accepted and unchanged; no existing match
+  bundle, the `beta-smoke-01` fighter, or governance evidence was modified.
+  No balance, slot/fairness or tuning conclusion is made. Milestone 0.2C
+  remains COMPLETE and Milestone 0.2D remains not started.
+
+Status:
+
+```
+Milestone 0.2C:
+COMPLETE
+
+GRID-BETA-001:
+accepted
+
+Bounded beta observation window A:
+ACCEPTED
+
+GRID-BETA-002 through GRID-BETA-005 execution Git HEAD:
+f52027033b8e2e7550d6ed895f7dfe950da8c531
+
+Production/runtime source equivalence:
+identical to 9fcb5ecab1933eacdc27eaaaec01c27928c31768
+
+Operational determinism:
+5/5 primary-repeat pairs agreed
+
+Bundle validation:
+5/5 pass
+
+Text replay:
+5/5 pass
+
+ASCII replay:
+5/5 pass
+
+Suspension triggers:
+0
+
+Balance conclusion:
+NONE
+
+Slot/fairness conclusion:
+NONE
+
+Tuning:
+NONE
+
+Legacy default:
+yes
+
+Grid default:
 no
 
 Public/ranked/tournament:
