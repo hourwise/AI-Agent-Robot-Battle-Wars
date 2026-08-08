@@ -1,5 +1,101 @@
 # Decisions
 
+## D75: Accept 0.2B replacement-evidence protocol (2026-08-08)
+
+ADR-005, `docs/ADR-005-0.2b-replacement-evidence-protocol.md`, is accepted as
+the governance-only protocol for a future 0.2B replacement cycle. It preserves
+ADR-003 as the historical authority for the original seed bank and preserves
+D24-D32 as the historical record of C1, C2 and AB2. It does not implement or
+evaluate a candidate, change simulator or fixture behavior, reopen the spent
+partition, reopen AB2, reopen 0.2D or begin 0.2E.
+
+### Continue/postpone decision
+
+**Continue 0.2B at the governance stage; postpone candidate selection,
+implementation, benchmark execution and held-out confirmation.** 0.2B
+qualification/balance acceptance remains unresolved. The next task after this
+ADR is the documentation-only versioned replacement development-fixture and
+protocol contract. No candidate may be evaluated until that contract and its
+acceptance gates are frozen.
+
+### Accepted protocol boundaries
+
+- **Evidence stages:** ordinary semantic/unit verification; development-only
+  qualification evidence; whole-combat development acceptance; and one-time
+  fresh held-out confirmation are separate authorities. Lifecycle correctness
+  and component-transition viability do not establish whole-combat balance or
+  finish-distribution acceptance.
+- **Candidate authority:** each future candidate needs a new immutable ID,
+  complete versioned configuration, canonical checksum, and frozen candidate,
+  fixture/protocol and gate identities before held-out confirmation. C2
+  (`component-impact-c2`, `13548462df34a183`) remains the experimental default
+  and is not final. AB2 (`component-impact-ab2`, `6b9f70450d3f10b8`) remains
+  permanently ineligible for default promotion. No constants are selected by
+  D75.
+- **Development fixtures:** future development uses a bounded, versioned
+  multi-fixture strategy. Canonical build/policy definitions may be reused only
+  as explicitly versioned inputs; dedicated evaluation fixtures may be added by
+  the next contract task. The suite must avoid a single mechanically
+  unrepresentative acceptance fixture and must not use 0.2D, grid-beta, AB2
+  held-out or spent-partition outcomes as new evidence.
+- **Whole-combat boundary:** outcome, finish, duration, integrity and
+  component-distribution categories must be declared before execution. D75
+  adopts no new numeric thresholds; all thresholds, denominators and
+  investigation rules must be frozen before candidate execution.
+- **Fresh held-out custody:** an independent custodian outside the
+  candidate-design AI and repository-controlled development tooling generates a
+  partition only after candidate/protocol/gate freeze, using private
+  high-entropy input that is not reconstructible from repository-visible
+  generation inputs. Only an opaque bank ID, protocol/version identities,
+  counts and a custodian-held-key cryptographic commitment may be recorded.
+  An independent executor runs the frozen candidate once. Only approved
+  aggregate gate results, confidence facts and checksums may be released; seed
+  values, order and detailed per-match results remain withheld. The partition is
+  spent regardless of pass, fail or indeterminate outcome.
+- **0.2E relationship:** a separately governed 0.2E may use C2 as an exact,
+  frozen non-final baseline if it records the C2 ID/checksum and explicitly
+  states that this does not close 0.2B, make C2 final or authorize promotion.
+  Any redesign changing qualification semantics is a new 0.2B candidate under
+  ADR-005. 0.2E is not started.
+
+### Phased sequence and next task
+
+The accepted sequence is: governance (D75/ADR-005); versioned development
+fixture/protocol contract; new candidate selection/registration; semantic/unit
+verification; development qualification; whole-combat development acceptance;
+independent freeze; externally controlled fresh held-out confirmation; and a
+final factual decision with spent-partition status.
+
+The single next task is:
+
+> **Create and accept the versioned 0.2B replacement development-fixture and
+> protocol contract.**
+
+That task is documentation-only and must not create or tune fixture bytes,
+register a candidate, execute benchmark/held-out evaluation or begin 0.2E.
+
+Status:
+
+```
+ADR-005 replacement-evidence protocol:
+ACCEPTED
+
+0.2B:
+CONTINUE GOVERNANCE; CANDIDATE/EVALUATION POSTPONED
+
+C2:
+EXPERIMENTAL DEFAULT; NON-FINAL
+
+AB2:
+FROZEN; PERMANENTLY INELIGIBLE FOR DEFAULT PROMOTION
+
+Milestone 0.2E:
+NOT STARTED
+
+Next task:
+VERSIONED DEVELOPMENT-FIXTURE AND PROTOCOL CONTRACT
+```
+
 ## D74: Select the next task after Milestone 0.2D (2026-08-08)
 
 The post-0.2D next-milestone selection audit was performed from starting commit

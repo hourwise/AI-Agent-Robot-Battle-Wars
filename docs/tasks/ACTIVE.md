@@ -1,116 +1,84 @@
 # Active Task
 
-## Post-0.2D next-milestone selection audit - complete
+## Milestone 0.2B replacement-evidence governance - complete
 
 Audit date: 2026-08-08
-Starting commit: `356a73fee705a378f065fb4c5b40c4b24d59f91e`
+Starting commit: `23d4f32d3ba098e94be4e0126cde9866ea21a765`
 
-The repository context workflow is being followed. This is a documentation-only
-audit to determine the best next engineering milestone after the accepted
-Milestone 0.2D closure in D73. Compare the unfinished 0.2B
-component-qualification/balance work, the definition of Milestone 0.2E, and any
-smaller prerequisite or governance task. Do not implement the recommendation
-or begin another milestone.
+The repository context workflow was followed. This governance-only task was
+selected by D74 and accepts the replacement-evidence protocol for 0.2B after
+AB2 failed its one-time held-out confirmation and the original held-out
+partition became permanently spent. No candidate was implemented or
+evaluated, 0.2E did not begin, and closed 0.2D was not reopened.
 
-## Audit boundary
+## Work completed
 
-Follow `AGENTS.md`, `docs/INDEX.md`, `docs/SOURCE_OF_TRUTH.md` and only the
-relevant current decisions, plans, source and tests. Assess 0.2B and 0.2E from
-current repository state and accepted evidence, not roadmap intent alone.
+- Created and accepted [`docs/ADR-005-0.2b-replacement-evidence-protocol.md`](../ADR-005-0.2b-replacement-evidence-protocol.md), recorded as D75.
+- Preserved ADR-003 as the historical authority for the original seed bank and
+  D24-D32 as the historical candidate/gate/AB2 record.
+- Defined separate authority for semantic/unit verification,
+  development-only qualification evidence, whole-combat development
+  acceptance and one-time fresh held-out confirmation.
+- Required new immutable candidate IDs, complete versioned configuration and
+  checksums, pre-freezing of candidates and all gates, no C2 mutation and
+  permanent AB2 ineligibility. C2 remains the experimental default and is not
+  final.
+- Accepted a bounded, versioned multi-fixture development strategy using
+  explicitly versioned canonical or dedicated inputs, with no single
+  mechanically unrepresentative acceptance fixture and no new fixtures or
+  constants created here.
+- Defined whole-combat metric categories without inventing new numeric
+  thresholds; thresholds, denominator rules and investigation rules must be
+  frozen before candidate execution by a later protocol task.
+- Defined independent fresh held-out custody using private high-entropy
+  generation, non-revealing custodian commitments, sealed one-time execution,
+  aggregate-only released results and spent semantics regardless of outcome.
+- Allowed a separately governed 0.2E to use exact C2 as a frozen non-final
+  baseline without implying 0.2B acceptance; 0.2E remains not started.
 
-No product-code, simulator, fixture, runtime, beta-governance,
-opponent-suite or report behaviour changes are authorised. No provider/API
-calls, benchmark/held-out/`all`/readiness or operational-beta execution, grid
-opponent-suite execution, balance conclusions from operational grid evidence,
-public tournament/ranking/matchmaking work or 0.2E implementation is
-authorised. Do not reopen closed 0.2D.
+## 0.2B decision
 
-## Audit findings
+0.2B continues at the governance stage. Candidate selection, implementation,
+benchmark execution and held-out confirmation are postponed until the next
+documentation-only task accepts the versioned replacement development-fixture
+and protocol contract. No candidate constants were selected.
 
-- Milestone 0.2D remains closed under D73. This audit does not reopen or
-  reinterpret its fixture, runner or factual-report contracts.
-- 0.2B's lifecycle mechanism and qualification registry are implemented, but
-  qualification/balance acceptance remains unresolved. C2 is the unchanged
-  experimental default, not an accepted final solution. AB2 passed its
-  development gates but failed the strict representative-light held-out gate
-  at exactly `0.85`; it is permanently ineligible for default promotion.
-- The original held-out partition is spent and cannot validate another
-  candidate. The current source rejects held-out and `all` execution before
-  seed selection. Useful work is still possible as governance, contract and
-  non-evaluation test design, but no new qualification or balance claim can
-  be made without a new authorized protocol and genuinely fresh held-out
-  partition.
-- Historical 0.2E is described as baseline-versus-redesign adaptation
-  evaluation with held-out confirmation, overfitting detection and confidence
-  reporting. It is not adequately defined as a current implementation
-  milestone and remains not started.
+## Next task
 
-## 0.2B status
+Exactly one next task is recommended:
 
-0.2B needs a new governance decision before implementation or evaluation. That
-decision must choose whether to continue or postpone 0.2B, define any
-replacement development fixtures and protocol, separate lifecycle gates from
-whole-combat acceptance criteria, and specify external custody and one-time use
-of a genuinely fresh held-out partition. It must not reuse the spent partition,
-promote AB2, infer balance from grid-beta or 0.2D factual reports, or silently
-change C2, fixtures or simulator semantics.
+**Create and accept the versioned 0.2B replacement development-fixture and
+protocol contract.** It must remain documentation-only: define fixture
+identities/classifications/checksums, metric categories, denominator rules and
+thresholds without creating or tuning fixture bytes, registering a candidate,
+executing evaluation or beginning 0.2E.
 
-## 0.2E status and concise definition
+## Boundaries and remaining work
 
-0.2E's purpose would be a separately governed, deterministic baseline-versus-
-redesign evaluation that detects development overfitting while preserving the
-held-out evidence firewall. Its value is reproducible evidence for safe agent
-iteration, not ranking or public play.
-
-Prerequisites are a current qualification/baseline decision, ADR-003-compatible
-fresh seed-bank custody and one-time held-out protocol, explicit adaptation and
-confidence metrics, versioned baseline/redesign identities, and a reviewed
-report/review boundary. Defining 0.2E does not require 0.2B to be marked
-complete, but implementation/evaluation should wait for the 0.2B decision or an
-explicit decision to evaluate a frozen C2 baseline without calling it final.
-
-Likely phases are governance and metrics; immutable baseline/redesign protocol;
-development-only comparison; fresh held-out confirmation; and deterministic
-confidence/overfitting reporting. Non-goals are gameplay changes, fixture
-tuning, provider calls without separate authorization, held-out exposure to an
-AI reviewer, grid opponent-suite execution, balance/ranking conclusions,
-public tournament work and persistence or operational beta expansion.
-
-## Recommended next task
-
-**Create and accept a governance-only 0.2B replacement-evidence decision or
-ADR.** Do not implement a candidate or run evaluation in that task until the
-decision freezes the candidate protocol, replacement fixture strategy,
-whole-combat acceptance boundary, fresh held-out custody and sequencing with
-0.2E.
-
-This is the smallest task that materially advances the project: it resolves
-the evidence and authority gap created by the spent held-out partition before
-any simulator, fixture, benchmark or adaptation work. 0.2E should follow that
-decision rather than be started from the historical roadmap definition.
+- No product-code, simulator, fixture, candidate, benchmark, held-out, `all`,
+  provider/API, grid-beta, opponent-suite, operational-beta or 0.2E changes or
+  execution occurred.
+- No prior 0.2D, grid-beta, AB2 held-out or spent-partition outcome was used as
+  new qualification or balance evidence.
+- 0.2B qualification/balance acceptance remains unresolved pending the
+  versioned protocol contract and any later separately authorised cycle.
+- 0.2E, general grid opponent-suite execution, later evaluation/adaptation,
+  balance conclusions and ranking/public tournament work remain outside this
+  task.
 
 ## Verification
 
-- Documentation/context review completed using `AGENTS.md`, `docs/INDEX.md`,
-  `docs/SOURCE_OF_TRUTH.md`, relevant ADRs, D29-D32, D61-D74, current plans,
-  source and tests. No benchmark, held-out, `all`, readiness, beta or provider
-  execution occurred.
+- Relevant ADR-002/ADR-003 material, D24-D32, D74, historical 0.2B plans,
+  current qualification source and authorization tests were inspected.
 - `npm.cmd run check` passed.
 - `npm.cmd run lint` passed.
-- Formatting checks for changed documentation files passed.
-- No full test suite was required because this audit made documentation-only
-  changes.
-
-## Remaining issues
-
-- The recommended governance task is not started by this audit.
-- Outside the selected next task, 0.2B implementation/evaluation, 0.2E,
-  general grid opponent-suite execution, later evaluation/adaptation, balance
-  conclusions, ranking/public tournament work and any later milestone remain
-  deferred or separately governed.
+- Changed-document Prettier check passed.
+- `git diff --check` passed.
+- No full test suite was required because this task made documentation-only
+  governance changes; no benchmark or held-out command was run.
 
 ## Deviations
 
 - No source, test, fixture, simulator, runtime or operational files changed.
-- D74 records this selection audit as a new planning decision; historical
-  decisions and the closed 0.2D implementation were not rewritten.
+- Historical ADRs and decisions were not rewritten; D75 and ADR-005 add the
+  replacement-cycle authority and cross-reference the historical record.
