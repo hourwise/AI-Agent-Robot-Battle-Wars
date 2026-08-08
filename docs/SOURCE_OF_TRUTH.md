@@ -1,7 +1,7 @@
 # AI Robot Battle Arena - Source of Truth
 
-> Audited 2026-08-08 from starting commit `8ff5bf2cd0bb0a5f17cd09555fa18f2ab5af3331`
-> on `agent/0.2d-closure-audit`. This file is a concise routing summary. The
+> Audited 2026-08-08 from starting commit `356a73fee705a378f065fb4c5b40c4b24d59f91e`
+> on `agent/next-milestone-selection`. This file is a concise routing summary. The
 > linked source, tests, ADRs and decision log remain the detailed authority.
 
 ## Product purpose
@@ -120,27 +120,90 @@ The accepted Phase 0–5 implementation is covered by the relevant fixture,
 migration, successor-governance, opponent-suite and report tests. No later
 0.2D phase is pending.
 
-## Incomplete work and recommended ordering
+## Post-0.2D next-milestone selection
 
-- Milestone 0.2D is closed. Any later opponent evaluation, adaptation or
-  broader runtime work requires a separately authorised task and must not be
-  inferred from the factual fixture, runner or report endpoints.
-- 0.2B qualification/balance acceptance remains unresolved. The held-out AB2
-  result failed one strict gate, and the spent held-out partition must not be
-  reused. Any further candidate or whole-combat balance evaluation needs a new
-  separately authorised decision.
-- General grid opponent-suite execution is not authorised. Grid combat balance,
-  fairness, slot advantage, performance and general opponent-suite behaviour
-  are not established by the existing beta or legacy runner evidence.
-- Later evaluation, ranking/public tournament work and Milestone 0.2E remain
-  outside this closure and are not started.
+D74 records the current planning outcome: the next task is a governance-only
+0.2B replacement-evidence decision or ADR. No candidate implementation,
+benchmark, held-out evaluation or 0.2E work begins as part of that selection.
+
+### 0.2B status and remaining authority gap
+
+The healthy-to-damaged-to-disabled mechanism, versioned records, lifecycle
+reports and qualification registry are implemented. C2
+(`component-impact-c2`) remains the unchanged experimental runtime default and
+is not an accepted final balance solution. AB2
+(`component-impact-ab2`) passed its development lifecycle gates, but its one-
+time held-out confirmation failed the strict representative-light terminal gate
+at exactly `0.85`; D32 permanently sealed that result and made AB2 ineligible
+for default promotion. The original held-out partition cannot validate another
+candidate, and current source rejects held-out and `all` execution before seed
+selection. The current development lifecycle suite remains an auditable
+development contract whose selected C2 result is not a 0.2B acceptance.
+
+Useful work remains possible without violating the evidence restrictions:
+governance, gate definitions, fixture/protocol design, immutable contract
+changes after authorization, and ordinary non-evaluation tests. No new
+qualification or balance conclusion is valid until a new decision authorizes an
+immutable candidate protocol, a replacement development/evaluation fixture
+strategy, whole-combat acceptance criteria, and custody of a genuinely fresh
+held-out partition for one-time confirmation. The spent partition, AB2 result,
+grid-beta outcomes and 0.2D factual reports cannot supply that evidence.
+
+### 0.2E status and current definition
+
+The historical plan defines 0.2E as baseline-versus-redesign adaptation
+evaluation with held-out confirmation, overfitting detection and confidence
+reporting. D61 and D73 leave it not started; the historical dependency from
+0.2D does not automatically authorize it, and the plan is not a sufficient
+current implementation contract.
+
+A concise current definition would be: a separately governed deterministic
+evaluation that compares explicitly versioned baseline and redesign inputs,
+uses development evidence only for development decisions, protects a fresh
+held-out partition from the AI review context, detects development/held-out
+regression and emits factual confidence/overfitting results. Its value is safe,
+reproducible agent iteration, not ranking, public play or an automatic balance
+verdict.
+
+Prerequisites are a current component-qualification/baseline decision,
+ADR-003-compatible fresh seed-bank custody and one-time held-out protocol,
+explicit adaptation and confidence metrics, versioned baseline/redesign
+identities, and a reviewed report/review boundary. It need not wait for 0.2B
+to be marked complete if a separate decision freezes C2 as the evaluation
+baseline without calling it final, but implementation/evaluation should wait
+for the 0.2B governance decision. Likely phases are governance and metrics;
+immutable baseline/redesign protocol; development-only comparison; fresh
+held-out confirmation; and deterministic confidence/overfitting reporting.
+Non-goals are gameplay or fixture changes, unreviewed provider/adaptation
+calls, held-out exposure to an AI reviewer, grid opponent-suite execution,
+balance/ranking conclusions, public tournament work and operational beta
+expansion.
+
+### Recommended ordering
+
+The smallest materially advancing task is to create and accept the governance-
+only 0.2B replacement-evidence decision or ADR. It must decide continue versus
+postpone, review the existing lifecycle/whole-combat gate split, define any
+replacement development fixtures and protocol, establish fresh held-out
+custody and one-time use, and state whether and how 0.2E may use a frozen C2
+baseline. No simulator, fixture, benchmark or adaptation implementation
+should precede that decision.
+
+Milestone 0.2D is closed. Any later opponent evaluation, adaptation or broader
+runtime work requires a separately authorised task and must not be inferred
+from the factual fixture, runner or report endpoints. General grid
+opponent-suite execution is not authorised; grid combat balance, fairness, slot
+advantage, performance and general opponent-suite behaviour are not established
+by existing beta or legacy runner evidence. Ranking/public tournament work,
+operational beta expansion and later milestones remain outside the current
+authorization.
 
 ## Accepted future plans
 
 - Preserve the closed 0.2D fixture, runner and report contracts. Any future
   evaluation or runtime expansion requires a new reviewed decision; the
   accepted 0.2D boundaries are in ADR-004, the frozen selection document and
-  decisions D61-D73.
+  decisions D61-D74.
 - Keep the grid beta explicitly selected and internal while gathering only
   governed evidence. Any broader grid use, default migration or public play
   requires a new review/decision; the existing beta approval is not such
@@ -178,7 +241,7 @@ migration, successor-governance, opponent-suite and report tests. No later
 - Do not tune from forbidden evidence or change a frozen fixture in place;
   semantic fixture changes require a new fixture version.
 - Prefer the current source/tests over stale summaries. In particular, the
-  latest D61-D73 decision entries and the code supersede older phase snapshots.
+  latest D61-D74 decision entries and the code supersede older phase snapshots.
 
 ## Confirmed documentation discrepancies
 
@@ -186,11 +249,11 @@ These are recorded rather than silently reconciled:
 
 - The top of [`README.md`](../README.md) still labels the project Prototype 0.1
   and says 0.2 is planned. Its body documents work through the earlier 0.2C
-  governance stage, but not the current 0.2D D61-D73 work. The source and latest
+  governance stage, but not the current 0.2D D61-D74 work. The source and latest
   decision entries establish the newer implementation state.
 - The 0.2D section in [`docs/PROTOTYPE-0.2-EXPERIMENTAL-PLAN.md`](PROTOTYPE-0.2-EXPERIMENTAL-PLAN.md)
   still describes only Phase 0/Phase 1 and says fixtures/runner are absent;
-  D64-D73 and the source show six fixtures, Bulwark migration, successor v2,
+  D64-D74 and the source show six fixtures, Bulwark migration, successor v2,
   the Phase 4 runner and the Phase 5 report are present.
 - [`docs/RULESET.md`](RULESET.md) retains the earlier v1 prose, including the
   old critical/component wording and binary component description. The running
@@ -208,6 +271,14 @@ These are recorded rather than silently reconciled:
 
 ## Audit verification
 
+- Post-0.2D next-milestone selection audit: the relevant current source,
+  decisions, plans and tests were inspected without benchmark, held-out, `all`,
+  readiness, beta or provider execution. No source or test files changed.
+- Selection-audit `npm.cmd run check` and `npm.cmd run lint` passed. Changed
+  documentation passed the targeted Prettier check and `git diff --check`.
+- The full test suite was not required because this audit made documentation-
+  only changes; the accepted 0.2D closure regression evidence remains the
+  current implementation evidence.
 - Closure audit relevant Phase 0-5 regression suite: 16 files, 158 tests
   passed, no type errors. The sandbox supplied a repository-local Git safety
   configuration to the test process so successor source-object checks could

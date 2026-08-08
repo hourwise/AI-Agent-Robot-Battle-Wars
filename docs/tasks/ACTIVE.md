@@ -1,81 +1,116 @@
 # Active Task
 
-## Milestone 0.2D closure audit - complete
+## Post-0.2D next-milestone selection audit - complete
 
 Audit date: 2026-08-08
-Starting commit: `8ff5bf2cd0bb0a5f17cd09555fa18f2ab5af3331`
+Starting commit: `356a73fee705a378f065fb4c5b40c4b24d59f91e`
 
-The repository context workflow was followed before this audit. The audit is
-documentation-only: verify the accepted Phase 0-5 governance, source,
-contract and test endpoints, determine whether Milestone 0.2D is complete,
-and update authoritative status documents if the evidence is internally
-consistent. No product or runtime behaviour may change.
+The repository context workflow is being followed. This is a documentation-only
+audit to determine the best next engineering milestone after the accepted
+Milestone 0.2D closure in D73. Compare the unfinished 0.2B
+component-qualification/balance work, the definition of Milestone 0.2E, and any
+smaller prerequisite or governance task. Do not implement the recommendation
+or begin another milestone.
 
 ## Audit boundary
 
-Verify Phase 0 governance, Phase 1 fixture foundation and hardening, Phase 2
-canonical six fixtures, Phase 3 Bulwark migration and successor-v2 governance,
-Phase 4 legacy runner and execution isolation, and Phase 5 factual reporting
-against only their authoritative decisions, source and tests.
+Follow `AGENTS.md`, `docs/INDEX.md`, `docs/SOURCE_OF_TRUTH.md` and only the
+relevant current decisions, plans, source and tests. Assess 0.2B and 0.2E from
+current repository state and accepted evidence, not roadmap intent alone.
 
-No simulator, fixture, runtime, beta-governance, opponent-suite or report
-behaviour changes are authorised. No provider calls, benchmark/held-out/`all`
-access, grid opponent-suite execution, operational beta matches,
-balance/ranking/tuning conclusions or 0.2E work are authorised.
+No product-code, simulator, fixture, runtime, beta-governance,
+opponent-suite or report behaviour changes are authorised. No provider/API
+calls, benchmark/held-out/`all`/readiness or operational-beta execution, grid
+opponent-suite execution, balance conclusions from operational grid evidence,
+public tournament/ranking/matchmaking work or 0.2E implementation is
+authorised. Do not reopen closed 0.2D.
 
-## Audit status
+## Audit findings
 
-- Closure verdict: Milestone 0.2D is complete and internally consistent.
-- No genuine unfinished 0.2D requirement was identified.
-- No simulator, fixture, runtime, beta-governance, opponent-suite or report
-  behaviour was changed.
+- Milestone 0.2D remains closed under D73. This audit does not reopen or
+  reinterpret its fixture, runner or factual-report contracts.
+- 0.2B's lifecycle mechanism and qualification registry are implemented, but
+  qualification/balance acceptance remains unresolved. C2 is the unchanged
+  experimental default, not an accepted final solution. AB2 passed its
+  development gates but failed the strict representative-light held-out gate
+  at exactly `0.85`; it is permanently ineligible for default promotion.
+- The original held-out partition is spent and cannot validate another
+  candidate. The current source rejects held-out and `all` execution before
+  seed selection. Useful work is still possible as governance, contract and
+  non-evaluation test design, but no new qualification or balance claim can
+  be made without a new authorized protocol and genuinely fresh held-out
+  partition.
+- Historical 0.2E is described as baseline-versus-redesign adaptation
+  evaluation with held-out confirmation, overfitting detection and confidence
+  reporting. It is not adequately defined as a current implementation
+  milestone and remains not started.
 
-## Work completed
+## 0.2B status
 
-- Audited the accepted Phase 0 governance endpoint in ADR-004 and D61.
-- Audited the Phase 1 fixture foundation and hardening endpoints in D62-D63.
-- Audited the Phase 2 canonical six-fixture selection and exact-byte endpoints
-  in D64-D65.
-- Audited the Phase 3 Bulwark migration, successor-v2 source boundary and
-  portability correction in D66-D69.
-- Audited the Phase 4 legacy-only opponent-suite runner and independent
-  execution isolation in D70-D71.
-- Audited the Phase 5 immutable, versioned factual report and deterministic
-  renderers in D72.
-- Reconciled the authoritative index, source-of-truth, status and decision
-  records; D73 records the closure decision and accepted Phase 0-5 endpoints.
-- Confirmed the two legacy-incompatible fixtures remain explicit non-executed
-  members of the accepted Phase 4/5 contract.
+0.2B needs a new governance decision before implementation or evaluation. That
+decision must choose whether to continue or postpone 0.2B, define any
+replacement development fixtures and protocol, separate lifecycle gates from
+whole-combat acceptance criteria, and specify external custody and one-time use
+of a genuinely fresh held-out partition. It must not reuse the spent partition,
+promote AB2, infer balance from grid-beta or 0.2D factual reports, or silently
+change C2, fixtures or simulator semantics.
+
+## 0.2E status and concise definition
+
+0.2E's purpose would be a separately governed, deterministic baseline-versus-
+redesign evaluation that detects development overfitting while preserving the
+held-out evidence firewall. Its value is reproducible evidence for safe agent
+iteration, not ranking or public play.
+
+Prerequisites are a current qualification/baseline decision, ADR-003-compatible
+fresh seed-bank custody and one-time held-out protocol, explicit adaptation and
+confidence metrics, versioned baseline/redesign identities, and a reviewed
+report/review boundary. Defining 0.2E does not require 0.2B to be marked
+complete, but implementation/evaluation should wait for the 0.2B decision or an
+explicit decision to evaluate a frozen C2 baseline without calling it final.
+
+Likely phases are governance and metrics; immutable baseline/redesign protocol;
+development-only comparison; fresh held-out confirmation; and deterministic
+confidence/overfitting reporting. Non-goals are gameplay changes, fixture
+tuning, provider calls without separate authorization, held-out exposure to an
+AI reviewer, grid opponent-suite execution, balance/ranking conclusions,
+public tournament work and persistence or operational beta expansion.
+
+## Recommended next task
+
+**Create and accept a governance-only 0.2B replacement-evidence decision or
+ADR.** Do not implement a candidate or run evaluation in that task until the
+decision freezes the candidate protocol, replacement fixture strategy,
+whole-combat acceptance boundary, fresh held-out custody and sequencing with
+0.2E.
+
+This is the smallest task that materially advances the project: it resolves
+the evidence and authority gap created by the spent held-out partition before
+any simulator, fixture, benchmark or adaptation work. 0.2E should follow that
+decision rather than be started from the historical roadmap definition.
 
 ## Verification
 
-- `npm.cmd test -- --run` with the focused Phase 0-5 regression files: 16
-  files and 158 tests passed, with no type errors. The test process received a
-  repository-local Git `safe.directory` setting so successor source-object
-  checks could read committed historical baseline objects; no source or test
-  files changed.
+- Documentation/context review completed using `AGENTS.md`, `docs/INDEX.md`,
+  `docs/SOURCE_OF_TRUTH.md`, relevant ADRs, D29-D32, D61-D74, current plans,
+  source and tests. No benchmark, held-out, `all`, readiness, beta or provider
+  execution occurred.
 - `npm.cmd run check` passed.
 - `npm.cmd run lint` passed.
-- Formatting checks for the changed documentation pass after formatting the
-  changed documentation files.
-- The repository-wide format check reports only the pre-existing untouched
-  `AGENTS.md` style issue. No formatting issue was introduced by this audit.
-- The full repository suite was not rerun: this task makes documentation-only
-  changes, and the unchanged starting commit already has accepted full-suite
-  evidence of 177 files and 2,064 tests passing with no type errors.
+- Formatting checks for changed documentation files passed.
+- No full test suite was required because this audit made documentation-only
+  changes.
 
 ## Remaining issues
 
-- None preventing 0.2D closure.
-- Outside 0.2D: unresolved 0.2B balance/qualification work, including spent
-  held-out qualification; general grid opponent-suite execution and grid
-  balance/fairness work; later evaluation or adaptation; ranking/public
-  tournament work; and Milestone 0.2E. These are not started here.
+- The recommended governance task is not started by this audit.
+- Outside the selected next task, 0.2B implementation/evaluation, 0.2E,
+  general grid opponent-suite execution, later evaluation/adaptation, balance
+  conclusions, ranking/public tournament work and any later milestone remain
+  deferred or separately governed.
 
 ## Deviations
 
-- This closure audit intentionally made no product-code or test changes.
-- The focused regression command required a process-local Git safety setting
-  because the sandbox otherwise rejected child Git reads of committed
-  successor-v2 baseline objects. This was an execution-environment workaround,
-  not a repository change.
+- No source, test, fixture, simulator, runtime or operational files changed.
+- D74 records this selection audit as a new planning decision; historical
+  decisions and the closed 0.2D implementation were not rewritten.

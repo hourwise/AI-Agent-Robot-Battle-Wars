@@ -1,5 +1,88 @@
 # Decisions
 
+## D74: Select the next task after Milestone 0.2D (2026-08-08)
+
+The post-0.2D next-milestone selection audit was performed from starting commit
+`356a73fee705a378f065fb4c5b40c4b24d59f91e` using the repository context
+workflow and only the current source-of-truth, relevant decisions, plans,
+source and tests. Milestone 0.2D remains closed under D73. This decision does
+not reopen or change its fixture, runner or factual-report contracts.
+
+### 0.2B assessment
+
+The 0.2B lifecycle mechanism, versioned records, reports and qualification
+registry are implemented, but qualification/balance acceptance remains
+unresolved. C2 (`component-impact-c2`) is the unchanged experimental runtime
+default and is not an accepted final balance solution. AB2
+(`component-impact-ab2`) passed its development lifecycle gates, but the
+separately authorised one-time held-out confirmation failed the strict
+representative-light terminal gate at exactly `0.85`. D32 permanently sealed
+that result, made AB2 ineligible for default promotion and spent the original
+held-out partition. Current source rejects held-out and `all` execution before
+seed selection.
+
+Further useful work is possible only within governance, contract and
+non-evaluation boundaries until a new decision is accepted. Any future
+qualification cycle requires a new immutable candidate ID, a predeclared
+development protocol, a replacement development/evaluation fixture strategy,
+whole-combat acceptance criteria distinct from lifecycle gates, genuinely fresh
+held-out custody outside the candidate-design AI context and one-time
+confirmation. The spent partition, AB2 result, grid-beta outcomes and 0.2D
+factual reports cannot be reused as qualification or balance evidence.
+
+### 0.2E assessment
+
+The historical plan describes 0.2E as baseline-versus-redesign adaptation
+evaluation with held-out seeds, overfitting detection and a confidence report.
+It is not sufficiently defined as a current implementation milestone and is
+not started. A concise future definition is a separately governed deterministic
+comparison of explicitly versioned baseline and redesign inputs, with a
+development-only decision stage, protected fresh held-out confirmation,
+development/held-out regression detection and factual confidence/overfitting
+reporting.
+
+Its prerequisites are a current qualification/baseline decision,
+ADR-003-compatible fresh seed-bank custody and one-time held-out protocol,
+explicit adaptation/confidence metrics, versioned baseline/redesign
+identities, and a reviewed report/review boundary. It may be defined before
+0.2B is marked complete only if a separate decision freezes C2 as the
+evaluation baseline without calling it final; implementation and evaluation
+should wait for the 0.2B governance decision. Gameplay or fixture changes,
+unreviewed provider/adaptation calls, held-out exposure to AI review, grid
+opponent-suite execution, balance/ranking conclusions and public tournament
+work are outside this definition.
+
+### Selected next task
+
+**Create and accept a governance-only 0.2B replacement-evidence decision or
+ADR.** It must decide continue versus postpone, review the existing
+lifecycle/whole-combat gate split, define any replacement development fixtures
+and protocol, establish fresh held-out custody and one-time use, and state
+whether and how 0.2E may use a frozen C2 baseline. No candidate implementation,
+benchmark, held-out evaluation or 0.2E implementation starts in that task
+without its accepted authority.
+
+This is the smallest task that materially advances the project while preserving
+the deterministic and evidence-governance boundaries. Starting 0.2E directly
+from the historical roadmap would leave its metrics and baseline authority
+underdefined while 0.2B remains unresolved.
+
+Status:
+
+```
+Milestone 0.2D:
+COMPLETE
+
+0.2B qualification/balance acceptance:
+UNRESOLVED; held-out partition spent; governance task selected
+
+Milestone 0.2E:
+NOT STARTED; definition requires separate governance
+
+Selected next task:
+0.2B replacement-evidence governance decision or ADR
+```
+
 ## D29: Armour-band Candidate AB2 development passage (2026-07-31)
 
 `component-impact-ab2` is the sole new immutable candidate, checksum
