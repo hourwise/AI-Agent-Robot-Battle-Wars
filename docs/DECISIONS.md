@@ -4129,6 +4129,63 @@ Phase 5:
 not started
 ```
 
+## D72: Implement factual cross-opponent report v1 (2026-08-08)
+
+Milestone 0.2D Phase 5 is complete. The implementation adds a deterministic,
+immutable, versioned factual report derived only from a valid
+`OpponentSuiteRunV1`; it does not execute matches or access any evidence
+outside that run.
+
+- **Report contract.** `OpponentSuiteReportV1` has `schemaVersion "1"`, the
+  report type `factual-opponent-suite`, an immutable `sourceRun` preserving the
+  complete validated Phase 4 run, and six per-opponent entries in canonical
+  suite order. Each entry preserves fixture version/checksum and legacy
+  compatibility, marks execution status, and carries factual matches played,
+  wins, losses, draws, match IDs, methods, rounds and result checksums.
+- **Fail-closed provenance.** The schema and semantic validator bind the exact
+  canonical suite identity/checksum, legacy runtime identity, run seed, all six
+  fixture identities/compatibility declarations, ordered twelve-match plan,
+  role identities, deterministic match IDs, per-match seed/runtime and winner
+  identity. The report's aggregate entries are recomputed from the preserved
+  match records and cannot be supplied independently.
+- **Incompatible fixtures.** `skirmisher` and `controller` remain visible in
+  canonical order as `incompatible` and non-executed, with zero executed-match
+  facts. They are never converted into losses or draws.
+- **Serialization.** Machine JSON and human text rendering use stable source
+  and suite order, contain no timestamps or environment data, and round-trip
+  through the report schema. Report and preserved-run structures are deeply
+  frozen.
+- **Boundary.** No fixture, simulator, runtime default, C2, grid governance,
+  successor-v2 protected source, provider, adaptation, persistence, package
+  command, benchmark, held-out, readiness or operational beta surface changed.
+  No later evaluation, balance or grid suite work is started.
+
+Verification: focused Phase 4/5 opponent-suite tests pass; repository type
+check, lint and focused formatting pass. Full repository test and full format
+check results are recorded in `docs/tasks/ACTIVE.md`.
+
+Status:
+
+```
+Milestone 0.2D:
+IN PROGRESS
+
+Phase 5 factual report:
+complete
+
+Phase 5 report execution:
+none
+
+Phase 5 provider/API access:
+none
+
+Phase 5 persistence:
+none
+
+Later evaluation, balance and grid suite work:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.
