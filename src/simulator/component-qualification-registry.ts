@@ -1,10 +1,7 @@
 import { createHash } from "node:crypto";
 
 export type ComponentQualificationId =
-  | "component-impact-c1"
-  | "component-impact-c2"
-  | "component-impact-ab2"
-  | "component-impact-replacement-v1";
+  "component-impact-c1" | "component-impact-c2" | "component-impact-ab2";
 
 export type ComponentQualificationModel =
   "linear-component-impact" | "armour-band-component-impact";
@@ -18,8 +15,7 @@ interface ComponentQualificationConfigBase {
 }
 
 export interface LinearComponentQualificationConfig extends ComponentQualificationConfigBase {
-  readonly id:
-    "component-impact-c1" | "component-impact-c2" | "component-impact-replacement-v1";
+  readonly id: "component-impact-c1" | "component-impact-c2";
   readonly model: "linear-component-impact";
   readonly criticalThreshold: number;
   readonly highImpactThreshold: number;
@@ -51,8 +47,7 @@ export type ComponentQualificationConfig =
   LinearComponentQualificationConfig | ArmourBandComponentQualificationConfig;
 
 export interface LinearComponentQualificationMetadata {
-  readonly id:
-    "component-impact-c1" | "component-impact-c2" | "component-impact-replacement-v1";
+  readonly id: "component-impact-c1" | "component-impact-c2";
   readonly configChecksum: string;
   readonly model: "linear-component-impact";
 }
@@ -104,15 +99,6 @@ const REGISTRY = Object.freeze({
     minimumImpact: 0,
     criticalThreshold: 13,
     highImpactThreshold: 15,
-  }),
-  "component-impact-replacement-v1": freezeLinear({
-    schemaVersion: "1",
-    id: "component-impact-replacement-v1",
-    model: "linear-component-impact",
-    armourFactor: 0.2,
-    minimumImpact: 0,
-    criticalThreshold: 13,
-    highImpactThreshold: 17,
   }),
   "component-impact-ab2": freezeArmourBand({
     schemaVersion: "1",

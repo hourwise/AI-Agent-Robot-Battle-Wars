@@ -8,7 +8,6 @@ import { isGridZone } from "../simulator/arena-grid.js";
 const componentQualificationIdSchema = z.enum([
   "component-impact-c1",
   "component-impact-c2",
-  "component-impact-replacement-v1",
   "component-impact-ab2",
 ]);
 const armourBandSchema = z.object({
@@ -20,11 +19,7 @@ const armourBandSchema = z.object({
 });
 const componentQualificationMetadataSchema = z.discriminatedUnion("model", [
   z.object({
-    id: z.enum([
-      "component-impact-c1",
-      "component-impact-c2",
-      "component-impact-replacement-v1",
-    ]),
+    id: z.enum(["component-impact-c1", "component-impact-c2"]),
     configChecksum: z.string().regex(/^[a-f0-9]{16}$/),
     model: z.literal("linear-component-impact"),
   }),

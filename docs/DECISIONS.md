@@ -1,5 +1,64 @@
 # Decisions
 
+## D78: Reject the unexecuted D77 candidate registration (2026-08-08)
+
+Independent pre-execution review rejects D77's registration of
+`component-impact-replacement-v1` for evaluation under the frozen
+`component-lifecycle-development-v1` protocol. D77 remains in the decision
+history as the superseded registration record; it is not rewritten.
+
+The guarded Bulwark hard fixture has a historical development-only component
+impact range of `4–13`. C2's `13/15` thresholds therefore qualified only the
+two impact-13 critical hits in that fixture, producing two qualifying hits,
+two resisted transitions and zero healthy-to-damaged transitions. The D77
+candidate kept critical threshold `13` and changed only the high threshold to
+`17`. Its high branch is unreachable in the same guarded fixture, so it would
+produce the same zero `healthy -> damaged` result before execution. It is
+therefore known to fail D76's hard-member gate
+`totalDamagedTransitions > 0` and is not eligible for the frozen protocol.
+
+The candidate never executed, no benchmark or evaluation report depends on it,
+and no persisted evidence requires it. The executable qualification registry,
+match/report schema allow-lists and registration tests are restored exactly to
+the D76 C1/C2/AB2 surface. The candidate ID and checksum are no longer
+executable. C1, C2 and AB2 are not mutated; C2 remains the experimental
+default, and AB2 remains frozen and permanently ineligible for default
+promotion.
+
+No simulator, reducer, damage, fixture, seed-bank, protocol, runtime-default
+or closed 0.2D contract changed. No candidate or benchmark, held-out, `all`,
+readiness, beta or opponent-suite evaluation was run.
+
+### Continue/postpone decision
+
+**Reject D77 candidate execution and return to feasibility/design review.** The
+single next task is:
+
+> **Perform a held-out-blind replacement-candidate feasibility/design audit
+> against the frozen D76 protocol, without registering or executing a
+> candidate.**
+
+That audit must compare the already-supported linear and armour-band model
+families using only permitted pre-held-out development/analytical evidence and
+must reject any candidate already known to fail a frozen gate. It must not
+begin in D78 and must not begin 0.2E.
+
+Status:
+
+```
+D77 candidate registration:
+SUPERSEDED BY D78; NOT ELIGIBLE FOR PROTOCOL EVALUATION
+
+Executable registry:
+D76 C1/C2/AB2 SURFACE RESTORED
+
+C2:
+EXPERIMENTAL DEFAULT; UNCHANGED
+
+AB2:
+FROZEN; PERMANENTLY INELIGIBLE FOR DEFAULT PROMOTION
+```
+
 ## D77: Register one 0.2B replacement-cycle candidate (2026-08-08)
 
 Exactly one new immutable candidate is registered against the frozen

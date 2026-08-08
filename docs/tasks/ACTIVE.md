@@ -1,45 +1,40 @@
 # Active Task
 
-## Milestone 0.2B candidate registration - complete
+## Milestone 0.2B candidate-registration correction - complete
 
 Audit date: 2026-08-08
-Starting commit: `eb2ab9998f3f8797d63ec384d3e7958029d78c21`
-Branch: `agent/0.2b-candidate-registration`
+Starting commit: `4a9ca2b5433db2b7b62a1352492a12eadacb7be6`
+Branch: `agent/0.2b-candidate-registration-correction`
 
 ## Closure verdict
 
-Accepted. Exactly one new immutable dormant candidate is registered against the
-frozen `component-lifecycle-development-v1` protocol. No candidate execution
-or evaluation was performed.
+Accepted. D78 rejects D77's unexecuted candidate registration for protocol
+evaluation. The executable C1/C2/AB2 registry and schema surface is restored
+exactly to D76. D77 remains preserved as historical decision history and is
+superseded by D78; no candidate or evaluation was run.
 
 ## Work completed
 
-- Selected and registered `component-impact-replacement-v1` using the existing
-  `linear-component-impact` model, with complete configuration and checksum
-  `6356363911710657`.
-- Preserved C2's armour factor `0.20`, minimum impact `0` and critical
-  threshold `13`; changed only the high-impact threshold to `17` as a bounded,
-  held-out-blind development probe.
-- Extended the immutable qualification registry and its existing match/report
-  metadata unions without changing simulator, reducer, damage, fixture,
-  seed-bank or runtime default behavior.
-- Added focused registration coverage for exact config resolution, stable
-  checksum, runtime immutability, unknown-ID fail-closed behavior, C2 default
-  preservation and unchanged C1/C2/AB2 identities/checksums.
-- Recorded D77 and aligned `docs/SOURCE_OF_TRUTH.md` and `docs/INDEX.md`.
-
-The rationale used only permitted development-stage/analytical history. D31
-quantitative held-out results, 0.2D outcomes, grid-beta/readiness evidence and
-operational matches were not used. D31/D32 were used only for AB2 rejection,
-freeze/ineligibility and spent-partition governance facts.
+- Recorded D78 explaining the independent pre-execution review: the guarded
+  Bulwark's historical development-only impact range is `4–13`; C2's `13/15`
+  thresholds therefore produced only two critical impact-13 qualifications,
+  two resisted transitions and zero healthy-to-damaged transitions; changing
+  only the unreachable high branch to `17` cannot satisfy D76's
+  `totalDamagedTransitions > 0` hard gate.
+- Removed `component-impact-replacement-v1` from the executable qualification
+  registry, linear metadata type, match/report schema allow-lists and
+  registration tests. The rejected ID now fails closed as unregistered.
+- Verified the executable registry/schema files are byte-identical to the D76
+  commit. C1, C2 and AB2 configurations/checksums were not changed, C2 remains
+  the default and AB2 remains frozen/permanently ineligible.
+- Updated `docs/SOURCE_OF_TRUTH.md`, `docs/INDEX.md` and this task record.
 
 ## Boundaries preserved
 
-The frozen protocol, fixture bytes, seed bank, simulator/reducer/damage
-semantics, runtime defaults, C2 default, AB2 identity and closed 0.2D
-contracts were not changed. The candidate remains dormant unless explicitly
-selected by ID. No benchmark, held-out, `all`, readiness, beta, opponent-suite
-or operational evaluation was invoked.
+The D76 protocol, fixture bytes, seed bank, simulator/reducer/damage semantics,
+runtime defaults and closed 0.2D contracts were not changed. No candidate,
+benchmark, held-out, `all`, readiness, beta, provider or opponent-suite
+execution was invoked. The next feasibility/design audit was not started.
 
 ## Verification
 
@@ -49,6 +44,7 @@ or operational evaluation was invoked.
 - `npm.cmd run lint` passed.
 - Changed-file Prettier check passed.
 - `git diff --check` passed.
+- Executable registry/schema byte comparison against D76 passed.
 - The full Vitest suite was not run because it includes prohibited benchmark,
   readiness, beta and opponent-suite evaluation surfaces.
 
@@ -56,9 +52,11 @@ or operational evaluation was invoked.
 
 The exact next task is:
 
-> **Stage 1 semantic/unit verification of the registered candidate and frozen
-> protocol, without development benchmark execution.**
+> **Perform a held-out-blind replacement-candidate feasibility/design audit
+> against the frozen D76 protocol, without registering or executing a
+> candidate.**
 
-It was not started. 0.2B qualification/balance acceptance remains open; C2 is
-still the experimental default and AB2 remains permanently ineligible. No
-deviations from the requested boundaries.
+It was not started. 0.2B qualification/balance acceptance remains unresolved;
+C2 is still the experimental default and AB2 remains permanently ineligible.
+D77 is intentionally retained as superseded historical decision text. No
+other deviations from the requested boundaries.
