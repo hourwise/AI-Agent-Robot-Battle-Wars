@@ -4186,6 +4186,88 @@ Later evaluation, balance and grid suite work:
 not started
 ```
 
+## D73: Close Milestone 0.2D (2026-08-08)
+
+The Milestone 0.2D closure audit was performed from starting commit
+`8ff5bf2cd0bb0a5f17cd09555fa18f2ab5af3331` using the repository context
+workflow and only the relevant ADR-004, D61-D72, Phase 0-5 source and test
+evidence. The audit finds Milestone 0.2D complete and internally consistent.
+This is a documentation and status decision; no product, simulator, fixture,
+runtime, beta-governance, opponent-suite or report behaviour changed.
+
+### Accepted Phase 0-5 endpoints
+
+- **Phase 0 — governance (D61 / ADR-004):** immutable, versioned,
+  runtime-neutral fixture identity and explicit runtime-specific execution are
+  accepted, with no balance, ranking, adaptation or public-play authority.
+- **Phase 1 — fixture foundation (D62-D63):** strict v1 schema, complete
+  canonical identity/checksum, nested exact-key hardening, deep immutability and
+  secure fixed-root loading are implemented and tested.
+- **Phase 2 — canonical six fixtures (D64-D65):** the human-selected and
+  canonical-byte-frozen `bulwark`, `skirmisher`, `crusher`, `spinner`,
+  `controller` and `generalist` v1 fixtures are present with their exact
+  checksums and explicit legacy compatibility.
+- **Phase 3 — Bulwark migration and successor governance (D66-D69):** normal
+  legacy match/series paths load the canonical `bulwark.v1` fixture, migration
+  equivalence is tested, and successor-v2 source governance preserves the
+  protected legacy/default boundary and canonical Bulwark bytes.
+- **Phase 4 — legacy opponent-suite runner (D70-D71):** the runner loads all
+  six fixtures, keeps the two incompatible members visible and non-executed,
+  executes the four compatible fixtures in twelve ordered role-aware matches,
+  and uses independent complete primary/repeat execution graphs with factual
+  deterministic outputs.
+- **Phase 5 — factual report (D72):** `OpponentSuiteReportV1` preserves and
+  validates the complete Phase 4 provenance and exact match records, produces
+  immutable canonical-order W/L/D aggregation without interpretation, and
+  provides deterministic machine-readable and human-readable output.
+
+### Explicitly outside Milestone 0.2D
+
+The unresolved 0.2B qualification/balance work remains separate, including
+the spent held-out partition and any future candidate authorization. General
+grid opponent-suite execution, grid balance/fairness, later evaluation or
+adaptation, ranking/public tournament work, and Milestone 0.2E are not
+authorized or started. No benchmark, held-out, `all`, readiness or operational
+beta result is part of the closure evidence; no provider was called and no
+operational beta match was executed.
+
+Status:
+
+```
+Milestone 0.2D:
+COMPLETE
+
+Phase 0 governance:
+complete
+
+Phase 1 fixture foundation/hardening:
+complete
+
+Phase 2 canonical six fixtures:
+complete
+
+Phase 3 Bulwark migration/successor-v2 governance:
+complete
+
+Phase 4 legacy opponent-suite runner/execution isolation:
+complete
+
+Phase 5 factual cross-opponent report:
+complete
+
+0.2B qualification/balance work:
+outside 0.2D / unresolved
+
+General grid opponent-suite execution:
+not authorised
+
+Later evaluation/ranking/public tournament:
+outside 0.2D / not started
+
+Milestone 0.2E:
+not started
+```
+
 ## D24: Candidate C component-impact qualification
 
 Accepted for Candidate C implementation. The separate component-impact architecture remains selected. Candidate B1-B3 were rejected analytically against the frozen 80-seed Bulwark mirror; Candidate C1 (`component-impact-c1`) is selected with `COMPONENT_ARMOUR_FACTOR = 0.20`, `COMPONENT_MIN_IMPACT = 0`, `CRITICAL_COMPONENT_IMPACT_THRESHOLD = 11`, and `HIGH_COMPONENT_IMPACT_THRESHOLD = 13`. Implementation is complete, but the development benchmark failed, so Milestone 0.2B is not complete.

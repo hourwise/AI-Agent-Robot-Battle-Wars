@@ -1,9 +1,8 @@
 # AI Robot Battle Arena - Source of Truth
 
-> Audited 2026-08-08 against commit `a06be033a72800427603aa4bba037b6ef9379c93`
-> on `agent/0.2d-opponent-suite-independent-graphs`. This file is a concise
-> routing summary. The linked source, tests, ADRs and decision log remain the
-> detailed authority.
+> Audited 2026-08-08 from starting commit `8ff5bf2cd0bb0a5f17cd09555fa18f2ab5af3331`
+> on `agent/0.2d-closure-audit`. This file is a concise routing summary. The
+> linked source, tests, ADRs and decision log remain the detailed authority.
 
 ## Product purpose
 
@@ -85,55 +84,63 @@ The latest current decision entries are D52-D60 in
 [`docs/DECISIONS.md`](DECISIONS.md); the detailed implementation map is in
 [`docs/ARCHITECTURE.md`](ARCHITECTURE.md).
 
-### Milestone 0.2D opponent fixtures and runner
+### Milestone 0.2D opponent fixtures, runner and report — complete
 
-The current branch implements the following 0.2D work:
+Milestone 0.2D is complete through the accepted Phase 0–5 endpoints:
 
-- ADR-004 governance and the six conceptual archetypes are accepted.
-- The strict v1 fixture schema, canonical checksum/serialization, deep
-  immutability and secure fixed-root loader are implemented.
-- Six human-selected v1 fixture files (`bulwark`, `skirmisher`, `crusher`,
-  `spinner`, `controller`, `generalist`) are tracked and frozen by
-  [`docs/OPPONENT-SUITE-V1-SELECTION.md`](OPPONENT-SUITE-V1-SELECTION.md).
-- Normal legacy Bulwark input is loaded from `bulwark.v1` and remains
-  behaviourally equivalent to the historical configuration. The governed
-  successor source baseline v2 protects the legacy/default boundary.
-- The Phase 4 opponent-suite runner is implemented for `legacy` only. It loads
-  all six canonical fixtures, exposes the two grid-only/incompatible fixtures
-  factually without executing them, executes the four compatible opponents in
-  twelve ordered role-aware matchups, and repeats each execution for a
-  determinism check. It makes no provider calls, persists no report, opens no
-  benchmark or held-out data, and has no package script; invoke it directly as
-  `npx tsx src/app/run-opponent-suite.ts --runtime legacy --seed <N>`.
+- **Phase 0 (D61):** ADR-004 governance is accepted for immutable,
+  versioned, runtime-neutral fixtures and explicitly bounded local execution;
+  the six conceptual archetypes are descriptive identities, not performance
+  claims.
+- **Phase 1 (D62-D63):** the strict v1 fixture schema, complete canonical
+  checksum/serialization, nested exact-key hardening, deep immutability and
+  secure fixed-root loader are implemented and tested.
+- **Phase 2 (D64-D65):** the human-selected six fixture identities and exact
+  canonical bytes/checksums are frozen and tracked for `bulwark`, `skirmisher`,
+  `crusher`, `spinner`, `controller` and `generalist`. Legacy compatibility is
+  supported for four and explicitly incompatible for `skirmisher` and
+  `controller`.
+- **Phase 3 (D66-D69):** normal legacy Bulwark input loads only through the
+  canonical `bulwark.v1` fixture and migration equivalence is tested. The
+  successor-v2 source baseline and dual-authority preflight preserve the
+  legacy/default boundary, canonical Bulwark bytes and explicit grid-beta
+  governance.
+- **Phase 4 (D70-D71):** the development runner is legacy-only, loads all six
+  fixtures, exposes the two incompatible members without execution, executes
+  the four compatible fixtures in twelve ordered role-aware matchups, and
+  repeats each matchup with independent complete execution graphs. It makes no
+  provider calls, persists no report, accesses no evaluation evidence and has
+  no package command.
+- **Phase 5 (D72):** the immutable/versioned `OpponentSuiteReportV1` preserves
+  and validates the complete run provenance and exact match records, emits
+  canonical-order factual W/L/D aggregates, keeps incompatible fixtures
+  explicit and non-executed, and provides deterministic machine/text output.
 
-The runner implementation and its reference-isolation hardening are covered by
-the opponent-suite unit tests. The audit found no Phase 5 factual cross-opponent
-report implementation.
+The accepted Phase 0–5 implementation is covered by the relevant fixture,
+migration, successor-governance, opponent-suite and report tests. No later
+0.2D phase is pending.
 
 ## Incomplete work and recommended ordering
 
-- **Current next implementation task:** Milestone 0.2D Phase 5, a separate
-  factual cross-opponent report over the runner's factual outputs. It should
-  preserve the existing evidence firewall, avoid rankings/balance conclusions,
-  define its own immutable/versioned report contract, and receive independent
-  review before any later evaluation. This task is recommended only; it was
-  not started by this audit.
+- Milestone 0.2D is closed. Any later opponent evaluation, adaptation or
+  broader runtime work requires a separately authorised task and must not be
+  inferred from the factual fixture, runner or report endpoints.
 - 0.2B qualification/balance acceptance remains unresolved. The held-out AB2
   result failed one strict gate, and the spent held-out partition must not be
   reused. Any further candidate or whole-combat balance evaluation needs a new
   separately authorised decision.
-- Grid combat balance, fairness, slot advantage, performance and general
-  opponent-suite behaviour are not established by the existing beta or runner
-  evidence. No conclusion should be inferred from the stored operational
-  outcomes.
+- General grid opponent-suite execution is not authorised. Grid combat balance,
+  fairness, slot advantage, performance and general opponent-suite behaviour
+  are not established by the existing beta or legacy runner evidence.
+- Later evaluation, ranking/public tournament work and Milestone 0.2E remain
+  outside this closure and are not started.
 
 ## Accepted future plans
 
-- Continue 0.2D only through separately reviewed fixture/report/evaluation
-  phases. The accepted current 0.2D contract and evidence boundaries are in
-  [`docs/ADR-004-multi-opponent-fixture-format.md`](ADR-004-multi-opponent-fixture-format.md),
-  [`docs/OPPONENT-SUITE-V1-SELECTION.md`](OPPONENT-SUITE-V1-SELECTION.md) and
-  decisions D61-D71.
+- Preserve the closed 0.2D fixture, runner and report contracts. Any future
+  evaluation or runtime expansion requires a new reviewed decision; the
+  accepted 0.2D boundaries are in ADR-004, the frozen selection document and
+  decisions D61-D73.
 - Keep the grid beta explicitly selected and internal while gathering only
   governed evidence. Any broader grid use, default migration or public play
   requires a new review/decision; the existing beta approval is not such
@@ -171,7 +178,7 @@ report implementation.
 - Do not tune from forbidden evidence or change a frozen fixture in place;
   semantic fixture changes require a new fixture version.
 - Prefer the current source/tests over stale summaries. In particular, the
-  latest D61-D71 decision entries and the code supersede older phase snapshots.
+  latest D61-D73 decision entries and the code supersede older phase snapshots.
 
 ## Confirmed documentation discrepancies
 
@@ -179,12 +186,12 @@ These are recorded rather than silently reconciled:
 
 - The top of [`README.md`](../README.md) still labels the project Prototype 0.1
   and says 0.2 is planned. Its body documents work through the earlier 0.2C
-  governance stage, but not the current 0.2D D61-D71 work. The source and latest
+  governance stage, but not the current 0.2D D61-D73 work. The source and latest
   decision entries establish the newer implementation state.
 - The 0.2D section in [`docs/PROTOTYPE-0.2-EXPERIMENTAL-PLAN.md`](PROTOTYPE-0.2-EXPERIMENTAL-PLAN.md)
   still describes only Phase 0/Phase 1 and says fixtures/runner are absent;
-  D64-D71 and the source show six fixtures, Bulwark migration, successor v2 and
-  the Phase 4 runner are present.
+  D64-D73 and the source show six fixtures, Bulwark migration, successor v2,
+  the Phase 4 runner and the Phase 5 report are present.
 - [`docs/RULESET.md`](RULESET.md) retains the earlier v1 prose, including the
   old critical/component wording and binary component description. The running
   simulator and ADR-002 lifecycle/qualification documents are the more current
@@ -201,11 +208,13 @@ These are recorded rather than silently reconciled:
 
 ## Audit verification
 
-- `npm.cmd run check`: passed.
-- `npm.cmd run lint`: passed.
-- Opponent/Bulwark targeted suite: 13 files, 143 tests passed, no type errors.
-- Full `npm.cmd test -- --run`: 176 files, 2,057 tests passed, with no type
-  errors (the command required a longer 300-second limit).
-- Full `npm.cmd run format:check`: the command completes, but fails only on
-  the unmodified pre-existing context files `AGENTS.MD` and `docs/ACTIVE.md`.
-  The three documents created by this task pass a targeted formatting check.
+- Closure audit relevant Phase 0-5 regression suite: 16 files, 158 tests
+  passed, no type errors. The sandbox supplied a repository-local Git safety
+  configuration to the test process so successor source-object checks could
+  read the committed historical baseline; no source or test files changed.
+- Previous Phase 5 full verification at the unchanged starting commit:
+  177 files, 2,064 tests passed, no type errors; `npm.cmd run check` and
+  `npm.cmd run lint` passed.
+- Closure audit documentation formatting and context checks pass for changed
+  files. Repository-wide `format:check` remains limited by the pre-existing
+  untouched `AGENTS.md` style issue.
