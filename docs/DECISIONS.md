@@ -1,5 +1,70 @@
 # Decisions
 
+## D76: Accept the 0.2B development fixture and protocol contract (2026-08-08)
+
+The versioned contract in
+[`docs/PROTOCOL-0.2B-DEVELOPMENT-V1.md`](PROTOCOL-0.2B-DEVELOPMENT-V1.md) is
+accepted as `component-lifecycle-development-v1`, version `1`, checksum
+`a3fd0afdd8c35350`. It freezes the existing
+`component-lifecycle-v1` suite, checksum `ffc11deb47e6049f`, without changing
+fixture bytes, simulator behavior or qualification constants.
+
+The accepted contract has five members in canonical order: three hard
+acceptance mirrors (`bulwark-guarded-mirror`, `bulwark-unguarded-mirror` and
+`representative-light-mirror`) and two required diagnostics
+(`glass-cannon-mirror` and `bulwark-vs-glass-cannon`). The first four execute
+80 development simulations each; the asymmetric diagnostic executes all 80
+seeds in both role assignments, for 480 simulations total. It freezes the
+existing build/policy and member checksums, development-only partition,
+forward-then-swapped execution order, exact match/report provenance and
+fail-closed validation rules.
+
+Stage 2 freezes the existing lifecycle legality, observability, replayability
+and viability rules, including positive qualifying-hit and damaged-transition
+counts, first-round immobilisation `< 0.132`, terminal-disable incidence
+`< 0.85`, transition/factual/guard/selection/mobility integrity checks, the
+guarded/unguarded resistance distinction and representative-light
+first-round terminal disable `< 0.25`. Stage 3 pools only the three hard
+members over 240 simulations and freezes the existing whole-combat rules for
+draws, destruction, immobilisation, judges, finish-method concentration,
+duration, cap incidence and hard-only component-terminal dominance. Final
+integrity remains a required factual diagnostic with no accepted numeric
+threshold. Diagnostic members never contribute to hard denominators or
+candidate pass/fail.
+
+No candidate is selected or executed by D76. C2 remains the experimental,
+non-final default and AB2 remains permanently ineligible for default
+promotion. Future held-out work remains governed only by ADR-005; this
+contract does not generate, inspect or execute held-out or `all` evidence.
+
+### Continue/postpone decision
+
+**Continue 0.2B at the candidate registration stage; postpone benchmark,
+held-out confirmation and 0.2E.** The single next task is:
+
+> **Select and register one new immutable 0.2B candidate against this frozen
+> protocol, without benchmark execution.**
+
+That task may record the candidate identity and complete configuration
+checksum for later semantic/unit verification, but it may not change this
+contract, select a second candidate, execute any benchmark or begin 0.2E.
+
+Status:
+
+```
+0.2B development fixture/protocol contract:
+ACCEPTED; component-lifecycle-development-v1 v1
+
+0.2B:
+CONTINUE GOVERNANCE; NEW CANDIDATE REGISTRATION NEXT
+
+C2:
+EXPERIMENTAL DEFAULT; NON-FINAL
+
+AB2:
+FROZEN; PERMANENTLY INELIGIBLE FOR DEFAULT PROMOTION
+```
+
 ## D75: Accept 0.2B replacement-evidence protocol (2026-08-08)
 
 ADR-005, `docs/ADR-005-0.2b-replacement-evidence-protocol.md`, is accepted as

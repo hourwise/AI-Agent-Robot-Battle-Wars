@@ -1,7 +1,7 @@
 # AI Robot Battle Arena - Source of Truth
 
-> Audited 2026-08-08 from starting commit `23d4f32d3ba098e94be4e0126cde9866ea21a765`
-> on `agent/0.2b-replacement-evidence-governance`. This file is a concise routing summary. The
+> Audited 2026-08-08 from starting commit `2219ed6ccb95c609684baf9777559aa422b2e8f9`
+> on `agent/0.2b-development-protocol-contract`. This file is a concise routing summary. The
 > linked source, tests, ADRs and decision log remain the detailed authority.
 
 ## Product purpose
@@ -120,11 +120,28 @@ The accepted Phase 0–5 implementation is covered by the relevant fixture,
 migration, successor-governance, opponent-suite and report tests. No later
 0.2D phase is pending.
 
-## Post-0.2D next-milestone selection
+## 0.2B development protocol contract
 
-D75 and ADR-005 record the accepted governance-only replacement-evidence
-protocol. No candidate implementation, benchmark, held-out evaluation or 0.2E
-work begins under that decision.
+D75/ADR-005 established the replacement-evidence governance boundary, and D76
+accepted the versioned development contract
+[`docs/PROTOCOL-0.2B-DEVELOPMENT-V1.md`](PROTOCOL-0.2B-DEVELOPMENT-V1.md).
+It binds contract `component-lifecycle-development-v1` version `1`, checksum
+`a3fd0afdd8c35350`, to the existing `component-lifecycle-v1` suite,
+checksum `ffc11deb47e6049f`. The suite contains five members in canonical
+order: three hard acceptance mirrors (guarded Bulwark, unguarded Bulwark and
+representative light) and two required diagnostics (Glass Cannon mirror and
+role-swapped Bulwark-versus-Glass Cannon). It uses the development partition
+of `prototype-0.2-baseline-v1`, 80 seeds, forward-then-swapped role execution
+for the asymmetric member and 480 simulations total.
+
+The contract freezes exact member/build/policy identities and checksums,
+complete provenance and report bindings, fail-closed input/report validation,
+the Stage 2 lifecycle gates and the Stage 3 whole-combat rules. Stage 3 pools
+only the three hard members over 240 simulations. Diagnostics remain factual
+coverage and contribute to no hard denominator or candidate pass/fail. Final
+integrity is required and reported but has no accepted numeric threshold.
+No candidate is registered or executed by D76, and no fixture bytes or
+simulator behavior changed.
 
 ### 0.2B status and remaining authority gap
 
@@ -141,29 +158,29 @@ selection. The current development lifecycle suite remains an auditable
 development contract whose selected C2 result is not a 0.2B acceptance.
 
 Useful work remains possible without violating the evidence restrictions:
-governance, gate definitions, fixture/protocol design, immutable contract
-changes after authorization, and ordinary non-evaluation tests. No new
-qualification or balance conclusion is valid until a new decision authorizes an
-immutable candidate protocol, a replacement development/evaluation fixture
-strategy, whole-combat acceptance criteria, and custody of a genuinely fresh
-held-out partition for one-time confirmation. The spent partition, AB2 result,
-grid-beta outcomes and 0.2D factual reports cannot supply that evidence.
+selecting and registering one candidate against the accepted immutable
+development contract, later semantic/unit verification, and ordinary
+non-evaluation tests. No new qualification or balance conclusion is valid
+until a candidate completes the frozen development stages and a genuinely
+fresh held-out partition is independently held and used for one-time
+confirmation. The spent partition, AB2 result, grid-beta outcomes and 0.2D
+factual reports cannot supply that evidence.
 
-ADR-005 now governs the future replacement cycle. It accepts the four-stage
-evidence model (semantic/unit, development qualification, whole-combat
-development acceptance and one-time fresh held-out confirmation), immutable
-candidate authority, bounded versioned multi-fixture development evidence,
-predeclared whole-combat metric categories and independent fresh held-out
-custody. It selects no candidate constants, creates no fixtures and changes no
-simulator behavior.
+ADR-005 and D76 now govern the future replacement cycle. Together they accept
+the four-stage evidence model (semantic/unit, development qualification,
+whole-combat development acceptance and one-time fresh held-out confirmation),
+immutable candidate authority, bounded versioned multi-fixture development
+evidence, predeclared whole-combat metric categories and independent fresh
+held-out custody. D76 selects no candidate constants, creates no fixtures and
+changes no simulator behavior.
 
 ### 0.2E status and current definition
 
 The historical plan defines 0.2E as baseline-versus-redesign adaptation
 evaluation with held-out confirmation, overfitting detection and confidence
-reporting. D61, D73 and D75 leave it not started; the historical dependency from
-0.2D does not automatically authorize it, and the plan is not a sufficient
-current implementation contract.
+reporting. D61, D73, D75 and D76 leave it not started; the historical dependency
+from 0.2D does not automatically authorize it, and the plan is not a
+sufficient current implementation contract.
 
 A concise current definition would be: a separately governed deterministic
 evaluation that compares explicitly versioned baseline and redesign inputs,
@@ -176,10 +193,10 @@ verdict.
 Prerequisites are a current component-qualification/baseline decision,
 ADR-003-compatible fresh seed-bank custody and one-time held-out protocol,
 explicit adaptation and confidence metrics, versioned baseline/redesign
-identities, and a reviewed report/review boundary. It need not wait for 0.2B
-to be marked complete if a separate decision freezes C2 as the evaluation
-baseline without calling it final, but implementation/evaluation should wait
-for the 0.2B governance decision. Likely phases are governance and metrics;
+identities, and a reviewed report/review boundary. D76 does not authorize 0.2E
+implementation or evaluation; those require a separate 0.2E governance
+decision and must preserve the 0.2B evidence boundary. Likely phases are
+governance and metrics;
 immutable baseline/redesign protocol; development-only comparison; fresh
 held-out confirmation; and deterministic confidence/overfitting reporting.
 Non-goals are gameplay or fixture changes, unreviewed provider/adaptation
@@ -189,13 +206,12 @@ expansion.
 
 ### Recommended ordering
 
-0.2B continues at the governance stage, while candidate selection,
+0.2B continues at the candidate-registration stage, while candidate
 implementation, benchmark execution and held-out confirmation are postponed.
-The next task is **to create and accept the versioned 0.2B replacement
-development-fixture and protocol contract**. It is documentation-only and must
-freeze fixture identities/classifications, checksums, metric categories,
-denominator rules and thresholds without creating or tuning fixture bytes,
-registering a candidate or executing evaluation.
+The next task is
+**to select and register one new immutable 0.2B candidate against the frozen
+development protocol, without benchmark execution**. That task must preserve
+the accepted contract and may not select a second candidate or begin 0.2E.
 
 Milestone 0.2D is closed. Any later opponent evaluation, adaptation or broader
 runtime work requires a separately authorised task and must not be inferred
@@ -211,7 +227,7 @@ authorization.
 - Preserve the closed 0.2D fixture, runner and report contracts. Any future
   evaluation or runtime expansion requires a new reviewed decision; the
   accepted 0.2D boundaries are in ADR-004, the frozen selection document and
-  decisions D61-D75.
+  decisions D61-D76.
 - Keep the grid beta explicitly selected and internal while gathering only
   governed evidence. Any broader grid use, default migration or public play
   requires a new review/decision; the existing beta approval is not such
@@ -249,7 +265,7 @@ authorization.
 - Do not tune from forbidden evidence or change a frozen fixture in place;
   semantic fixture changes require a new fixture version.
 - Prefer the current source/tests over stale summaries. In particular, the
-  latest D61-D75 decision entries and the code supersede older phase snapshots.
+  latest D61-D76 decision entries and the code supersede older phase snapshots.
 
 ## Confirmed documentation discrepancies
 
@@ -257,11 +273,11 @@ These are recorded rather than silently reconciled:
 
 - The top of [`README.md`](../README.md) still labels the project Prototype 0.1
   and says 0.2 is planned. Its body documents work through the earlier 0.2C
-  governance stage, but not the current 0.2D D61-D75 work. The source and latest
+  governance stage, but not the current 0.2D D61-D76 work. The source and latest
   decision entries establish the newer implementation state.
 - The 0.2D section in [`docs/PROTOTYPE-0.2-EXPERIMENTAL-PLAN.md`](PROTOTYPE-0.2-EXPERIMENTAL-PLAN.md)
   still describes only Phase 0/Phase 1 and says fixtures/runner are absent;
-  D64-D75 and the source show six fixtures, Bulwark migration, successor v2,
+  D64-D76 and the source show six fixtures, Bulwark migration, successor v2,
   the Phase 4 runner and the Phase 5 report are present.
 - [`docs/RULESET.md`](RULESET.md) retains the earlier v1 prose, including the
   old critical/component wording and binary component description. The running
@@ -279,12 +295,13 @@ These are recorded rather than silently reconciled:
 
 ## Audit verification
 
-- ADR-005 governance audit: the relevant current source, ADR-002/ADR-003
-  material, D24-D32, D74, historical 0.2B plans, qualification source and
-  authorization tests were inspected without benchmark, held-out, `all`,
-  readiness, beta or provider execution. No source or test files changed.
-- ADR-005 audit `npm.cmd run check` and `npm.cmd run lint` passed. Changed
-  documentation passed the targeted Prettier check and `git diff --check`.
+- D76 contract audit: AGENTS.md, docs/INDEX.md, the current source of truth,
+  ADR-005, ADR-002/ADR-003 material, D24-D32/D75, historical 0.2B plans,
+  current fixture/benchmark/metric/qualification contracts and relevant tests
+  were inspected without benchmark, held-out, `all`, readiness, beta or
+  provider execution. No source, test or fixture-byte files changed.
+- D76 verification: `npm.cmd run check`, `npm.cmd run lint`, targeted
+  documentation formatting and `git diff --check` passed.
 - The full test suite was not required because this task makes documentation-
   only governance changes; the accepted 0.2D closure regression evidence
   remains the current implementation evidence.

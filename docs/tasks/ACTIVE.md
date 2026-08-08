@@ -1,84 +1,68 @@
 # Active Task
 
-## Milestone 0.2B replacement-evidence governance - complete
+## Milestone 0.2B development protocol contract - complete
 
 Audit date: 2026-08-08
-Starting commit: `23d4f32d3ba098e94be4e0126cde9866ea21a765`
+Starting commit: `2219ed6ccb95c609684baf9777559aa422b2e8f9`
 
-The repository context workflow was followed. This governance-only task was
-selected by D74 and accepts the replacement-evidence protocol for 0.2B after
-AB2 failed its one-time held-out confirmation and the original held-out
-partition became permanently spent. No candidate was implemented or
-evaluated, 0.2E did not begin, and closed 0.2D was not reopened.
+## Closure verdict
+
+Accepted. D76 accepts the documentation-only contract
+`component-lifecycle-development-v1`, version `1`, checksum
+`a3fd0afdd8c35350`. The contract freezes the existing
+`component-lifecycle-v1` suite and does not register or execute a candidate.
 
 ## Work completed
 
-- Created and accepted [`docs/ADR-005-0.2b-replacement-evidence-protocol.md`](../ADR-005-0.2b-replacement-evidence-protocol.md), recorded as D75.
-- Preserved ADR-003 as the historical authority for the original seed bank and
-  D24-D32 as the historical candidate/gate/AB2 record.
-- Defined separate authority for semantic/unit verification,
-  development-only qualification evidence, whole-combat development
-  acceptance and one-time fresh held-out confirmation.
-- Required new immutable candidate IDs, complete versioned configuration and
-  checksums, pre-freezing of candidates and all gates, no C2 mutation and
-  permanent AB2 ineligibility. C2 remains the experimental default and is not
-  final.
-- Accepted a bounded, versioned multi-fixture development strategy using
-  explicitly versioned canonical or dedicated inputs, with no single
-  mechanically unrepresentative acceptance fixture and no new fixtures or
-  constants created here.
-- Defined whole-combat metric categories without inventing new numeric
-  thresholds; thresholds, denominator rules and investigation rules must be
-  frozen before candidate execution by a later protocol task.
-- Defined independent fresh held-out custody using private high-entropy
-  generation, non-revealing custodian commitments, sealed one-time execution,
-  aggregate-only released results and spent semantics regardless of outcome.
-- Allowed a separately governed 0.2E to use exact C2 as a frozen non-final
-  baseline without implying 0.2B acceptance; 0.2E remains not started.
-
-## 0.2B decision
-
-0.2B continues at the governance stage. Candidate selection, implementation,
-benchmark execution and held-out confirmation are postponed until the next
-documentation-only task accepts the versioned replacement development-fixture
-and protocol contract. No candidate constants were selected.
-
-## Next task
-
-Exactly one next task is recommended:
-
-**Create and accept the versioned 0.2B replacement development-fixture and
-protocol contract.** It must remain documentation-only: define fixture
-identities/classifications/checksums, metric categories, denominator rules and
-thresholds without creating or tuning fixture bytes, registering a candidate,
-executing evaluation or beginning 0.2E.
+- Followed `AGENTS.md` → `docs/INDEX.md` → the relevant current source of
+  truth, ADR-005, ADR-002/ADR-003 material, D24-D32/D75, historical 0.2B
+  plans, fixture/benchmark/metric/qualification contracts and tests.
+- Added [`docs/PROTOCOL-0.2B-DEVELOPMENT-V1.md`](../PROTOCOL-0.2B-DEVELOPMENT-V1.md),
+  freezing the existing suite checksum, exact build/policy/member identities
+  and checksums, canonical member order, classifications and provenance.
+- Preserved the existing five-member suite: three hard acceptance mirrors
+  (guarded Bulwark, unguarded Bulwark and representative light) and two
+  required diagnostics (Glass Cannon mirror and role-swapped
+  Bulwark-versus-Glass Cannon). No dedicated fixture bytes were created.
+- Froze the development-only `prototype-0.2-baseline-v1` partition, 80 seeds,
+  forward-then-swapped role execution and 480 total simulations, with
+  fail-closed input/report integrity rules.
+- Froze exact Stage 2 lifecycle gates and Stage 3 whole-combat rules. Stage 3
+  pools only the three hard members over 240 simulations; diagnostics remain
+  factual and excluded from hard denominators and candidate pass/fail.
+  Final-integrity values are required factual diagnostics without an accepted
+  numeric threshold.
+- Recorded D76 in `docs/DECISIONS.md`, routed the contract from
+  `docs/INDEX.md`, and updated `docs/SOURCE_OF_TRUTH.md` to agree.
 
 ## Boundaries and remaining work
 
-- No product-code, simulator, fixture, candidate, benchmark, held-out, `all`,
-  provider/API, grid-beta, opponent-suite, operational-beta or 0.2E changes or
-  execution occurred.
-- No prior 0.2D, grid-beta, AB2 held-out or spent-partition outcome was used as
-  new qualification or balance evidence.
-- 0.2B qualification/balance acceptance remains unresolved pending the
-  versioned protocol contract and any later separately authorised cycle.
-- 0.2E, general grid opponent-suite execution, later evaluation/adaptation,
-  balance conclusions and ranking/public tournament work remain outside this
-  task.
+No source, test, simulator, fixture-byte, candidate, benchmark, held-out,
+`all`, provider, beta, grid opponent-suite, operational-beta or 0.2E work was
+performed. C2 remains the experimental non-final default; AB2 remains
+permanently ineligible for default promotion; the spent held-out partition
+remains sealed under ADR-005.
+
+The single next task is:
+
+> **Select and register one new immutable 0.2B candidate against this frozen
+> protocol, without benchmark execution.**
+
+That task must not change this contract, select a second candidate, execute
+evaluation or begin 0.2E. 0.2B qualification/balance acceptance remains open.
+0.2E, general grid opponent-suite execution, later evaluation, ranking/public
+tournament work and operational beta expansion remain outside this task.
 
 ## Verification
 
-- Relevant ADR-002/ADR-003 material, D24-D32, D74, historical 0.2B plans,
-  current qualification source and authorization tests were inspected.
-- `npm.cmd run check` passed.
-- `npm.cmd run lint` passed.
-- Changed-document Prettier check passed.
-- `git diff --check` passed.
-- No full test suite was required because this task made documentation-only
-  governance changes; no benchmark or held-out command was run.
+- `npm.cmd run check`
+- `npm.cmd run lint`
+- targeted Prettier check for changed documentation
+- `git diff --check`
+- Full tests were not run because this was documentation-only; the accepted
+  Phase 4/5 and lifecycle regression evidence remains unchanged.
 
 ## Deviations
 
-- No source, test, fixture, simulator, runtime or operational files changed.
-- Historical ADRs and decisions were not rewritten; D75 and ADR-005 add the
-  replacement-cycle authority and cross-reference the historical record.
+None. The contract reuses the existing committed suite and makes no fixture
+or production-code changes.
