@@ -1,68 +1,64 @@
 # Active Task
 
-## Milestone 0.2B development protocol contract - complete
+## Milestone 0.2B candidate registration - complete
 
 Audit date: 2026-08-08
-Starting commit: `2219ed6ccb95c609684baf9777559aa422b2e8f9`
+Starting commit: `eb2ab9998f3f8797d63ec384d3e7958029d78c21`
+Branch: `agent/0.2b-candidate-registration`
 
 ## Closure verdict
 
-Accepted. D76 accepts the documentation-only contract
-`component-lifecycle-development-v1`, version `1`, checksum
-`a3fd0afdd8c35350`. The contract freezes the existing
-`component-lifecycle-v1` suite and does not register or execute a candidate.
+Accepted. Exactly one new immutable dormant candidate is registered against the
+frozen `component-lifecycle-development-v1` protocol. No candidate execution
+or evaluation was performed.
 
 ## Work completed
 
-- Followed `AGENTS.md` → `docs/INDEX.md` → the relevant current source of
-  truth, ADR-005, ADR-002/ADR-003 material, D24-D32/D75, historical 0.2B
-  plans, fixture/benchmark/metric/qualification contracts and tests.
-- Added [`docs/PROTOCOL-0.2B-DEVELOPMENT-V1.md`](../PROTOCOL-0.2B-DEVELOPMENT-V1.md),
-  freezing the existing suite checksum, exact build/policy/member identities
-  and checksums, canonical member order, classifications and provenance.
-- Preserved the existing five-member suite: three hard acceptance mirrors
-  (guarded Bulwark, unguarded Bulwark and representative light) and two
-  required diagnostics (Glass Cannon mirror and role-swapped
-  Bulwark-versus-Glass Cannon). No dedicated fixture bytes were created.
-- Froze the development-only `prototype-0.2-baseline-v1` partition, 80 seeds,
-  forward-then-swapped role execution and 480 total simulations, with
-  fail-closed input/report integrity rules.
-- Froze exact Stage 2 lifecycle gates and Stage 3 whole-combat rules. Stage 3
-  pools only the three hard members over 240 simulations; diagnostics remain
-  factual and excluded from hard denominators and candidate pass/fail.
-  Final-integrity values are required factual diagnostics without an accepted
-  numeric threshold.
-- Recorded D76 in `docs/DECISIONS.md`, routed the contract from
-  `docs/INDEX.md`, and updated `docs/SOURCE_OF_TRUTH.md` to agree.
+- Selected and registered `component-impact-replacement-v1` using the existing
+  `linear-component-impact` model, with complete configuration and checksum
+  `6356363911710657`.
+- Preserved C2's armour factor `0.20`, minimum impact `0` and critical
+  threshold `13`; changed only the high-impact threshold to `17` as a bounded,
+  held-out-blind development probe.
+- Extended the immutable qualification registry and its existing match/report
+  metadata unions without changing simulator, reducer, damage, fixture,
+  seed-bank or runtime default behavior.
+- Added focused registration coverage for exact config resolution, stable
+  checksum, runtime immutability, unknown-ID fail-closed behavior, C2 default
+  preservation and unchanged C1/C2/AB2 identities/checksums.
+- Recorded D77 and aligned `docs/SOURCE_OF_TRUTH.md` and `docs/INDEX.md`.
 
-## Boundaries and remaining work
+The rationale used only permitted development-stage/analytical history. D31
+quantitative held-out results, 0.2D outcomes, grid-beta/readiness evidence and
+operational matches were not used. D31/D32 were used only for AB2 rejection,
+freeze/ineligibility and spent-partition governance facts.
 
-No source, test, simulator, fixture-byte, candidate, benchmark, held-out,
-`all`, provider, beta, grid opponent-suite, operational-beta or 0.2E work was
-performed. C2 remains the experimental non-final default; AB2 remains
-permanently ineligible for default promotion; the spent held-out partition
-remains sealed under ADR-005.
+## Boundaries preserved
 
-The single next task is:
-
-> **Select and register one new immutable 0.2B candidate against this frozen
-> protocol, without benchmark execution.**
-
-That task must not change this contract, select a second candidate, execute
-evaluation or begin 0.2E. 0.2B qualification/balance acceptance remains open.
-0.2E, general grid opponent-suite execution, later evaluation, ranking/public
-tournament work and operational beta expansion remain outside this task.
+The frozen protocol, fixture bytes, seed bank, simulator/reducer/damage
+semantics, runtime defaults, C2 default, AB2 identity and closed 0.2D
+contracts were not changed. The candidate remains dormant unless explicitly
+selected by ID. No benchmark, held-out, `all`, readiness, beta, opponent-suite
+or operational evaluation was invoked.
 
 ## Verification
 
-- `npm.cmd run check`
-- `npm.cmd run lint`
-- targeted Prettier check for changed documentation
-- `git diff --check`
-- Full tests were not run because this was documentation-only; the accepted
-  Phase 4/5 and lifecycle regression evidence remains unchanged.
+- Focused registry/schema/report tests: 5 files, 63 tests passed with no type
+  errors.
+- `npm.cmd run check` passed.
+- `npm.cmd run lint` passed.
+- Changed-file Prettier check passed.
+- `git diff --check` passed.
+- The full Vitest suite was not run because it includes prohibited benchmark,
+  readiness, beta and opponent-suite evaluation surfaces.
 
-## Deviations
+## Remaining work and deviations
 
-None. The contract reuses the existing committed suite and makes no fixture
-or production-code changes.
+The exact next task is:
+
+> **Stage 1 semantic/unit verification of the registered candidate and frozen
+> protocol, without development benchmark execution.**
+
+It was not started. 0.2B qualification/balance acceptance remains open; C2 is
+still the experimental default and AB2 remains permanently ineligible. No
+deviations from the requested boundaries.

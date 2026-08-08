@@ -1,7 +1,7 @@
 # AI Robot Battle Arena - Source of Truth
 
-> Audited 2026-08-08 from starting commit `2219ed6ccb95c609684baf9777559aa422b2e8f9`
-> on `agent/0.2b-development-protocol-contract`. This file is a concise routing summary. The
+> Audited 2026-08-08 from starting commit `eb2ab9998f3f8797d63ec384d3e7958029d78c21`
+> on `agent/0.2b-candidate-registration`. This file is a concise routing summary. The
 > linked source, tests, ADRs and decision log remain the detailed authority.
 
 ## Product purpose
@@ -143,6 +143,23 @@ integrity is required and reported but has no accepted numeric threshold.
 No candidate is registered or executed by D76, and no fixture bytes or
 simulator behavior changed.
 
+D77 registers exactly one new dormant candidate,
+`component-impact-replacement-v1`, with the existing linear
+component-impact model and complete configuration checksum
+`6356363911710657`: armour factor `0.20`, minimum impact `0`, critical
+threshold `13` and high-impact threshold `17`. It is explicitly bound to
+`component-lifecycle-development-v1` version `1`, checksum
+`a3fd0afdd8c35350`. The held-out-blind rationale uses only the permitted
+development and analytical history: preserve C2's critical path and change
+only the non-critical high-impact threshold to make a bounded development
+probe after the C1/C2 fixture evidence. No held-out quantitative result or
+forbidden 0.2D/grid/readiness/operational evidence was used.
+
+The registry remains deeply immutable and unknown IDs fail closed. Omitting a
+qualification ID continues to select C2; C1, C2 and AB2 identities/checksums
+are unchanged. AB2 remains frozen and permanently ineligible. D77 performed
+no benchmark, Stage 1 semantic qualification, held-out or other evaluation.
+
 ### 0.2B status and remaining authority gap
 
 The healthy-to-damaged-to-disabled mechanism, versioned records, lifecycle
@@ -171,8 +188,8 @@ the four-stage evidence model (semantic/unit, development qualification,
 whole-combat development acceptance and one-time fresh held-out confirmation),
 immutable candidate authority, bounded versioned multi-fixture development
 evidence, predeclared whole-combat metric categories and independent fresh
-held-out custody. D76 selects no candidate constants, creates no fixtures and
-changes no simulator behavior.
+held-out custody. D76 itself selected no candidate constants; D77 registers one
+dormant candidate without creating fixtures or changing simulator behavior.
 
 ### 0.2E status and current definition
 
@@ -206,12 +223,12 @@ expansion.
 
 ### Recommended ordering
 
-0.2B continues at the candidate-registration stage, while candidate
-implementation, benchmark execution and held-out confirmation are postponed.
-The next task is
-**to select and register one new immutable 0.2B candidate against the frozen
-development protocol, without benchmark execution**. That task must preserve
-the accepted contract and may not select a second candidate or begin 0.2E.
+0.2B continues at the registered-candidate stage, while candidate execution,
+benchmark execution and held-out confirmation are postponed. The next task is
+**Stage 1 semantic/unit verification of the registered candidate and frozen
+protocol, without development benchmark execution**. That task must not
+execute the development benchmark, held-out or `all` partition, select a
+second candidate or begin 0.2E.
 
 Milestone 0.2D is closed. Any later opponent evaluation, adaptation or broader
 runtime work requires a separately authorised task and must not be inferred
@@ -227,7 +244,7 @@ authorization.
 - Preserve the closed 0.2D fixture, runner and report contracts. Any future
   evaluation or runtime expansion requires a new reviewed decision; the
   accepted 0.2D boundaries are in ADR-004, the frozen selection document and
-  decisions D61-D76.
+  decisions D61-D77.
 - Keep the grid beta explicitly selected and internal while gathering only
   governed evidence. Any broader grid use, default migration or public play
   requires a new review/decision; the existing beta approval is not such
@@ -265,7 +282,7 @@ authorization.
 - Do not tune from forbidden evidence or change a frozen fixture in place;
   semantic fixture changes require a new fixture version.
 - Prefer the current source/tests over stale summaries. In particular, the
-  latest D61-D76 decision entries and the code supersede older phase snapshots.
+  latest D61-D77 decision entries and the code supersede older phase snapshots.
 
 ## Confirmed documentation discrepancies
 
@@ -273,11 +290,11 @@ These are recorded rather than silently reconciled:
 
 - The top of [`README.md`](../README.md) still labels the project Prototype 0.1
   and says 0.2 is planned. Its body documents work through the earlier 0.2C
-  governance stage, but not the current 0.2D D61-D76 work. The source and latest
+  governance stage, but not the current 0.2D D61-D77 work. The source and latest
   decision entries establish the newer implementation state.
 - The 0.2D section in [`docs/PROTOTYPE-0.2-EXPERIMENTAL-PLAN.md`](PROTOTYPE-0.2-EXPERIMENTAL-PLAN.md)
   still describes only Phase 0/Phase 1 and says fixtures/runner are absent;
-  D64-D76 and the source show six fixtures, Bulwark migration, successor v2,
+  D64-D77 and the source show six fixtures, Bulwark migration, successor v2,
   the Phase 4 runner and the Phase 5 report are present.
 - [`docs/RULESET.md`](RULESET.md) retains the earlier v1 prose, including the
   old critical/component wording and binary component description. The running
@@ -295,16 +312,20 @@ These are recorded rather than silently reconciled:
 
 ## Audit verification
 
-- D76 contract audit: AGENTS.md, docs/INDEX.md, the current source of truth,
-  ADR-005, ADR-002/ADR-003 material, D24-D32/D75, historical 0.2B plans,
-  current fixture/benchmark/metric/qualification contracts and relevant tests
-  were inspected without benchmark, held-out, `all`, readiness, beta or
-  provider execution. No source, test or fixture-byte files changed.
-- D76 verification: `npm.cmd run check`, `npm.cmd run lint`, targeted
-  documentation formatting and `git diff --check` passed.
-- The full test suite was not required because this task makes documentation-
-  only governance changes; the accepted 0.2D closure regression evidence
-  remains the current implementation evidence.
+- D77 candidate-registration audit: AGENTS.md, docs/INDEX.md, the current
+  source of truth, D75-D76, ADR-005, ADR-002 candidate history, the frozen
+  development protocol, qualification registry/source and focused tests were
+  inspected without benchmark, held-out, `all`, readiness, beta, provider or
+  opponent-suite execution. No fixture-byte, seed-bank or simulator-semantic
+  files changed.
+- D77 verification: 5 focused non-evaluation test files (63 tests),
+  `npm.cmd run check`, `npm.cmd run lint`, targeted documentation and source
+  formatting, and `git diff --check` passed. The full Vitest suite was not run
+  because it includes prohibited benchmark, readiness, beta and opponent-suite
+  evaluation surfaces.
+- The earlier D76 documentation-only audit did not require the full test suite;
+  its accepted 0.2D closure regression evidence remains historical
+  implementation evidence.
 - Closure audit relevant Phase 0-5 regression suite: 16 files, 158 tests
   passed, no type errors. The sandbox supplied a repository-local Git safety
   configuration to the test process so successor source-object checks could

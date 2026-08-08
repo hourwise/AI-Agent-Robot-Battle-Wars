@@ -1,5 +1,89 @@
 # Decisions
 
+## D77: Register one 0.2B replacement-cycle candidate (2026-08-08)
+
+Exactly one new immutable candidate is registered against the frozen
+`component-lifecycle-development-v1` protocol:
+
+| Field                  | Frozen value                         |
+| ---------------------- | ------------------------------------ |
+| candidate ID           | `component-impact-replacement-v1`    |
+| model                  | `linear-component-impact`            |
+| schema version         | `1`                                  |
+| armour factor          | `0.20`                               |
+| minimum impact         | `0`                                  |
+| critical threshold     | `13`                                 |
+| high-impact threshold  | `17`                                 |
+| configuration checksum | `6356363911710657`                   |
+| protocol ID            | `component-lifecycle-development-v1` |
+| protocol version       | `1`                                  |
+| protocol checksum      | `a3fd0afdd8c35350`                   |
+
+### Held-out-blind selection rationale
+
+The candidate uses the already-supported linear component-impact model and
+preserves the existing armour factor, minimum impact and C2 critical
+threshold. It changes one conceptual lever only: the non-critical
+high-impact threshold moves from C2's `15` to `17`. This is a bounded,
+analytical development candidate based on the accepted candidate-history
+discipline, not a new qualification algorithm, simulator mechanic or
+lifecycle rule.
+
+The permitted development evidence shows that C1's lower thresholds produced
+substantial lifecycle activity but failed the whole-combat and fixture-scope
+requirements, while C2's development result reduced the analytical
+low-armour qualification rate but still left the diagnostic low-armour path
+over-aggressive and guarded high-armour progression insufficient. The
+candidate therefore preserves C2's critical path while making the distinct
+high-impact path more conservative for later development-only observation. It
+is a registered analytical probe, not a claim that any gate will pass, and no
+unrestricted search was performed.
+
+This rationale is held-out blind. D31 quantitative held-out results were not
+used. D31/D32 are relied on only for the governance facts that AB2 is rejected,
+frozen and permanently ineligible, and that the original held-out partition
+is spent. No 0.2D, grid-beta, readiness or operational-match result was used
+as tuning evidence.
+
+### Registration and frozen boundaries
+
+The registry stores the complete configuration under the new ID with the
+existing canonical serialization/checksum convention and deep runtime
+immutability. The candidate is dormant and is not selected by normal matches;
+omitting an explicit qualification ID continues to select C2. C1, C2 and AB2
+identities and checksums are unchanged. AB2 remains byte/configuration-
+identical to its historical registry entry and permanently ineligible for
+default promotion.
+
+No benchmark, Stage 1 semantic qualification, held-out, `all`, readiness,
+beta, opponent-suite or operational evaluation was performed. The frozen
+development protocol, fixture bytes, seed bank, simulator/reducer/damage
+semantics, runtime defaults and closed 0.2D contracts were not changed.
+
+### Continue/postpone decision
+
+**Registration accepted; candidate execution remains postponed.** The single
+next task is:
+
+> **Stage 1 semantic/unit verification of the registered candidate and frozen
+> protocol, without development benchmark execution.**
+
+That task must not execute the development benchmark, held-out or `all`
+partition, and it must not begin 0.2E.
+
+Status:
+
+```
+0.2B candidate registration:
+ACCEPTED; component-impact-replacement-v1; DORMANT
+
+C2:
+EXPERIMENTAL DEFAULT; UNCHANGED
+
+AB2:
+FROZEN; PERMANENTLY INELIGIBLE FOR DEFAULT PROMOTION
+```
+
 ## D76: Accept the 0.2B development fixture and protocol contract (2026-08-08)
 
 The versioned contract in
